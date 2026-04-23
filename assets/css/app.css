@@ -1,0 +1,107 @@
+/* See the Tailwind configuration guide for advanced usage
+   https://tailwindcss.com/docs/configuration */
+
+@import "tailwindcss" source(none);
+@source "../css";
+@source "../js";
+@source "../../lib/liminal_web";
+
+/* A Tailwind plugin that makes "hero-#{ICON}" classes available.
+   The heroicons installation itself is managed by your mix.exs */
+@plugin "../vendor/heroicons";
+
+/* daisyUI Tailwind Plugin. You can update this file by fetching the latest version with:
+   curl -sLO https://github.com/saadeghi/daisyui/releases/latest/download/daisyui.js
+   Make sure to look at the daisyUI changelog: https://daisyui.com/docs/changelog/ */
+@plugin "../vendor/daisyui" {
+  themes: false;
+}
+
+/* daisyUI theme plugin. You can update this file by fetching the latest version with:
+  curl -sLO https://github.com/saadeghi/daisyui/releases/latest/download/daisyui-theme.js
+  We ship with two themes, a light one inspired on Phoenix colors and a dark one inspired
+  on Elixir colors. Build your own at: https://daisyui.com/theme-generator/ */
+/* Catppuccin Mocha */
+@plugin "../vendor/daisyui-theme" {
+  name: "dark";
+  default: false;
+  prefersdark: true;
+  color-scheme: "dark";
+  --color-base-100: oklch(0.2429 0.0304 283.91);
+  --color-base-200: oklch(0.2155 0.0254 284.06);
+  --color-base-300: oklch(0.1828 0.0204 284.20);
+  --color-base-content: oklch(0.8787 0.0426 272.28);
+  --color-primary: oklch(0.8166 0.0910 277.31);
+  --color-primary-content: oklch(0.2155 0.0254 284.06);
+  --color-secondary: oklch(0.3240 0.0319 281.98);
+  --color-secondary-content: oklch(0.8787 0.0426 272.28);
+  --color-accent: oklch(0.9226 0.0238 30.49);
+  --color-accent-content: oklch(0.2155 0.0254 284.06);
+  --color-neutral: oklch(0.6176 0.0367 276.00);
+  --color-neutral-content: oklch(0.2155 0.0254 284.06);
+  --color-info: oklch(0.8467 0.0833 210.25);
+  --color-info-content: oklch(0.2155 0.0254 284.06);
+  --color-success: oklch(0.8577 0.1092 142.72);
+  --color-success-content: oklch(0.2429 0.0304 283.91);
+  --color-warning: oklch(0.9193 0.0704 86.53);
+  --color-warning-content: oklch(0.2429 0.0304 283.91);
+  --color-error: oklch(0.7556 0.1297 2.76);
+  --color-error-content: oklch(0.2429 0.0304 283.91);
+  --radius-selector: 0.25rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.5rem;
+  --size-field: 0.25rem;
+  --size-selector: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
+/* Catppuccin Latte */
+@plugin "../vendor/daisyui-theme" {
+  name: "light";
+  default: true;
+  prefersdark: false;
+  color-scheme: "light";
+  --color-base-100: oklch(0.9578 0.0058 264.53);
+  --color-base-200: oklch(0.9335 0.0087 264.52);
+  --color-base-300: oklch(0.9060 0.0117 264.51);
+  --color-base-content: oklch(0.4355 0.0430 279.33);
+  --color-primary: oklch(0.6638 0.1751 273.13);
+  --color-primary-content: oklch(0.9335 0.0087 264.52);
+  --color-secondary: oklch(0.8575 0.0145 268.48);
+  --color-secondary-content: oklch(0.4355 0.0430 279.33);
+  --color-accent: oklch(0.7141 0.1045 33.10);
+  --color-accent-content: oklch(0.9335 0.0087 264.52);
+  --color-neutral: oklch(0.6536 0.0269 278.12);
+  --color-neutral-content: oklch(0.9335 0.0087 264.52);
+  --color-info: oklch(0.6820 0.1448 235.38);
+  --color-info-content: oklch(0.9335 0.0087 264.52);
+  --color-success: oklch(0.6250 0.1772 140.44);
+  --color-success-content: oklch(0.9578 0.0058 264.53);
+  --color-warning: oklch(0.7140 0.1494 67.78);
+  --color-warning-content: oklch(0.9578 0.0058 264.53);
+  --color-error: oklch(0.5505 0.2155 19.81);
+  --color-error-content: oklch(0.9578 0.0058 264.53);
+  --radius-selector: 0.25rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.5rem;
+  --size-field: 0.25rem;
+  --size-selector: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
+/* Add variants based on LiveView classes */
+@custom-variant phx-click-loading (.phx-click-loading&, .phx-click-loading &);
+@custom-variant phx-submit-loading (.phx-submit-loading&, .phx-submit-loading &);
+@custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
+
+/* Use the data attribute for dark mode  */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* Make LiveView wrapper divs transparent for layout */
+[data-phx-session], [data-phx-teleported-src] { display: contents }
+
+/* This file is for your main application CSS */
