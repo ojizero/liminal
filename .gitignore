@@ -36,8 +36,8 @@ npm-debug.log
 /assets/node_modules/
 
 # Database files
-*.db
-*.db-*
+/db/*.db
+/db/*.db-*
 
 # Mise local config (machine-specific)
 .mise.local.toml
