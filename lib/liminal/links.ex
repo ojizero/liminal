@@ -206,25 +206,15 @@ defmodule Liminal.Links do
 
     now = DateTime.utc_now(:second)
 
-    result =
-      Repo.insert(
-        %LinkTag{
-          link_id: link.id,
-          tag_id: tag.id,
-          expires_at: expires_at,
-          inserted_at: now
-        },
-        on_conflict: :nothing
-      )
-
-    case result do
-      {:ok, link_tag} ->
-        Liminal.Links.Janitor.schedule_cleanup(link_tag)
-        result
-
-      error ->
-        error
-    end
+    Repo.insert(
+      %LinkTag{
+        link_id: link.id,
+        tag_id: tag.id,
+        expires_at: expires_at,
+        inserted_at: now
+      },
+      on_conflict: :nothing
+    )
   end
 
   @doc """
@@ -359,9 +349,7 @@ defmodule Liminal.Links do
     end)
     |> Repo.transaction()
     |> case do
-      {:ok, %{link: link, link_tags: link_tags}} ->
-        Enum.each(link_tags, &Liminal.Links.Janitor.schedule_cleanup/1)
-
+      {:ok, %{link: link}} ->
         {:ok, link}
 
       {:error, :link, changeset, _changes} ->
