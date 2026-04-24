@@ -7,18 +7,17 @@ defmodule Liminal.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
-      LiminalWeb.Telemetry,
-      Liminal.Repo,
-      {Ecto.Migrator,
-       repos: Application.fetch_env!(:liminal, :ecto_repos), skip: skip_migrations?()},
-      {DNSCluster, query: Application.get_env(:liminal, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: Liminal.PubSub},
-      # Start a worker by calling: Liminal.Worker.start_link(arg)
-      # {Liminal.Worker, arg},
-      # Start to serve requests, typically the last entry
-      LiminalWeb.Endpoint
-    ]
+    children =
+      [
+        LiminalWeb.Telemetry,
+        Liminal.Repo,
+        {Ecto.Migrator,
+         repos: Application.fetch_env!(:liminal, :ecto_repos), skip: skip_migrations?()},
+        {DNSCluster, query: Application.get_env(:liminal, :dns_cluster_query) || :ignore},
+        {Phoenix.PubSub, name: Liminal.PubSub},
+        # Start to serve requests, typically the last entry
+        LiminalWeb.Endpoint
+      ] ++ janitor_children()
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
@@ -32,6 +31,14 @@ defmodule Liminal.Application do
   def config_change(changed, _new, removed) do
     LiminalWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp janitor_children do
+    if Application.get_env(:liminal, :start_janitor, true) do
+      [Liminal.Links.Janitor]
+    else
+      []
+    end
   end
 
   defp skip_migrations?() do

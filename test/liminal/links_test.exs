@@ -92,23 +92,87 @@ defmodule Liminal.LinksTest do
     end
   end
 
-  describe "create_link/2" do
-    test "creates a link with valid attrs" do
+  describe "create_link/3" do
+    test "creates a link with valid attrs and categories" do
       scope = user_scope_fixture()
+      category = category_fixture(scope, %{expires_in_days: 14})
 
       assert {:ok, link} =
-               Links.create_link(scope, %{url: "https://example.com", title: "Example"})
+               Links.create_link(scope, %{url: "https://example.com", title: "Example"}, [
+                 category.id
+               ])
 
       assert link.url == "https://example.com"
       assert link.title == "Example"
       assert link.user_id == scope.user.id
+
+      refetched = Links.get_link!(scope, link.id)
+      assert length(refetched.link_categories) == 1
+      [lc] = refetched.link_categories
+      assert lc.category_id == category.id
+      assert lc.expires_at != nil
     end
 
     test "returns error changeset with blank url" do
       scope = user_scope_fixture()
+      category = category_fixture(scope)
 
-      assert {:error, changeset} = Links.create_link(scope, %{url: ""})
+      assert {:error, changeset} = Links.create_link(scope, %{url: ""}, [category.id])
       assert %{url: ["can't be blank"]} = errors_on(changeset)
+    end
+
+    test "returns {:error, :no_categories} with empty category list" do
+      scope = user_scope_fixture()
+
+      assert {:error, :no_categories} =
+               Links.create_link(scope, %{url: "https://example.com"}, [])
+    end
+
+    test "returns {:error, :no_categories} without category_ids (2-arity)" do
+      scope = user_scope_fixture()
+
+      assert {:error, :no_categories} =
+               Links.create_link(scope, %{url: "https://example.com"})
+    end
+
+    test "returns {:error, :invalid_categories} when category IDs don't all resolve" do
+      scope = user_scope_fixture()
+      valid_category = category_fixture(scope)
+      bogus_id = Ecto.UUID.generate()
+
+      assert {:error, :invalid_categories} =
+               Links.create_link(scope, %{url: "https://example.com"}, [
+                 valid_category.id,
+                 bogus_id
+               ])
+
+      # No link should have been created
+      assert [] = Links.list_links(scope, filter: :all)
+    end
+
+    test "returns {:error, :invalid_categories} when using another user's category" do
+      scope_a = user_scope_fixture()
+      scope_b = user_scope_fixture()
+      other_category = category_fixture(scope_b)
+
+      assert {:error, :invalid_categories} =
+               Links.create_link(scope_a, %{url: "https://example.com"}, [other_category.id])
+    end
+
+    test "creates link_categories with correct expires_at" do
+      scope = user_scope_fixture()
+      category = category_fixture(scope, %{expires_in_days: 7})
+
+      {:ok, link} =
+        Links.create_link(scope, %{url: "https://example.com"}, [category.id])
+
+      refetched = Links.get_link!(scope, link.id)
+      [lc] = refetched.link_categories
+
+      expected_approx = DateTime.add(DateTime.utc_now(:second), 7, :day)
+      diff = DateTime.diff(lc.expires_at, expected_approx, :second) |> abs()
+      # Allow up to 5 seconds of clock drift
+      assert diff < 5
     end
   end
 
@@ -169,9 +233,10 @@ defmodule Liminal.LinksTest do
       assert {:ok, _link_category} = Links.tag_link(scope, link, category)
 
       refetched = Links.get_link!(scope, link.id)
-      assert [lc] = refetched.link_categories
-      assert lc.category.id == category.id
-      assert lc.expires_at != nil
+
+      assert Enum.any?(refetched.link_categories, fn lc ->
+               lc.category.id == category.id and lc.expires_at != nil
+             end)
     end
 
     test "is idempotent — tagging twice does not error" do
@@ -181,23 +246,163 @@ defmodule Liminal.LinksTest do
 
       assert {:ok, _} = Links.tag_link(scope, link, category)
       assert {:ok, _} = Links.tag_link(scope, link, category)
+    end
+  end
+
+  describe "untag_link/1" do
+    test "removes the link_category by ID" do
+      scope = user_scope_fixture()
+      cat1 = category_fixture(scope)
+      cat2 = category_fixture(scope)
+      link = link_fixture(scope, %{category_ids: [cat1.id, cat2.id]})
+
+      refetched = Links.get_link!(scope, link.id)
+      target = Enum.find(refetched.link_categories, &(&1.category_id == cat1.id))
+
+      assert :ok = Links.untag_link(target.id)
 
       refetched = Links.get_link!(scope, link.id)
       assert length(refetched.link_categories) == 1
     end
-  end
 
-  describe "untag_link/3" do
-    test "removes the association" do
+    test "is idempotent — calling twice does not error" do
       scope = user_scope_fixture()
-      link = link_fixture(scope)
       category = category_fixture(scope)
-
-      {:ok, _} = Links.tag_link(scope, link, category)
-      assert {:ok, _} = Links.untag_link(scope, link, category)
+      link = link_fixture(scope, %{category_ids: [category.id]})
 
       refetched = Links.get_link!(scope, link.id)
-      assert refetched.link_categories == []
+      [lc] = refetched.link_categories
+
+      assert :ok = Links.untag_link(lc.id)
+      assert :ok = Links.untag_link(lc.id)
+    end
+  end
+
+  describe "cleanup_link/3" do
+    test "removes the association and returns {:ok, :category_removed}" do
+      scope = user_scope_fixture()
+      cat1 = category_fixture(scope)
+      cat2 = category_fixture(scope)
+      link = link_fixture(scope, %{category_ids: [cat1.id, cat2.id]})
+
+      assert {:ok, :category_removed} = Links.cleanup_link(scope, link, cat1)
+
+      refetched = Links.get_link!(scope, link.id)
+      assert length(refetched.link_categories) == 1
+    end
+
+    test "deletes the link when removing last category and returns {:ok, :link_deleted}" do
+      scope = user_scope_fixture()
+      category = category_fixture(scope)
+      link = link_fixture(scope, %{category_ids: [category.id]})
+
+      assert {:ok, :link_deleted} = Links.cleanup_link(scope, link, category)
+
+      assert [] = Links.list_links(scope, filter: :all)
+    end
+
+    test "is idempotent — returns {:ok, :category_removed} if already untagged" do
+      scope = user_scope_fixture()
+      cat1 = category_fixture(scope)
+      cat2 = category_fixture(scope)
+      link = link_fixture(scope, %{category_ids: [cat1.id, cat2.id]})
+
+      assert {:ok, :category_removed} = Links.cleanup_link(scope, link, cat1)
+      assert {:ok, :category_removed} = Links.cleanup_link(scope, link, cat1)
+    end
+  end
+
+  describe "cleanup_link/1" do
+    test "removes the targeted link_category and checks orphan" do
+      scope = user_scope_fixture()
+      cat1 = category_fixture(scope)
+      cat2 = category_fixture(scope)
+      link = link_fixture(scope, %{category_ids: [cat1.id, cat2.id]})
+
+      refetched = Links.get_link!(scope, link.id)
+      target = Enum.find(refetched.link_categories, &(&1.category_id == cat1.id))
+
+      assert {:ok, :category_removed} = Links.cleanup_link(target.id)
+
+      refetched = Links.get_link!(scope, link.id)
+      assert length(refetched.link_categories) == 1
+    end
+
+    test "deletes the link when it becomes orphaned" do
+      scope = user_scope_fixture()
+      category = category_fixture(scope)
+      link = link_fixture(scope, %{category_ids: [category.id]})
+
+      refetched = Links.get_link!(scope, link.id)
+      [lc] = refetched.link_categories
+
+      assert {:ok, :link_deleted} = Links.cleanup_link(lc.id)
+
+      assert [] = Links.list_links(scope, filter: :all)
+    end
+
+    test "returns {:ok, :category_removed} for a non-existent ID" do
+      assert {:ok, :category_removed} = Links.cleanup_link(Ecto.UUID.generate())
+    end
+  end
+
+  describe "cleanup_expired/0" do
+    test "removes expired link_categories and orphaned links" do
+      scope = user_scope_fixture()
+      category = category_fixture(scope, %{expires_in_days: 1})
+      link = link_fixture(scope, %{category_ids: [category.id]})
+
+      refetched = Links.get_link!(scope, link.id)
+      [lc] = refetched.link_categories
+      past = DateTime.add(DateTime.utc_now(:second), -1, :day)
+
+      Liminal.Repo.update_all(
+        Ecto.Query.from(lc_q in Liminal.Links.LinkCategory, where: lc_q.id == ^lc.id),
+        set: [expires_at: past]
+      )
+
+      assert :ok = Links.cleanup_expired()
+
+      assert [] = Links.list_links(scope, filter: :all)
+    end
+
+    test "preserves active (non-expired) link_categories" do
+      scope = user_scope_fixture()
+      category = category_fixture(scope, %{expires_in_days: 30})
+      link = link_fixture(scope, %{category_ids: [category.id]})
+
+      assert :ok = Links.cleanup_expired()
+
+      refetched = Links.get_link!(scope, link.id)
+      assert length(refetched.link_categories) == 1
+    end
+
+    test "only removes expired, keeps remaining categories on same link" do
+      scope = user_scope_fixture()
+      cat_expiring = category_fixture(scope, %{expires_in_days: 1})
+      cat_lasting = category_fixture(scope, %{expires_in_days: 365})
+
+      link = link_fixture(scope, %{category_ids: [cat_expiring.id, cat_lasting.id]})
+
+      refetched = Links.get_link!(scope, link.id)
+
+      expiring_lc =
+        Enum.find(refetched.link_categories, &(&1.category_id == cat_expiring.id))
+
+      past = DateTime.add(DateTime.utc_now(:second), -1, :day)
+
+      Liminal.Repo.update_all(
+        Ecto.Query.from(lc_q in Liminal.Links.LinkCategory,
+          where: lc_q.id == ^expiring_lc.id
+        ),
+        set: [expires_at: past]
+      )
+
+      assert :ok = Links.cleanup_expired()
+
+      refetched = Links.get_link!(scope, link.id)
+      assert length(refetched.link_categories) == 1
+      assert hd(refetched.link_categories).category_id == cat_lasting.id
     end
   end
 

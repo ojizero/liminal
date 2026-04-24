@@ -37,6 +37,32 @@ defmodule LiminalWeb.LinkLive.Index do
         <.form for={@form} id="link-form" phx-change="validate" phx-submit="save">
           <.input field={@form[:url]} type="url" label="URL" placeholder="https://..." />
           <.input field={@form[:title]} type="text" label="Title (optional)" />
+
+          <%= if @live_action == :new do %>
+            <div class="mt-3">
+              <span class="text-sm font-medium">Categories</span>
+              <div class="flex flex-wrap gap-3 mt-1">
+                <label
+                  :for={cat <- @categories}
+                  class="inline-flex items-center gap-2 cursor-pointer select-none"
+                >
+                  <input
+                    type="checkbox"
+                    checked={cat.id in @selected_category_ids}
+                    phx-click="toggle_category"
+                    phx-value-id={cat.id}
+                    class={[
+                      "h-4 w-4 rounded border border-gray-400 text-indigo-600",
+                      "focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1",
+                      "transition-colors duration-150"
+                    ]}
+                  />
+                  <span class="text-sm">{cat.name}</span>
+                </label>
+              </div>
+            </div>
+          <% end %>
+
           <div class="flex gap-2 mt-2">
             <.button variant="primary" phx-disable-with="Saving...">Save</.button>
             <.button patch={~p"/"}>Cancel</.button>
@@ -169,6 +195,7 @@ defmodule LiminalWeb.LinkLive.Index do
     |> assign(:page_title, "My Links")
     |> assign(:link, nil)
     |> assign(:form, nil)
+    |> assign(:selected_category_ids, [])
   end
 
   defp apply_action(socket, :new, _params) do
@@ -177,6 +204,7 @@ defmodule LiminalWeb.LinkLive.Index do
     socket
     |> assign(:page_title, "Add Link")
     |> assign(:link, link)
+    |> assign(:selected_category_ids, [])
     |> assign(:form, to_form(Links.change_link(link)))
   end
 
@@ -186,6 +214,7 @@ defmodule LiminalWeb.LinkLive.Index do
     socket
     |> assign(:page_title, "Edit Link")
     |> assign(:link, link)
+    |> assign(:selected_category_ids, [])
     |> assign(:form, to_form(Links.change_link(link)))
   end
 
@@ -197,6 +226,19 @@ defmodule LiminalWeb.LinkLive.Index do
       |> Map.put(:action, :validate)
 
     {:noreply, assign(socket, :form, to_form(changeset))}
+  end
+
+  def handle_event("toggle_category", %{"id" => category_id}, socket) do
+    selected = socket.assigns.selected_category_ids
+
+    updated =
+      if category_id in selected do
+        List.delete(selected, category_id)
+      else
+        [category_id | selected]
+      end
+
+    {:noreply, assign(socket, :selected_category_ids, updated)}
   end
 
   def handle_event("save", %{"link" => link_params}, socket) do
@@ -243,10 +285,18 @@ defmodule LiminalWeb.LinkLive.Index do
     scope = socket.assigns.current_scope
     link = Links.get_link!(scope, link_id)
     category = Links.get_category!(scope, category_id)
-    {:ok, _} = Links.untag_link(scope, link, category)
-    updated_link = Links.get_link!(scope, link_id)
 
-    {:noreply, stream_insert(socket, :links, updated_link)}
+    case Links.cleanup_link(scope, link, category) do
+      {:ok, :link_deleted} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Last category removed — link deleted")
+         |> stream_delete(:links, link)}
+
+      {:ok, :category_removed} ->
+        updated_link = Links.get_link!(scope, link_id)
+        {:noreply, stream_insert(socket, :links, updated_link)}
+    end
   end
 
   def handle_event("filter", %{"filter" => filter_str}, socket) do
@@ -264,8 +314,9 @@ defmodule LiminalWeb.LinkLive.Index do
 
   defp save_link(socket, :new, link_params) do
     scope = socket.assigns.current_scope
+    category_ids = socket.assigns.selected_category_ids
 
-    case Links.create_link(scope, link_params) do
+    case Links.create_link(scope, link_params, category_ids) do
       {:ok, link} ->
         link = Links.get_link!(scope, link.id)
 
@@ -275,7 +326,13 @@ defmodule LiminalWeb.LinkLive.Index do
          |> stream_insert(:links, link, at: 0)
          |> push_patch(to: ~p"/")}
 
-      {:error, changeset} ->
+      {:error, :no_categories} ->
+        {:noreply, put_flash(socket, :error, "Select at least one category")}
+
+      {:error, :invalid_categories} ->
+        {:noreply, put_flash(socket, :error, "One or more selected categories are invalid")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}
     end
   end

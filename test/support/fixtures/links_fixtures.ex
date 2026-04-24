@@ -18,16 +18,23 @@ defmodule Liminal.LinksFixtures do
     category
   end
 
+  @doc """
+  Creates a link with at least one category. A category is created automatically
+  unless `category_ids` is provided in attrs.
+  """
   def link_fixture(scope, attrs \\ %{}) do
-    {:ok, link} =
-      Links.create_link(
-        scope,
-        Enum.into(attrs, %{
-          url: "https://example.com/#{System.unique_integer([:positive])}",
-          title: "Test Link"
-        })
-      )
+    {category_ids, attrs} = Map.pop(attrs, :category_ids)
 
+    category_ids =
+      category_ids || [category_fixture(scope).id]
+
+    link_attrs =
+      Enum.into(attrs, %{
+        url: "https://example.com/#{System.unique_integer([:positive])}",
+        title: "Test Link"
+      })
+
+    {:ok, link} = Links.create_link(scope, link_attrs, category_ids)
     link
   end
 end
