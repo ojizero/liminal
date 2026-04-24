@@ -43,7 +43,7 @@ defmodule LiminalWeb.Layouts do
         <%= if @current_scope do %>
           <nav class="flex gap-1">
             <.link navigate={~p"/"} class="btn btn-ghost btn-sm">Links</.link>
-            <.link navigate={~p"/categories"} class="btn btn-ghost btn-sm">Categories</.link>
+            <.link navigate={~p"/tags"} class="btn btn-ghost btn-sm">Tags</.link>
           </nav>
         <% end %>
       </div>

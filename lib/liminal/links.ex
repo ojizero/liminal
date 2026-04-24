@@ -1,28 +1,28 @@
 defmodule Liminal.Links do
   @moduledoc """
-  The Links context — manages links, categories, and tagging for users.
+  The Links context — manages links, tags, and tagging for users.
   """
 
   import Ecto.Query
 
   alias Liminal.Repo
-  alias Liminal.Links.{Category, Link, LinkCategory}
+  alias Liminal.Links.{Tag, Link, LinkTag}
 
-  @default_categories [
+  @default_tags [
     %{name: "saved for later", expires_in_days: 30},
     %{name: "read later", expires_in_days: 14},
     %{name: "watch later", expires_in_days: 30}
   ]
 
-  ## Default categories
+  ## Default tags
 
   @doc false
-  def create_default_categories(user_id) do
+  def create_default_tags(user_id) do
     now = DateTime.utc_now(:second)
 
-    Enum.each(@default_categories, fn %{name: name, expires_in_days: expires_in_days} ->
+    Enum.each(@default_tags, fn %{name: name, expires_in_days: expires_in_days} ->
       Repo.insert!(
-        %Category{
+        %Tag{
           name: name,
           expires_in_days: expires_in_days,
           user_id: user_id,
@@ -36,68 +36,68 @@ defmodule Liminal.Links do
     :ok
   end
 
-  ## Categories CRUD
+  ## Tags CRUD
 
   @doc """
-  Lists all categories for the given user, ordered by name.
+  Lists all tags for the given user, ordered by name.
   """
-  def list_categories(scope) do
-    from(c in Category, where: c.user_id == ^scope.user.id, order_by: c.name)
+  def list_tags(scope) do
+    from(t in Tag, where: t.user_id == ^scope.user.id, order_by: t.name)
     |> Repo.all()
   end
 
   @doc """
-  Gets a single category by id, scoped to the user.
+  Gets a single tag by id, scoped to the user.
 
   Raises `Ecto.NoResultsError` if not found.
   """
-  def get_category!(scope, id) do
-    Repo.get_by!(Category, id: id, user_id: scope.user.id)
+  def get_tag!(scope, id) do
+    Repo.get_by!(Tag, id: id, user_id: scope.user.id)
   end
 
   @doc """
-  Creates a category for the given user.
+  Creates a tag for the given user.
   """
-  def create_category(scope, attrs) do
-    %Category{}
-    |> Category.changeset(attrs)
+  def create_tag(scope, attrs) do
+    %Tag{}
+    |> Tag.changeset(attrs)
     |> Ecto.Changeset.put_change(:user_id, scope.user.id)
     |> Repo.insert()
   end
 
   @doc """
-  Updates a category. Verifies ownership via pattern match.
+  Updates a tag. Verifies ownership via pattern match.
   """
-  def update_category(scope, category, attrs) do
+  def update_tag(scope, tag, attrs) do
     user_id = scope.user.id
-    ^user_id = category.user_id
+    ^user_id = tag.user_id
 
-    category
-    |> Category.changeset(attrs)
+    tag
+    |> Tag.changeset(attrs)
     |> Repo.update()
   end
 
   @doc """
-  Deletes a category. Verifies ownership via pattern match.
+  Deletes a tag. Verifies ownership via pattern match.
   """
-  def delete_category(scope, category) do
+  def delete_tag(scope, tag) do
     user_id = scope.user.id
-    ^user_id = category.user_id
+    ^user_id = tag.user_id
 
-    Repo.delete(category)
+    Repo.delete(tag)
   end
 
   @doc """
-  Returns a changeset for tracking category changes.
+  Returns a changeset for tracking tag changes.
   """
-  def change_category(category, attrs \\ %{}) do
-    Category.changeset(category, attrs)
+  def change_tag(tag, attrs \\ %{}) do
+    Tag.changeset(tag, attrs)
   end
 
   ## Links CRUD
 
   @doc """
-  Lists links for the given user with preloaded categories.
+  Lists links for the given user with preloaded tags.
 
   ## Options
 
@@ -110,7 +110,7 @@ defmodule Liminal.Links do
     from(l in Link, where: l.user_id == ^scope.user.id, order_by: [desc: l.inserted_at])
     |> apply_link_filter(filter)
     |> Repo.all()
-    |> Repo.preload(link_categories: :category)
+    |> Repo.preload(link_tags: :tag)
   end
 
   defp apply_link_filter(query, :unviewed) do
@@ -124,13 +124,13 @@ defmodule Liminal.Links do
   defp apply_link_filter(query, :all), do: query
 
   @doc """
-  Gets a single link by id, scoped to the user, with preloaded categories.
+  Gets a single link by id, scoped to the user, with preloaded tags.
 
   Raises `Ecto.NoResultsError` if not found.
   """
   def get_link!(scope, id) do
     Repo.get_by!(Link, id: id, user_id: scope.user.id)
-    |> Repo.preload(link_categories: :category)
+    |> Repo.preload(link_tags: :tag)
   end
 
   @doc """
@@ -191,26 +191,26 @@ defmodule Liminal.Links do
   ## Tagging
 
   @doc """
-  Tags a link with a category. Computes `expires_at` from the category's
+  Tags a link with a tag. Computes `expires_at` from the tag's
   `expires_in_days`. Uses `on_conflict: :nothing` for idempotency.
   """
-  def tag_link(scope, link, category) do
+  def tag_link(scope, link, tag) do
     user_id = scope.user.id
     ^user_id = link.user_id
-    ^user_id = category.user_id
+    ^user_id = tag.user_id
 
     expires_at =
-      if category.expires_in_days do
-        DateTime.utc_now(:second) |> DateTime.add(category.expires_in_days, :day)
+      if tag.expires_in_days do
+        DateTime.utc_now(:second) |> DateTime.add(tag.expires_in_days, :day)
       end
 
     now = DateTime.utc_now(:second)
 
     result =
       Repo.insert(
-        %LinkCategory{
+        %LinkTag{
           link_id: link.id,
-          category_id: category.id,
+          tag_id: tag.id,
           expires_at: expires_at,
           inserted_at: now
         },
@@ -218,8 +218,8 @@ defmodule Liminal.Links do
       )
 
     case result do
-      {:ok, link_category} ->
-        Liminal.Links.Janitor.schedule_cleanup(link_category)
+      {:ok, link_tag} ->
+        Liminal.Links.Janitor.schedule_cleanup(link_tag)
         result
 
       error ->
@@ -228,68 +228,68 @@ defmodule Liminal.Links do
   end
 
   @doc """
-  Removes a link_category by ID. Idempotent — no-op if already gone.
+  Removes a link_tag by ID. Idempotent — no-op if already gone.
   """
-  def untag_link(link_category_id) do
-    from(lc in LinkCategory, where: lc.id == ^link_category_id)
+  def untag_link(link_tag_id) do
+    from(lt in LinkTag, where: lt.id == ^link_tag_id)
     |> Repo.delete_all()
 
     :ok
   end
 
   @doc """
-  Removes a link_category and deletes the owning link if it has no remaining
-  categories. Returns `{:ok, :link_deleted}` or `{:ok, :category_removed}`.
+  Removes a link_tag and deletes the owning link if it has no remaining
+  tags. Returns `{:ok, :link_deleted}` or `{:ok, :tag_removed}`.
   """
-  def cleanup_link(link_category_id) when is_binary(link_category_id) do
-    case Repo.get(LinkCategory, link_category_id) do
+  def cleanup_link(link_tag_id) when is_binary(link_tag_id) do
+    case Repo.get(LinkTag, link_tag_id) do
       nil ->
-        {:ok, :category_removed}
+        {:ok, :tag_removed}
 
-      link_category ->
-        link_id = link_category.link_id
-        untag_link(link_category_id)
+      link_tag ->
+        link_id = link_tag.link_id
+        untag_link(link_tag_id)
 
         remaining =
-          from(lc in LinkCategory, where: lc.link_id == ^link_id)
+          from(lt in LinkTag, where: lt.link_id == ^link_id)
           |> Repo.aggregate(:count)
 
         if remaining == 0 do
           from(l in Link, where: l.id == ^link_id) |> Repo.delete_all()
           {:ok, :link_deleted}
         else
-          {:ok, :category_removed}
+          {:ok, :tag_removed}
         end
     end
   end
 
   @doc """
-  Scoped version — looks up the link_category from the link/category pair,
+  Scoped version — looks up the link_tag from the link/tag pair,
   verifies ownership, then delegates to `cleanup_link/1`.
   """
-  def cleanup_link(scope, link, category) do
+  def cleanup_link(scope, link, tag) do
     user_id = scope.user.id
     ^user_id = link.user_id
-    ^user_id = category.user_id
+    ^user_id = tag.user_id
 
-    case Repo.get_by(LinkCategory, link_id: link.id, category_id: category.id) do
-      nil -> {:ok, :category_removed}
-      lc -> cleanup_link(lc.id)
+    case Repo.get_by(LinkTag, link_id: link.id, tag_id: tag.id) do
+      nil -> {:ok, :tag_removed}
+      lt -> cleanup_link(lt.id)
     end
   end
 
   ## Expiry cleanup
 
   @doc """
-  For each expired link_category, removes it and deletes the owning link if
+  For each expired link_tag, removes it and deletes the owning link if
   orphaned. Used by the Janitor's periodic sweep.
   """
   def cleanup_expired do
     now = DateTime.utc_now(:second)
 
-    from(lc in LinkCategory,
-      where: not is_nil(lc.expires_at) and lc.expires_at <= ^now,
-      select: lc.id
+    from(lt in LinkTag,
+      where: not is_nil(lt.expires_at) and lt.expires_at <= ^now,
+      select: lt.id
     )
     |> Repo.all()
     |> Enum.each(&cleanup_link/1)
@@ -297,40 +297,40 @@ defmodule Liminal.Links do
     :ok
   end
 
-  ## Link creation with categories
+  ## Link creation with tags
 
   @doc """
   Creates a link for the given user.
 
-  The 3-arity version tags it with the given category IDs atomically using
-  `Ecto.Multi`. The 2-arity version (without category_ids) always returns
-  `{:error, :no_categories}` since links must have at least one category.
+  The 3-arity version tags it with the given tag IDs atomically using
+  `Ecto.Multi`. The 2-arity version (without tag_ids) always returns
+  `{:error, :no_tags}` since links must have at least one tag.
   """
-  def create_link(scope, attrs, category_ids) when is_list(category_ids) and category_ids != [] do
+  def create_link(scope, attrs, tag_ids) when is_list(tag_ids) and tag_ids != [] do
     now = DateTime.utc_now(:second)
 
-    categories =
-      from(c in Category,
-        where: c.id in ^category_ids and c.user_id == ^scope.user.id
+    tags =
+      from(t in Tag,
+        where: t.id in ^tag_ids and t.user_id == ^scope.user.id
       )
       |> Repo.all()
 
-    if length(categories) != length(category_ids) do
-      {:error, :invalid_categories}
+    if length(tags) != length(tag_ids) do
+      {:error, :invalid_tags}
     else
-      create_link_with_categories(scope, attrs, categories, now)
+      create_link_with_tags(scope, attrs, tags, now)
     end
   end
 
-  def create_link(_scope, _attrs, _category_ids) do
-    {:error, :no_categories}
+  def create_link(_scope, _attrs, _tag_ids) do
+    {:error, :no_tags}
   end
 
   def create_link(_scope, _attrs) do
-    {:error, :no_categories}
+    {:error, :no_tags}
   end
 
-  defp create_link_with_categories(scope, attrs, categories, now) do
+  defp create_link_with_tags(scope, attrs, tags, now) do
     link_changeset =
       %Link{}
       |> Link.changeset(attrs)
@@ -338,36 +338,36 @@ defmodule Liminal.Links do
 
     Ecto.Multi.new()
     |> Ecto.Multi.insert(:link, link_changeset)
-    |> Ecto.Multi.run(:link_categories, fn repo, %{link: link} ->
-      link_categories =
-        Enum.map(categories, fn category ->
+    |> Ecto.Multi.run(:link_tags, fn repo, %{link: link} ->
+      link_tags =
+        Enum.map(tags, fn tag ->
           expires_at =
-            if category.expires_in_days do
-              DateTime.add(now, category.expires_in_days, :day)
+            if tag.expires_in_days do
+              DateTime.add(now, tag.expires_in_days, :day)
             end
 
-          %LinkCategory{
+          %LinkTag{
             link_id: link.id,
-            category_id: category.id,
+            tag_id: tag.id,
             expires_at: expires_at,
             inserted_at: now
           }
         end)
 
-      inserted = Enum.map(link_categories, &repo.insert!/1)
+      inserted = Enum.map(link_tags, &repo.insert!/1)
       {:ok, inserted}
     end)
     |> Repo.transaction()
     |> case do
-      {:ok, %{link: link, link_categories: link_categories}} ->
-        Enum.each(link_categories, &Liminal.Links.Janitor.schedule_cleanup/1)
+      {:ok, %{link: link, link_tags: link_tags}} ->
+        Enum.each(link_tags, &Liminal.Links.Janitor.schedule_cleanup/1)
 
         {:ok, link}
 
       {:error, :link, changeset, _changes} ->
         {:error, changeset}
 
-      {:error, :link_categories, reason, _changes} ->
+      {:error, :link_tags, reason, _changes} ->
         {:error, reason}
     end
   end

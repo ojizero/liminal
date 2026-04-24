@@ -5,28 +5,28 @@ defmodule Liminal.LinksFixtures do
 
   alias Liminal.Links
 
-  def category_fixture(scope, attrs \\ %{}) do
-    {:ok, category} =
-      Links.create_category(
+  def tag_fixture(scope, attrs \\ %{}) do
+    {:ok, tag} =
+      Links.create_tag(
         scope,
         Enum.into(attrs, %{
-          name: "test-cat-#{System.unique_integer([:positive])}",
+          name: "test-tag-#{System.unique_integer([:positive])}",
           expires_in_days: 30
         })
       )
 
-    category
+    tag
   end
 
   @doc """
-  Creates a link with at least one category. A category is created automatically
-  unless `category_ids` is provided in attrs.
+  Creates a link with at least one tag. A tag is created automatically
+  unless `tag_ids` is provided in attrs.
   """
   def link_fixture(scope, attrs \\ %{}) do
-    {category_ids, attrs} = Map.pop(attrs, :category_ids)
+    {tag_ids, attrs} = Map.pop(attrs, :tag_ids)
 
-    category_ids =
-      category_ids || [category_fixture(scope).id]
+    tag_ids =
+      tag_ids || [tag_fixture(scope).id]
 
     link_attrs =
       Enum.into(attrs, %{
@@ -34,7 +34,7 @@ defmodule Liminal.LinksFixtures do
         title: "Test Link"
       })
 
-    {:ok, link} = Links.create_link(scope, link_attrs, category_ids)
+    {:ok, link} = Links.create_link(scope, link_attrs, tag_ids)
     link
   end
 end

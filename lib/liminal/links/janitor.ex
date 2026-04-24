@@ -1,15 +1,15 @@
 defmodule Liminal.Links.Janitor do
   @moduledoc """
-  Periodic GenServer that cleans up expired link_categories and orphaned links.
+  Periodic GenServer that cleans up expired link_tags and orphaned links.
 
   Runs an immediate sweep on startup, then repeats every 5 minutes. Also accepts
-  `schedule_cleanup/1` to schedule removal of a specific link_category at its
+  `schedule_cleanup/1` to schedule removal of a specific link_tag at its
   expiry time.
   """
 
   use GenServer
 
-  alias Liminal.Links.LinkCategory
+  alias Liminal.Links.LinkTag
 
   @sweep_interval_ms :timer.minutes(5)
 
@@ -20,14 +20,14 @@ defmodule Liminal.Links.Janitor do
   end
 
   @doc """
-  Schedules removal of a link_category at its `expires_at` time.
+  Schedules removal of a link_tag at its `expires_at` time.
 
-  No-op if the link_category has no expiry.
+  No-op if the link_tag has no expiry.
   """
-  def schedule_cleanup(%LinkCategory{expires_at: nil}), do: :ok
+  def schedule_cleanup(%LinkTag{expires_at: nil}), do: :ok
 
-  def schedule_cleanup(%LinkCategory{} = link_category) do
-    GenServer.cast(__MODULE__, {:schedule_cleanup, link_category.id, link_category.expires_at})
+  def schedule_cleanup(%LinkTag{} = link_tag) do
+    GenServer.cast(__MODULE__, {:schedule_cleanup, link_tag.id, link_tag.expires_at})
     :ok
   end
 
@@ -46,15 +46,15 @@ defmodule Liminal.Links.Janitor do
     {:noreply, state}
   end
 
-  def handle_info({:untag, link_category_id}, state) do
-    Liminal.Links.untag_link(link_category_id)
+  def handle_info({:untag, link_tag_id}, state) do
+    Liminal.Links.untag_link(link_tag_id)
     {:noreply, state}
   end
 
   @impl true
-  def handle_cast({:schedule_cleanup, link_category_id, expires_at}, state) do
+  def handle_cast({:schedule_cleanup, link_tag_id, expires_at}, state) do
     delay_ms = max(DateTime.diff(expires_at, DateTime.utc_now(:second), :millisecond), 0)
-    Process.send_after(self(), {:untag, link_category_id}, delay_ms)
+    Process.send_after(self(), {:untag, link_tag_id}, delay_ms)
     {:noreply, state}
   end
 

@@ -8,8 +8,8 @@ defmodule Liminal.Links.Link do
     field :viewed_at, :utc_datetime
 
     belongs_to :user, Liminal.Accounts.User
-    has_many :link_categories, Liminal.Links.LinkCategory
-    has_many :categories, through: [:link_categories, :category]
+    has_many :link_tags, Liminal.Links.LinkTag
+    has_many :tags, through: [:link_tags, :tag]
 
     timestamps(type: :utc_datetime)
   end

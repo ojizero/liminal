@@ -52,9 +52,9 @@ defmodule LiminalWeb.Router do
       live "/", LinkLive.Index, :index
       live "/links/new", LinkLive.Index, :new
       live "/links/:id/edit", LinkLive.Index, :edit
-      live "/categories", CategoryLive.Index, :index
-      live "/categories/new", CategoryLive.Index, :new
-      live "/categories/:id/edit", CategoryLive.Index, :edit
+      live "/tags", TagLive.Index, :index
+      live "/tags/new", TagLive.Index, :new
+      live "/tags/:id/edit", TagLive.Index, :edit
     end
 
     post "/users/update-password", UserSessionController, :update_password

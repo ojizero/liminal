@@ -15,15 +15,15 @@ defmodule LiminalWeb.LinkLive.IndexTest do
   describe "authenticated" do
     setup :register_and_log_in_user
 
-    test "renders links page with default categories from registration", %{
+    test "renders links page with default tags from registration", %{
       conn: conn,
       scope: scope
     } do
       {:ok, view, _html} = live(conn, ~p"/")
       assert has_element?(view, "header", "My Links")
-      # Default categories were created at registration time
-      categories = Liminal.Links.list_categories(scope)
-      assert length(categories) == 3
+      # Default tags were created at registration time
+      tags = Liminal.Links.list_tags(scope)
+      assert length(tags) == 3
     end
 
     test "default filter is Unviewed", %{conn: conn} do
@@ -32,18 +32,18 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "button.btn-primary", "Unviewed")
     end
 
-    test "add a link via form with category selection", %{conn: conn, scope: scope} do
+    test "add a link via form with tag selection", %{conn: conn, scope: scope} do
       {:ok, view, _html} = live(conn, ~p"/")
 
-      categories = Liminal.Links.list_categories(scope)
-      cat = hd(categories)
+      tags = Liminal.Links.list_tags(scope)
+      tag = hd(tags)
 
       view |> element("a", "Add Link") |> render_click()
       assert has_element?(view, "#link-form")
 
-      # Select a category
+      # Select a tag
       view
-      |> element("input[type='checkbox'][phx-value-id='#{cat.id}']")
+      |> element("input[type='checkbox'][phx-value-id='#{tag.id}']")
       |> render_click()
 
       view
@@ -53,27 +53,27 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#links", "https://example.com/test")
     end
 
-    test "add a link without selecting categories shows error", %{conn: conn} do
+    test "add a link without selecting tags shows error", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
       view |> element("a", "Add Link") |> render_click()
       assert has_element?(view, "#link-form")
 
       view
-      |> form("#link-form", link: %{url: "https://example.com/no-cats"})
+      |> form("#link-form", link: %{url: "https://example.com/no-tags"})
       |> render_submit()
 
       # Should show an error flash
-      assert render(view) =~ "Select at least one category"
+      assert render(view) =~ "Select at least one tag"
     end
 
-    test "category checkboxes shown on new link form", %{conn: conn, scope: scope} do
+    test "tag checkboxes shown on new link form", %{conn: conn, scope: scope} do
       {:ok, view, _html} = live(conn, ~p"/links/new")
 
-      categories = Liminal.Links.list_categories(scope)
+      tags = Liminal.Links.list_tags(scope)
 
-      for cat <- categories do
-        assert has_element?(view, "input[type='checkbox'][phx-value-id='#{cat.id}']")
+      for tag <- tags do
+        assert has_element?(view, "input[type='checkbox'][phx-value-id='#{tag.id}']")
       end
     end
 
@@ -130,62 +130,62 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#links", "View Me")
     end
 
-    test "tag and untag a link (with remaining categories)", %{conn: conn, scope: scope} do
-      # Create link with a category so it has at least one
-      categories = Liminal.Links.list_categories(scope)
-      cat1 = Enum.at(categories, 0)
-      cat2 = Enum.at(categories, 1)
+    test "tag and untag a link (with remaining tags)", %{conn: conn, scope: scope} do
+      # Create link with a tag so it has at least one
+      tags = Liminal.Links.list_tags(scope)
+      tag1 = Enum.at(tags, 0)
+      tag2 = Enum.at(tags, 1)
 
       link =
-        link_fixture(scope, %{url: "https://tagme.com", title: "Tag Me", category_ids: [cat1.id]})
+        link_fixture(scope, %{url: "https://tagme.com", title: "Tag Me", tag_ids: [tag1.id]})
 
       {:ok, view, _html} = live(conn, ~p"/")
 
-      # Tag with second category
+      # Tag with second tag
       view
       |> element(
-        "button[phx-click='tag'][phx-value-link-id='#{link.id}'][phx-value-category-id='#{cat2.id}']"
+        "button[phx-click='tag'][phx-value-link-id='#{link.id}'][phx-value-tag-id='#{tag2.id}']"
       )
       |> render_click()
 
-      assert has_element?(view, "#links", cat2.name)
+      assert has_element?(view, "#links", tag2.name)
 
-      # Untag second category (link still has cat1)
+      # Untag second tag (link still has tag1)
       view
       |> element(
-        "button[phx-click='untag'][phx-value-link-id='#{link.id}'][phx-value-category-id='#{cat2.id}']"
+        "button[phx-click='untag'][phx-value-link-id='#{link.id}'][phx-value-tag-id='#{tag2.id}']"
       )
       |> render_click()
 
-      refute has_element?(view, "#links span", cat2.name)
+      refute has_element?(view, "#links span", tag2.name)
       # Link should still exist
       assert has_element?(view, "#links", "Tag Me")
     end
 
-    test "untag last category deletes the link", %{conn: conn, scope: scope} do
-      category = category_fixture(scope)
+    test "untag last tag deletes the link", %{conn: conn, scope: scope} do
+      tag = tag_fixture(scope)
 
       link =
         link_fixture(scope, %{
-          url: "https://last-cat.com",
-          title: "Last Cat",
-          category_ids: [category.id]
+          url: "https://last-tag.com",
+          title: "Last Tag",
+          tag_ids: [tag.id]
         })
 
       {:ok, view, _html} = live(conn, ~p"/")
 
-      assert has_element?(view, "#links", "Last Cat")
+      assert has_element?(view, "#links", "Last Tag")
 
-      # Untag the only category
+      # Untag the only tag
       view
       |> element(
-        "button[phx-click='untag'][phx-value-link-id='#{link.id}'][phx-value-category-id='#{category.id}']"
+        "button[phx-click='untag'][phx-value-link-id='#{link.id}'][phx-value-tag-id='#{tag.id}']"
       )
       |> render_click()
 
       # Link should be removed from the page
-      refute has_element?(view, "#links", "Last Cat")
-      assert render(view) =~ "Last category removed"
+      refute has_element?(view, "#links", "Last Tag")
+      assert render(view) =~ "Last tag removed"
     end
 
     test "filter toggles work", %{conn: conn, scope: scope} do

@@ -10,7 +10,7 @@ defmodule LiminalWeb.LinkLive.Index do
       <.header>
         My Links
         <:actions>
-          <.button navigate={~p"/categories"}>Categories</.button>
+          <.button navigate={~p"/tags"}>Tags</.button>
           <.button variant="primary" patch={~p"/links/new"}>
             <.icon name="hero-plus" class="size-4" /> Add Link
           </.button>
@@ -40,24 +40,24 @@ defmodule LiminalWeb.LinkLive.Index do
 
           <%= if @live_action == :new do %>
             <div class="mt-3">
-              <span class="text-sm font-medium">Categories</span>
+              <span class="text-sm font-medium">Tags</span>
               <div class="flex flex-wrap gap-3 mt-1">
                 <label
-                  :for={cat <- @categories}
+                  :for={tag <- @tags}
                   class="inline-flex items-center gap-2 cursor-pointer select-none"
                 >
                   <input
                     type="checkbox"
-                    checked={cat.id in @selected_category_ids}
-                    phx-click="toggle_category"
-                    phx-value-id={cat.id}
+                    checked={tag.id in @selected_tag_ids}
+                    phx-click="toggle_tag"
+                    phx-value-id={tag.id}
                     class={[
                       "h-4 w-4 rounded border border-gray-400 text-indigo-600",
                       "focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1",
                       "transition-colors duration-150"
                     ]}
                   />
-                  <span class="text-sm">{cat.name}</span>
+                  <span class="text-sm">{tag.name}</span>
                 </label>
               </div>
             </div>
@@ -110,39 +110,39 @@ defmodule LiminalWeb.LinkLive.Index do
               {link.url}
             </a>
 
-            <%!-- Category badges --%>
+            <%!-- Tag badges --%>
             <div class="flex flex-wrap gap-1.5 mt-2">
               <span
-                :for={lc <- link.link_categories}
+                :for={lt <- link.link_tags}
                 class="badge badge-sm badge-outline gap-1"
               >
-                {lc.category.name}
+                {lt.tag.name}
                 <button
                   phx-click="untag"
                   phx-value-link-id={link.id}
-                  phx-value-category-id={lc.category_id}
+                  phx-value-tag-id={lt.tag_id}
                   class="hover:text-error"
-                  title={"Remove #{lc.category.name}"}
+                  title={"Remove #{lt.tag.name}"}
                 >
                   <.icon name="hero-x-mark" class="size-3" />
                 </button>
               </span>
 
               <%!-- Add tag dropdown --%>
-              <% assigned_ids = Enum.map(link.link_categories, & &1.category_id) %>
-              <% available = Enum.reject(@categories, fn c -> c.id in assigned_ids end) %>
+              <% assigned_ids = Enum.map(link.link_tags, & &1.tag_id) %>
+              <% available = Enum.reject(@tags, fn t -> t.id in assigned_ids end) %>
               <details :if={available != []} class="dropdown">
                 <summary class="badge badge-sm badge-ghost cursor-pointer gap-1">
                   <.icon name="hero-plus" class="size-3" /> tag
                 </summary>
                 <ul class="dropdown-content menu bg-base-200 rounded-box z-10 p-2 shadow mt-1">
-                  <li :for={cat <- available}>
+                  <li :for={tag <- available}>
                     <button
                       phx-click="tag"
                       phx-value-link-id={link.id}
-                      phx-value-category-id={cat.id}
+                      phx-value-tag-id={tag.id}
                     >
-                      {cat.name}
+                      {tag.name}
                     </button>
                   </li>
                 </ul>
@@ -173,12 +173,12 @@ defmodule LiminalWeb.LinkLive.Index do
   @impl true
   def mount(_params, _session, socket) do
     scope = socket.assigns.current_scope
-    categories = Links.list_categories(scope)
+    tags = Links.list_tags(scope)
     links = Links.list_links(scope, filter: :unviewed)
 
     socket =
       socket
-      |> assign(:categories, categories)
+      |> assign(:tags, tags)
       |> assign(:filter, :unviewed)
       |> stream(:links, links)
 
@@ -195,7 +195,7 @@ defmodule LiminalWeb.LinkLive.Index do
     |> assign(:page_title, "My Links")
     |> assign(:link, nil)
     |> assign(:form, nil)
-    |> assign(:selected_category_ids, [])
+    |> assign(:selected_tag_ids, [])
   end
 
   defp apply_action(socket, :new, _params) do
@@ -204,7 +204,7 @@ defmodule LiminalWeb.LinkLive.Index do
     socket
     |> assign(:page_title, "Add Link")
     |> assign(:link, link)
-    |> assign(:selected_category_ids, [])
+    |> assign(:selected_tag_ids, [])
     |> assign(:form, to_form(Links.change_link(link)))
   end
 
@@ -214,7 +214,7 @@ defmodule LiminalWeb.LinkLive.Index do
     socket
     |> assign(:page_title, "Edit Link")
     |> assign(:link, link)
-    |> assign(:selected_category_ids, [])
+    |> assign(:selected_tag_ids, [])
     |> assign(:form, to_form(Links.change_link(link)))
   end
 
@@ -228,17 +228,17 @@ defmodule LiminalWeb.LinkLive.Index do
     {:noreply, assign(socket, :form, to_form(changeset))}
   end
 
-  def handle_event("toggle_category", %{"id" => category_id}, socket) do
-    selected = socket.assigns.selected_category_ids
+  def handle_event("toggle_tag", %{"id" => tag_id}, socket) do
+    selected = socket.assigns.selected_tag_ids
 
     updated =
-      if category_id in selected do
-        List.delete(selected, category_id)
+      if tag_id in selected do
+        List.delete(selected, tag_id)
       else
-        [category_id | selected]
+        [tag_id | selected]
       end
 
-    {:noreply, assign(socket, :selected_category_ids, updated)}
+    {:noreply, assign(socket, :selected_tag_ids, updated)}
   end
 
   def handle_event("save", %{"link" => link_params}, socket) do
@@ -271,29 +271,29 @@ defmodule LiminalWeb.LinkLive.Index do
     {:noreply, stream_insert(socket, :links, updated_link)}
   end
 
-  def handle_event("tag", %{"link-id" => link_id, "category-id" => category_id}, socket) do
+  def handle_event("tag", %{"link-id" => link_id, "tag-id" => tag_id}, socket) do
     scope = socket.assigns.current_scope
     link = Links.get_link!(scope, link_id)
-    category = Links.get_category!(scope, category_id)
-    {:ok, _} = Links.tag_link(scope, link, category)
+    tag = Links.get_tag!(scope, tag_id)
+    {:ok, _} = Links.tag_link(scope, link, tag)
     updated_link = Links.get_link!(scope, link_id)
 
     {:noreply, stream_insert(socket, :links, updated_link)}
   end
 
-  def handle_event("untag", %{"link-id" => link_id, "category-id" => category_id}, socket) do
+  def handle_event("untag", %{"link-id" => link_id, "tag-id" => tag_id}, socket) do
     scope = socket.assigns.current_scope
     link = Links.get_link!(scope, link_id)
-    category = Links.get_category!(scope, category_id)
+    tag = Links.get_tag!(scope, tag_id)
 
-    case Links.cleanup_link(scope, link, category) do
+    case Links.cleanup_link(scope, link, tag) do
       {:ok, :link_deleted} ->
         {:noreply,
          socket
-         |> put_flash(:info, "Last category removed — link deleted")
+         |> put_flash(:info, "Last tag removed — link deleted")
          |> stream_delete(:links, link)}
 
-      {:ok, :category_removed} ->
+      {:ok, :tag_removed} ->
         updated_link = Links.get_link!(scope, link_id)
         {:noreply, stream_insert(socket, :links, updated_link)}
     end
@@ -314,9 +314,9 @@ defmodule LiminalWeb.LinkLive.Index do
 
   defp save_link(socket, :new, link_params) do
     scope = socket.assigns.current_scope
-    category_ids = socket.assigns.selected_category_ids
+    tag_ids = socket.assigns.selected_tag_ids
 
-    case Links.create_link(scope, link_params, category_ids) do
+    case Links.create_link(scope, link_params, tag_ids) do
       {:ok, link} ->
         link = Links.get_link!(scope, link.id)
 
@@ -326,11 +326,11 @@ defmodule LiminalWeb.LinkLive.Index do
          |> stream_insert(:links, link, at: 0)
          |> push_patch(to: ~p"/")}
 
-      {:error, :no_categories} ->
-        {:noreply, put_flash(socket, :error, "Select at least one category")}
+      {:error, :no_tags} ->
+        {:noreply, put_flash(socket, :error, "Select at least one tag")}
 
-      {:error, :invalid_categories} ->
-        {:noreply, put_flash(socket, :error, "One or more selected categories are invalid")}
+      {:error, :invalid_tags} ->
+        {:noreply, put_flash(socket, :error, "One or more selected tags are invalid")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}
