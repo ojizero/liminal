@@ -17,12 +17,6 @@ defmodule LiminalWeb.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/", LiminalWeb do
-    pipe_through :browser
-
-    get "/", PageController, :home
-  end
-
   # Other scopes may use custom stacks.
   # scope "/api", LiminalWeb do
   #   pipe_through :api
@@ -54,6 +48,13 @@ defmodule LiminalWeb.Router do
       on_mount: [{LiminalWeb.UserAuth, :require_authenticated}] do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
+
+      live "/", LinkLive.Index, :index
+      live "/links/new", LinkLive.Index, :new
+      live "/links/:id/edit", LinkLive.Index, :edit
+      live "/categories", CategoryLive.Index, :index
+      live "/categories/new", CategoryLive.Index, :new
+      live "/categories/:id/edit", CategoryLive.Index, :edit
     end
 
     post "/users/update-password", UserSessionController, :update_password

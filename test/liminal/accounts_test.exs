@@ -85,6 +85,18 @@ defmodule Liminal.AccountsTest do
       assert is_nil(user.confirmed_at)
       assert is_nil(user.password)
     end
+
+    test "creates default categories for the user" do
+      email = unique_user_email()
+      {:ok, user} = Accounts.register_user(valid_user_attributes(email: email))
+
+      scope = Liminal.Accounts.Scope.for_user(user)
+      categories = Liminal.Links.list_categories(scope)
+      assert length(categories) == 3
+
+      names = Enum.map(categories, & &1.name) |> Enum.sort()
+      assert names == Enum.sort(["saved for later", "read later", "watch later"])
+    end
   end
 
   describe "sudo_mode?/2" do

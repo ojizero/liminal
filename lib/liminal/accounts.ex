@@ -75,9 +75,12 @@ defmodule Liminal.Accounts do
 
   """
   def register_user(attrs) do
-    %User{}
-    |> User.email_changeset(attrs)
-    |> Repo.insert()
+    Repo.transact(fn ->
+      with {:ok, user} <- Repo.insert(User.email_changeset(%User{}, attrs)),
+           :ok <- Liminal.Links.create_default_categories(user.id) do
+        {:ok, user}
+      end
+    end)
   end
 
   ## Settings
