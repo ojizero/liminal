@@ -14,7 +14,7 @@ config :liminal, :scopes,
     assign_key: :current_scope,
     access_path: [:user, :id],
     schema_key: :user_id,
-    schema_type: :id,
+    schema_type: :binary_id,
     schema_table: :users,
     test_data_fixture: Liminal.AccountsFixtures,
     test_setup_helper: :register_and_log_in_user
@@ -22,7 +22,11 @@ config :liminal, :scopes,
 
 config :liminal,
   ecto_repos: [Liminal.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime, binary_id: true]
+
+config :liminal, Liminal.Repo,
+  migration_primary_key: [name: :id, type: :binary_id, null: false],
+  migration_foreign_key: [type: :binary_id]
 
 # Configure the endpoint
 config :liminal, LiminalWeb.Endpoint,

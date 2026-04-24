@@ -1,5 +1,5 @@
 defmodule Liminal.Links.Category do
-  use Ecto.Schema
+  use Liminal.Schema
   import Ecto.Changeset
 
   schema "categories" do

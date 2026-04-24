@@ -6,7 +6,7 @@ defmodule Liminal.Repo.Migrations.CreateLinks do
       add :url, :string, null: false
       add :title, :string
       add :viewed_at, :utc_datetime
-      add :user_id, references(:users, on_delete: :delete_all), null: false
+      add :user_id, references(:users, type: :binary_id, on_delete: :delete_all), null: false
       timestamps(type: :utc_datetime)
     end
 

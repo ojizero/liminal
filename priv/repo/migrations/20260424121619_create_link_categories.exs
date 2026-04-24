@@ -3,8 +3,11 @@ defmodule Liminal.Repo.Migrations.CreateLinkCategories do
 
   def change do
     create table(:link_categories) do
-      add :link_id, references(:links, on_delete: :delete_all), null: false
-      add :category_id, references(:categories, on_delete: :delete_all), null: false
+      add :link_id, references(:links, type: :binary_id, on_delete: :delete_all), null: false
+
+      add :category_id, references(:categories, type: :binary_id, on_delete: :delete_all),
+        null: false
+
       add :expires_at, :utc_datetime
       timestamps(type: :utc_datetime, updated_at: false)
     end

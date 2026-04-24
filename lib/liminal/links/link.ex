@@ -1,5 +1,5 @@
 defmodule Liminal.Links.Link do
-  use Ecto.Schema
+  use Liminal.Schema
   import Ecto.Changeset
 
   schema "links" do

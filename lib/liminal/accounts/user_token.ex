@@ -1,5 +1,5 @@
 defmodule Liminal.Accounts.UserToken do
-  use Ecto.Schema
+  use Liminal.Schema
   import Ecto.Query
   alias Liminal.Accounts.UserToken
 

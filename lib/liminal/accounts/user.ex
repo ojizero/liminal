@@ -1,5 +1,5 @@
 defmodule Liminal.Accounts.User do
-  use Ecto.Schema
+  use Liminal.Schema
   import Ecto.Changeset
 
   schema "users" do
