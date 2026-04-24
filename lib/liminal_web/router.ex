@@ -47,7 +47,6 @@ defmodule LiminalWeb.Router do
     live_session :require_authenticated_user,
       on_mount: [{LiminalWeb.UserAuth, :require_authenticated}] do
       live "/users/settings", UserLive.Settings, :edit
-      live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
 
       live "/", LinkLive.Index, :index
       live "/links/new", LinkLive.Index, :new
@@ -67,7 +66,6 @@ defmodule LiminalWeb.Router do
       on_mount: [{LiminalWeb.UserAuth, :mount_current_scope}] do
       live "/users/register", UserLive.Registration, :new
       live "/users/log-in", UserLive.Login, :new
-      live "/users/log-in/:token", UserLive.Confirmation, :new
     end
 
     post "/users/log-in", UserSessionController, :create

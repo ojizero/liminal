@@ -12,8 +12,8 @@ defmodule LiminalWeb.UserLive.SettingsTest do
         |> log_in_user(user_fixture())
         |> live(~p"/users/settings")
 
-      assert html =~ "Change Email"
       assert html =~ "Save Password"
+      assert html =~ "Change Username"
     end
 
     test "redirects if user is not logged in", %{conn: conn} do
@@ -37,58 +37,6 @@ defmodule LiminalWeb.UserLive.SettingsTest do
     end
   end
 
-  describe "update email form" do
-    setup %{conn: conn} do
-      user = user_fixture()
-      %{conn: log_in_user(conn, user), user: user}
-    end
-
-    test "updates the user email", %{conn: conn, user: user} do
-      new_email = unique_user_email()
-
-      {:ok, lv, _html} = live(conn, ~p"/users/settings")
-
-      result =
-        lv
-        |> form("#email_form", %{
-          "user" => %{"email" => new_email}
-        })
-        |> render_submit()
-
-      assert result =~ "A link to confirm your email"
-      assert Accounts.get_user_by_email(user.email)
-    end
-
-    test "renders errors with invalid data (phx-change)", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/users/settings")
-
-      result =
-        lv
-        |> element("#email_form")
-        |> render_change(%{
-          "action" => "update_email",
-          "user" => %{"email" => "with spaces"}
-        })
-
-      assert result =~ "Change Email"
-      assert result =~ "must have the @ sign and no spaces"
-    end
-
-    test "renders errors with invalid data (phx-submit)", %{conn: conn, user: user} do
-      {:ok, lv, _html} = live(conn, ~p"/users/settings")
-
-      result =
-        lv
-        |> form("#email_form", %{
-          "user" => %{"email" => user.email}
-        })
-        |> render_submit()
-
-      assert result =~ "Change Email"
-      assert result =~ "did not change"
-    end
-  end
-
   describe "update password form" do
     setup %{conn: conn} do
       user = user_fixture()
@@ -103,7 +51,7 @@ defmodule LiminalWeb.UserLive.SettingsTest do
       form =
         form(lv, "#password_form", %{
           "user" => %{
-            "email" => user.email,
+            "username" => user.username,
             "password" => new_password,
             "password_confirmation" => new_password
           }
@@ -120,7 +68,7 @@ defmodule LiminalWeb.UserLive.SettingsTest do
       assert Phoenix.Flash.get(new_password_conn.assigns.flash, :info) =~
                "Password updated successfully"
 
-      assert Accounts.get_user_by_email_and_password(user.email, new_password)
+      assert Accounts.get_user_by_username_and_password(user.username, new_password)
     end
 
     test "renders errors with invalid data (phx-change)", %{conn: conn} do
@@ -160,53 +108,33 @@ defmodule LiminalWeb.UserLive.SettingsTest do
     end
   end
 
-  describe "confirm email" do
+  describe "update username form" do
     setup %{conn: conn} do
       user = user_fixture()
-      email = unique_user_email()
-
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_update_email_instructions(%{user | email: email}, user.email, url)
-        end)
-
-      %{conn: log_in_user(conn, user), token: token, email: email, user: user}
+      %{conn: log_in_user(conn, user), user: user}
     end
 
-    test "updates the user email once", %{conn: conn, user: user, token: token, email: email} do
-      {:error, redirect} = live(conn, ~p"/users/settings/confirm-email/#{token}")
+    test "updates the username", %{conn: conn, user: _user} do
+      {:ok, lv, _html} = live(conn, ~p"/users/settings")
 
-      assert {:live_redirect, %{to: path, flash: flash}} = redirect
-      assert path == ~p"/users/settings"
-      assert %{"info" => message} = flash
-      assert message == "Email changed successfully."
-      refute Accounts.get_user_by_email(user.email)
-      assert Accounts.get_user_by_email(email)
+      result =
+        lv
+        |> form("#username_form", user: %{username: "new_username"})
+        |> render_submit()
 
-      # use confirm token again
-      {:error, redirect} = live(conn, ~p"/users/settings/confirm-email/#{token}")
-      assert {:live_redirect, %{to: path, flash: flash}} = redirect
-      assert path == ~p"/users/settings"
-      assert %{"error" => message} = flash
-      assert message == "Email change link is invalid or it has expired."
+      assert result =~ "Username updated successfully"
+      assert Accounts.get_user_by_username("new_username")
     end
 
-    test "does not update email with invalid token", %{conn: conn, user: user} do
-      {:error, redirect} = live(conn, ~p"/users/settings/confirm-email/oops")
-      assert {:live_redirect, %{to: path, flash: flash}} = redirect
-      assert path == ~p"/users/settings"
-      assert %{"error" => message} = flash
-      assert message == "Email change link is invalid or it has expired."
-      assert Accounts.get_user_by_email(user.email)
-    end
+    test "renders errors for invalid username", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/users/settings")
 
-    test "redirects if user is not logged in", %{token: token} do
-      conn = build_conn()
-      {:error, redirect} = live(conn, ~p"/users/settings/confirm-email/#{token}")
-      assert {:redirect, %{to: path, flash: flash}} = redirect
-      assert path == ~p"/users/log-in"
-      assert %{"error" => message} = flash
-      assert message == "You must log in to access this page."
+      result =
+        lv
+        |> form("#username_form", user: %{username: "bad name!"})
+        |> render_submit()
+
+      assert result =~ "only letters, numbers, and underscores allowed"
     end
   end
 end

@@ -54,7 +54,7 @@ defmodule LiminalWeb.Layouts do
           </li>
           <%= if @current_scope do %>
             <li class="text-sm">
-              {@current_scope.user.email}
+              {@current_scope.user.username}
             </li>
             <li>
               <.link navigate={~p"/users/settings"} class="btn btn-ghost btn-sm">Settings</.link>

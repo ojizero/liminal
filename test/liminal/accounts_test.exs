@@ -6,32 +6,32 @@ defmodule Liminal.AccountsTest do
   import Liminal.AccountsFixtures
   alias Liminal.Accounts.{User, UserToken}
 
-  describe "get_user_by_email/1" do
-    test "does not return the user if the email does not exist" do
-      refute Accounts.get_user_by_email("unknown@example.com")
+  describe "get_user_by_username/1" do
+    test "does not return the user if the username does not exist" do
+      refute Accounts.get_user_by_username("unknown_user")
     end
 
-    test "returns the user if the email exists" do
-      %{id: id} = user = user_fixture()
-      assert %User{id: ^id} = Accounts.get_user_by_email(user.email)
+    test "returns the user if the username exists" do
+      %{username: username} = user_fixture()
+      assert %User{} = Accounts.get_user_by_username(username)
     end
   end
 
-  describe "get_user_by_email_and_password/2" do
-    test "does not return the user if the email does not exist" do
-      refute Accounts.get_user_by_email_and_password("unknown@example.com", "hello world!")
+  describe "get_user_by_username_and_password/2" do
+    test "does not return the user if the username does not exist" do
+      refute Accounts.get_user_by_username_and_password("unknown_user", "hello world!")
     end
 
     test "does not return the user if the password is not valid" do
       user = user_fixture() |> set_password()
-      refute Accounts.get_user_by_email_and_password(user.email, "invalid")
+      refute Accounts.get_user_by_username_and_password(user.username, "invalid")
     end
 
-    test "returns the user if the email and password are valid" do
+    test "returns the user if the username and password are valid" do
       %{id: id} = user = user_fixture() |> set_password()
 
       assert %User{id: ^id} =
-               Accounts.get_user_by_email_and_password(user.email, valid_user_password())
+               Accounts.get_user_by_username_and_password(user.username, valid_user_password())
     end
   end
 
@@ -49,46 +49,64 @@ defmodule Liminal.AccountsTest do
   end
 
   describe "register_user/1" do
-    test "requires email to be set" do
+    test "requires username to be set" do
       {:error, changeset} = Accounts.register_user(%{})
 
-      assert %{email: ["can't be blank"]} = errors_on(changeset)
+      assert %{username: ["can't be blank"]} = errors_on(changeset)
     end
 
-    test "validates email when given" do
-      {:error, changeset} = Accounts.register_user(%{email: "not valid"})
+    test "validates username format" do
+      {:error, changeset} = Accounts.register_user(%{username: "has spaces"})
 
-      assert %{email: ["must have the @ sign and no spaces"]} = errors_on(changeset)
+      assert %{username: ["only letters, numbers, and underscores allowed"]} =
+               errors_on(changeset)
     end
 
-    test "validates maximum values for email for security" do
-      too_long = String.duplicate("db", 100)
-      {:error, changeset} = Accounts.register_user(%{email: too_long})
-      assert "should be at most 160 character(s)" in errors_on(changeset).email
+    test "validates username length" do
+      {:error, changeset} = Accounts.register_user(%{username: "ab"})
+      assert "should be at least 3 character(s)" in errors_on(changeset).username
     end
 
-    test "validates email uniqueness" do
-      %{email: email} = user_fixture()
-      {:error, changeset} = Accounts.register_user(%{email: email})
-      assert "has already been taken" in errors_on(changeset).email
-
-      # Now try with the uppercased email too, to check that email case is ignored.
-      {:error, changeset} = Accounts.register_user(%{email: String.upcase(email)})
-      assert "has already been taken" in errors_on(changeset).email
+    test "validates username maximum length" do
+      too_long = String.duplicate("a", 31)
+      {:error, changeset} = Accounts.register_user(%{username: too_long})
+      assert "should be at most 30 character(s)" in errors_on(changeset).username
     end
 
-    test "registers users without password" do
-      email = unique_user_email()
-      {:ok, user} = Accounts.register_user(valid_user_attributes(email: email))
-      assert user.email == email
-      assert is_nil(user.hashed_password)
-      assert is_nil(user.confirmed_at)
+    test "validates username uniqueness" do
+      %{username: username} = user_fixture()
+      {:error, changeset} = Accounts.register_user(%{username: username})
+      assert "has already been taken" in errors_on(changeset).username
+    end
+
+    test "validates password when given" do
+      {:error, changeset} = Accounts.register_user(%{username: "valid_user", password: "short"})
+      assert "should be at least 12 character(s)" in errors_on(changeset).password
+    end
+
+    test "validates password confirmation matching" do
+      {:error, changeset} =
+        Accounts.register_user(%{
+          username: "valid_user",
+          password: "valid_password_123",
+          password_confirmation: "different_password"
+        })
+
+      assert "does not match password" in errors_on(changeset).password_confirmation
+    end
+
+    test "registers users with confirmed_at set" do
+      username = "test_user_123"
+      {:ok, user} = Accounts.register_user(%{username: username, password: valid_user_password()})
+      assert user.username == username
+      assert user.confirmed_at != nil
+      assert not is_nil(user.hashed_password)
       assert is_nil(user.password)
     end
 
     test "creates default tags for the user" do
-      email = unique_user_email()
-      {:ok, user} = Accounts.register_user(valid_user_attributes(email: email))
+      username = "test_user_456"
+      {:ok, user} = Accounts.register_user(%{username: username, password: valid_user_password()})
 
       scope = Liminal.Accounts.Scope.for_user(user)
       tags = Liminal.Links.list_tags(scope)
@@ -115,80 +133,6 @@ defmodule Liminal.AccountsTest do
 
       # not authenticated
       refute Accounts.sudo_mode?(%User{})
-    end
-  end
-
-  describe "change_user_email/3" do
-    test "returns a user changeset" do
-      assert %Ecto.Changeset{} = changeset = Accounts.change_user_email(%User{})
-      assert changeset.required == [:email]
-    end
-  end
-
-  describe "deliver_user_update_email_instructions/3" do
-    setup do
-      %{user: user_fixture()}
-    end
-
-    test "sends token through notification", %{user: user} do
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_update_email_instructions(user, "current@example.com", url)
-        end)
-
-      {:ok, token} = Base.url_decode64(token, padding: false)
-      assert user_token = Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
-      assert user_token.user_id == user.id
-      assert user_token.sent_to == user.email
-      assert user_token.context == "change:current@example.com"
-    end
-  end
-
-  describe "update_user_email/2" do
-    setup do
-      user = unconfirmed_user_fixture()
-      email = unique_user_email()
-
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_update_email_instructions(%{user | email: email}, user.email, url)
-        end)
-
-      %{user: user, token: token, email: email}
-    end
-
-    test "updates the email with a valid token", %{user: user, token: token, email: email} do
-      assert {:ok, %{email: ^email}} = Accounts.update_user_email(user, token)
-      changed_user = Repo.get!(User, user.id)
-      assert changed_user.email != user.email
-      assert changed_user.email == email
-      refute Repo.get_by(UserToken, user_id: user.id)
-    end
-
-    test "does not update email with invalid token", %{user: user} do
-      assert Accounts.update_user_email(user, "oops") ==
-               {:error, :transaction_aborted}
-
-      assert Repo.get!(User, user.id).email == user.email
-      assert Repo.get_by(UserToken, user_id: user.id)
-    end
-
-    test "does not update email if user email changed", %{user: user, token: token} do
-      assert Accounts.update_user_email(%{user | email: "current@example.com"}, token) ==
-               {:error, :transaction_aborted}
-
-      assert Repo.get!(User, user.id).email == user.email
-      assert Repo.get_by(UserToken, user_id: user.id)
-    end
-
-    test "does not update email if token expired", %{user: user, token: token} do
-      {1, nil} = Repo.update_all(UserToken, set: [inserted_at: ~N[2020-01-01 00:00:00]])
-
-      assert Accounts.update_user_email(user, token) ==
-               {:error, :transaction_aborted}
-
-      assert Repo.get!(User, user.id).email == user.email
-      assert Repo.get_by(UserToken, user_id: user.id)
     end
   end
 
@@ -249,7 +193,7 @@ defmodule Liminal.AccountsTest do
 
       assert expired_tokens == []
       assert is_nil(user.password)
-      assert Accounts.get_user_by_email_and_password(user.email, "new valid password")
+      assert Accounts.get_user_by_username_and_password(user.username, "new valid password")
     end
 
     test "deletes all tokens for the given user", %{user: user} do
@@ -319,60 +263,6 @@ defmodule Liminal.AccountsTest do
     end
   end
 
-  describe "get_user_by_magic_link_token/1" do
-    setup do
-      user = user_fixture()
-      {encoded_token, _hashed_token} = generate_user_magic_link_token(user)
-      %{user: user, token: encoded_token}
-    end
-
-    test "returns user by token", %{user: user, token: token} do
-      assert session_user = Accounts.get_user_by_magic_link_token(token)
-      assert session_user.id == user.id
-    end
-
-    test "does not return user for invalid token" do
-      refute Accounts.get_user_by_magic_link_token("oops")
-    end
-
-    test "does not return user for expired token", %{token: token} do
-      {1, nil} = Repo.update_all(UserToken, set: [inserted_at: ~N[2020-01-01 00:00:00]])
-      refute Accounts.get_user_by_magic_link_token(token)
-    end
-  end
-
-  describe "login_user_by_magic_link/1" do
-    test "confirms user and expires tokens" do
-      user = unconfirmed_user_fixture()
-      refute user.confirmed_at
-      {encoded_token, hashed_token} = generate_user_magic_link_token(user)
-
-      assert {:ok, {user, [%{token: ^hashed_token}]}} =
-               Accounts.login_user_by_magic_link(encoded_token)
-
-      assert user.confirmed_at
-    end
-
-    test "returns user and (deleted) token for confirmed user" do
-      user = user_fixture()
-      assert user.confirmed_at
-      {encoded_token, _hashed_token} = generate_user_magic_link_token(user)
-      assert {:ok, {^user, []}} = Accounts.login_user_by_magic_link(encoded_token)
-      # one time use only
-      assert {:error, :not_found} = Accounts.login_user_by_magic_link(encoded_token)
-    end
-
-    test "raises when unconfirmed user has password set" do
-      user = unconfirmed_user_fixture()
-      {1, nil} = Repo.update_all(User, set: [hashed_password: "hashed"])
-      {encoded_token, _hashed_token} = generate_user_magic_link_token(user)
-
-      assert_raise RuntimeError, ~r/magic link log in is not allowed/, fn ->
-        Accounts.login_user_by_magic_link(encoded_token)
-      end
-    end
-  end
-
   describe "delete_user_session_token/1" do
     test "deletes the token" do
       user = user_fixture()
@@ -382,22 +272,39 @@ defmodule Liminal.AccountsTest do
     end
   end
 
-  describe "deliver_login_instructions/2" do
-    setup do
-      %{user: unconfirmed_user_fixture()}
+  describe "change_user_username/3" do
+    test "returns a changeset" do
+      assert %Ecto.Changeset{} = Accounts.change_user_username(%User{})
     end
 
-    test "sends token through notification", %{user: user} do
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_login_instructions(user, url)
-        end)
+    test "validates username format" do
+      changeset = Accounts.change_user_username(%User{}, %{"username" => "has spaces"})
 
-      {:ok, token} = Base.url_decode64(token, padding: false)
-      assert user_token = Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
-      assert user_token.user_id == user.id
-      assert user_token.sent_to == user.email
-      assert user_token.context == "login"
+      assert %{username: ["only letters, numbers, and underscores allowed"]} =
+               errors_on(changeset)
+    end
+
+    test "validates username length" do
+      changeset = Accounts.change_user_username(%User{}, %{"username" => "ab"})
+      assert %{username: ["should be at least 3 character(s)"]} = errors_on(changeset)
+    end
+  end
+
+  describe "update_user_username/2" do
+    setup do
+      %{user: user_fixture()}
+    end
+
+    test "updates the username", %{user: user} do
+      {:ok, updated} = Accounts.update_user_username(user, %{"username" => "new_name"})
+      assert updated.username == "new_name"
+    end
+
+    test "returns error changeset on invalid username", %{user: user} do
+      assert {:error, changeset} =
+               Accounts.update_user_username(user, %{"username" => "bad name!"})
+
+      assert %{username: [_]} = errors_on(changeset)
     end
   end
 

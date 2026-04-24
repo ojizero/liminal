@@ -3,7 +3,7 @@ defmodule Liminal.Accounts.User do
   import Ecto.Changeset
 
   schema "users" do
-    field :email, :string
+    field :username, :string
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
     field :confirmed_at, :utc_datetime
@@ -13,44 +13,44 @@ defmodule Liminal.Accounts.User do
   end
 
   @doc """
-  A user changeset for registering or changing the email.
+  A user changeset for registering or changing the username.
 
-  It requires the email to change otherwise an error is added.
+  It requires the username to change otherwise an error is added.
 
   ## Options
 
     * `:validate_unique` - Set to false if you don't want to validate the
-      uniqueness of the email, useful when displaying live validations.
+      uniqueness of the username, useful when displaying live validations.
       Defaults to `true`.
   """
-  def email_changeset(user, attrs, opts \\ []) do
+  def username_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:email])
-    |> validate_email(opts)
+    |> cast(attrs, [:username])
+    |> validate_username(opts)
   end
 
-  defp validate_email(changeset, opts) do
+  defp validate_username(changeset, opts) do
     changeset =
       changeset
-      |> validate_required([:email])
-      |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+$/,
-        message: "must have the @ sign and no spaces"
+      |> validate_required([:username])
+      |> validate_format(:username, ~r/^[a-zA-Z0-9_]+$/,
+        message: "only letters, numbers, and underscores allowed"
       )
-      |> validate_length(:email, max: 160)
+      |> validate_length(:username, min: 3, max: 30)
 
     if Keyword.get(opts, :validate_unique, true) do
       changeset
-      |> unsafe_validate_unique(:email, Liminal.Repo)
-      |> unique_constraint(:email)
-      |> validate_email_changed()
+      |> unsafe_validate_unique(:username, Liminal.Repo)
+      |> unique_constraint(:username)
+      |> validate_username_changed()
     else
       changeset
     end
   end
 
-  defp validate_email_changed(changeset) do
-    if get_field(changeset, :email) && get_change(changeset, :email) == nil do
-      add_error(changeset, :email, "did not change")
+  defp validate_username_changed(changeset) do
+    if get_field(changeset, :username) && get_change(changeset, :username) == nil do
+      add_error(changeset, :username, "did not change")
     else
       changeset
     end
@@ -112,6 +112,18 @@ defmodule Liminal.Accounts.User do
   def confirm_changeset(user) do
     now = DateTime.utc_now(:second)
     change(user, confirmed_at: now)
+  end
+
+  @doc """
+  A user changeset for registration.
+
+  It validates username, password, and confirms the account.
+  """
+  def registration_changeset(user, attrs, opts \\ []) do
+    user
+    |> username_changeset(attrs, opts)
+    |> password_changeset(attrs, Keyword.put_new(opts, :hash_password, true))
+    |> confirm_changeset()
   end
 
   @doc """

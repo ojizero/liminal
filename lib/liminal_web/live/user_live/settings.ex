@@ -12,20 +12,25 @@ defmodule LiminalWeb.UserLive.Settings do
       <div class="text-center">
         <.header>
           Account Settings
-          <:subtitle>Manage your account email address and password settings</:subtitle>
+          <:subtitle>Manage your account username and password settings</:subtitle>
         </.header>
       </div>
 
-      <.form for={@email_form} id="email_form" phx-submit="update_email" phx-change="validate_email">
+      <.form
+        for={@username_form}
+        id="username_form"
+        phx-submit="update_username"
+        phx-change="validate_username"
+      >
         <.input
-          field={@email_form[:email]}
-          type="email"
-          label="Email"
+          field={@username_form[:username]}
+          type="text"
+          label="Username"
           autocomplete="username"
           spellcheck="false"
           required
         />
-        <.button variant="primary" phx-disable-with="Changing...">Change Email</.button>
+        <.button variant="primary" phx-disable-with="Changing...">Change Username</.button>
       </.form>
 
       <div class="divider" />
@@ -40,11 +45,11 @@ defmodule LiminalWeb.UserLive.Settings do
         phx-trigger-action={@trigger_submit}
       >
         <input
-          name={@password_form[:email].name}
+          name={@password_form[:username].name}
           type="hidden"
-          id="hidden_user_email"
+          id="hidden_user_username"
           spellcheck="false"
-          value={@current_email}
+          value={@current_username}
         />
         <.input
           field={@password_form[:password]}
@@ -70,28 +75,15 @@ defmodule LiminalWeb.UserLive.Settings do
   end
 
   @impl true
-  def mount(%{"token" => token}, _session, socket) do
-    socket =
-      case Accounts.update_user_email(socket.assigns.current_scope.user, token) do
-        {:ok, _user} ->
-          put_flash(socket, :info, "Email changed successfully.")
-
-        {:error, _} ->
-          put_flash(socket, :error, "Email change link is invalid or it has expired.")
-      end
-
-    {:ok, push_navigate(socket, to: ~p"/users/settings")}
-  end
-
   def mount(_params, _session, socket) do
     user = socket.assigns.current_scope.user
-    email_changeset = Accounts.change_user_email(user, %{}, validate_unique: false)
+    username_changeset = Accounts.change_user_username(user, %{}, validate_unique: false)
     password_changeset = Accounts.change_user_password(user, %{}, hash_password: false)
 
     socket =
       socket
-      |> assign(:current_email, user.email)
-      |> assign(:email_form, to_form(email_changeset))
+      |> assign(:current_username, user.username)
+      |> assign(:username_form, to_form(username_changeset))
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:trigger_submit, false)
 
@@ -99,36 +91,32 @@ defmodule LiminalWeb.UserLive.Settings do
   end
 
   @impl true
-  def handle_event("validate_email", params, socket) do
+  def handle_event("validate_username", params, socket) do
     %{"user" => user_params} = params
 
-    email_form =
+    username_form =
       socket.assigns.current_scope.user
-      |> Accounts.change_user_email(user_params, validate_unique: false)
+      |> Accounts.change_user_username(user_params, validate_unique: false)
       |> Map.put(:action, :validate)
       |> to_form()
 
-    {:noreply, assign(socket, email_form: email_form)}
+    {:noreply, assign(socket, username_form: username_form)}
   end
 
-  def handle_event("update_email", params, socket) do
-    %{"user" => user_params} = params
+  def handle_event("update_username", %{"user" => user_params}, socket) do
     user = socket.assigns.current_scope.user
     true = Accounts.sudo_mode?(user)
 
-    case Accounts.change_user_email(user, user_params) do
-      %{valid?: true} = changeset ->
-        Accounts.deliver_user_update_email_instructions(
-          Ecto.Changeset.apply_action!(changeset, :insert),
-          user.email,
-          &url(~p"/users/settings/confirm-email/#{&1}")
-        )
+    case Accounts.update_user_username(user, user_params) do
+      {:ok, updated_user} ->
+        {:noreply,
+         socket
+         |> assign(:current_username, updated_user.username)
+         |> assign(:username_form, to_form(Accounts.change_user_username(updated_user, %{})))
+         |> put_flash(:info, "Username updated successfully.")}
 
-        info = "A link to confirm your email change has been sent to the new address."
-        {:noreply, socket |> put_flash(:info, info)}
-
-      changeset ->
-        {:noreply, assign(socket, :email_form, to_form(changeset, action: :insert))}
+      {:error, changeset} ->
+        {:noreply, assign(socket, :username_form, to_form(changeset, action: :insert))}
     end
   end
 
