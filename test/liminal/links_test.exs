@@ -159,6 +159,18 @@ defmodule Liminal.LinksTest do
                Links.create_link(scope_a, %{url: "https://example.com"}, [other_tag.id])
     end
 
+    test "broadcasts {:link_created, link} on success" do
+      scope = user_scope_fixture()
+      tag = tag_fixture(scope)
+
+      Links.subscribe_links(scope)
+      {:ok, link} = Links.create_link(scope, %{url: "https://broadcast.com"}, [tag.id])
+
+      assert_receive {:link_created, broadcast_link}
+      assert broadcast_link.id == link.id
+      assert Ecto.assoc_loaded?(broadcast_link.link_tags)
+    end
+
     test "creates link_tags with correct expires_at" do
       scope = user_scope_fixture()
       tag = tag_fixture(scope, %{expires_in_days: 7})
@@ -183,6 +195,18 @@ defmodule Liminal.LinksTest do
 
       assert {:ok, updated} = Links.update_link(scope, link, %{title: "New Title"})
       assert updated.title == "New Title"
+    end
+
+    test "broadcasts {:link_updated, link} on success" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope, %{title: "Old"})
+
+      Links.subscribe_links(scope)
+      {:ok, _} = Links.update_link(scope, link, %{title: "New"})
+
+      assert_receive {:link_updated, broadcast_link}
+      assert broadcast_link.title == "New"
+      assert Ecto.assoc_loaded?(broadcast_link.link_tags)
     end
   end
 
@@ -218,6 +242,17 @@ defmodule Liminal.LinksTest do
       refetched = Links.get_link!(scope, link.id)
       assert refetched.viewed_at != nil
     end
+
+    test "broadcasts {:link_updated, link} with viewed_at set" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope)
+
+      Links.subscribe_links(scope)
+      {:ok, _} = Links.mark_viewed(scope, link)
+
+      assert_receive {:link_updated, broadcast_link}
+      assert broadcast_link.viewed_at != nil
+    end
   end
 
   describe "mark_unviewed/2" do
@@ -232,6 +267,18 @@ defmodule Liminal.LinksTest do
 
       refetched = Links.get_link!(scope, link.id)
       assert is_nil(refetched.viewed_at)
+    end
+
+    test "broadcasts {:link_updated, link} with viewed_at nil" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope)
+
+      {:ok, viewed_link} = Links.mark_viewed(scope, link)
+      Links.subscribe_links(scope)
+      {:ok, _} = Links.mark_unviewed(scope, viewed_link)
+
+      assert_receive {:link_updated, broadcast_link}
+      assert is_nil(broadcast_link.viewed_at)
     end
   end
 
@@ -257,6 +304,18 @@ defmodule Liminal.LinksTest do
 
       assert {:ok, _} = Links.tag_link(scope, link, tag)
       assert {:ok, _} = Links.tag_link(scope, link, tag)
+    end
+
+    test "broadcasts {:link_updated, link} with new tag" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope)
+      tag = tag_fixture(scope)
+
+      Links.subscribe_links(scope)
+      {:ok, _} = Links.tag_link(scope, link, tag)
+
+      assert_receive {:link_updated, broadcast_link}
+      assert Enum.any?(broadcast_link.link_tags, fn lt -> lt.tag_id == tag.id end)
     end
   end
 
@@ -368,6 +427,22 @@ defmodule Liminal.LinksTest do
       assert {:ok, :link_deleted} = Links.cleanup_link(lt.id)
       assert_receive {:link_deleted, link_id}
       assert link_id == link.id
+    end
+
+    test "broadcasts {:link_updated, link} when tags remain" do
+      scope = user_scope_fixture()
+      tag1 = tag_fixture(scope)
+      tag2 = tag_fixture(scope)
+      link = link_fixture(scope, %{tag_ids: [tag1.id, tag2.id]})
+
+      Links.subscribe_links(scope)
+      refetched = Links.get_link!(scope, link.id)
+      target = Enum.find(refetched.link_tags, &(&1.tag_id == tag1.id))
+
+      assert {:ok, :tag_removed} = Links.cleanup_link(target.id)
+      assert_receive {:link_updated, broadcast_link}
+      assert broadcast_link.id == link.id
+      assert length(broadcast_link.link_tags) == 1
     end
 
     test "does not broadcast when tags remain" do

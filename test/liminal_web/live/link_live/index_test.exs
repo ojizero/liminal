@@ -205,6 +205,101 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       refute has_element?(view, "#links", "Cross Session")
     end
 
+    test "link_created broadcast adds link to stream", %{conn: conn, scope: scope} do
+      {:ok, view, _html} = live(conn, ~p"/")
+      tag = tag_fixture(scope)
+
+      link =
+        link_fixture(scope, %{
+          url: "https://broadcast-create.com",
+          title: "Broadcast Create",
+          tag_ids: [tag.id]
+        })
+
+      refetched = Liminal.Links.get_link!(scope, link.id)
+
+      Phoenix.PubSub.broadcast(
+        Liminal.PubSub,
+        "user_links:#{scope.user.id}",
+        {:link_created, refetched}
+      )
+
+      render(view)
+      assert has_element?(view, "#links", "Broadcast Create")
+    end
+
+    test "link_updated broadcast updates link in stream", %{conn: conn, scope: scope} do
+      link = link_fixture(scope, %{url: "https://update-me.com", title: "Update Me"})
+      {:ok, view, _html} = live(conn, ~p"/")
+      assert has_element?(view, "#links", "Update Me")
+
+      updated_link = %{Liminal.Links.get_link!(scope, link.id) | title: "Updated Title"}
+
+      Phoenix.PubSub.broadcast(
+        Liminal.PubSub,
+        "user_links:#{scope.user.id}",
+        {:link_updated, updated_link}
+      )
+
+      render(view)
+      assert has_element?(view, "#links", "Updated Title")
+    end
+
+    test "link_updated broadcast removes link from unviewed filter when viewed", %{
+      conn: conn,
+      scope: scope
+    } do
+      link =
+        link_fixture(scope, %{url: "https://viewed-broadcast.com", title: "Will Be Viewed"})
+
+      {:ok, view, _html} = live(conn, ~p"/")
+      assert has_element?(view, "#links", "Will Be Viewed")
+
+      # Simulate receiving a broadcast where the link is now viewed
+      viewed_link = %{
+        Liminal.Links.get_link!(scope, link.id)
+        | viewed_at: DateTime.utc_now(:second)
+      }
+
+      Phoenix.PubSub.broadcast(
+        Liminal.PubSub,
+        "user_links:#{scope.user.id}",
+        {:link_updated, viewed_link}
+      )
+
+      render(view)
+      refute has_element?(view, "#links", "Will Be Viewed")
+    end
+
+    test "link_created broadcast does NOT add to viewed filter", %{conn: conn, scope: scope} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Switch to viewed filter
+      view
+      |> element("button[phx-click='filter'][phx-value-filter='viewed']")
+      |> render_click()
+
+      tag = tag_fixture(scope)
+
+      link =
+        link_fixture(scope, %{
+          url: "https://new-unviewed.com",
+          title: "New Unviewed",
+          tag_ids: [tag.id]
+        })
+
+      refetched = Liminal.Links.get_link!(scope, link.id)
+
+      Phoenix.PubSub.broadcast(
+        Liminal.PubSub,
+        "user_links:#{scope.user.id}",
+        {:link_created, refetched}
+      )
+
+      render(view)
+      refute has_element?(view, "#links", "New Unviewed")
+    end
+
     test "filter toggles work", %{conn: conn, scope: scope} do
       _link1 = link_fixture(scope, %{url: "https://unviewed.com", title: "Unviewed Link"})
       link2 = link_fixture(scope, %{url: "https://viewed.com", title: "Viewed Link"})

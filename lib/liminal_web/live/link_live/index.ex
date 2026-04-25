@@ -225,6 +225,22 @@ defmodule LiminalWeb.LinkLive.Index do
     {:noreply, stream_delete(socket, :links, %{id: link_id})}
   end
 
+  def handle_info({:link_created, link}, socket) do
+    if matches_filter?(link, socket.assigns.filter) do
+      {:noreply, stream_insert(socket, :links, link, at: 0)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:link_updated, link}, socket) do
+    if matches_filter?(link, socket.assigns.filter) do
+      {:noreply, stream_insert(socket, :links, link)}
+    else
+      {:noreply, stream_delete(socket, :links, link)}
+    end
+  end
+
   @impl true
   def handle_event("validate", %{"link" => link_params}, socket) do
     changeset =
@@ -361,4 +377,8 @@ defmodule LiminalWeb.LinkLive.Index do
         {:noreply, assign(socket, :form, to_form(changeset))}
     end
   end
+
+  defp matches_filter?(_link, :all), do: true
+  defp matches_filter?(link, :unviewed), do: is_nil(link.viewed_at)
+  defp matches_filter?(link, :viewed), do: not is_nil(link.viewed_at)
 end

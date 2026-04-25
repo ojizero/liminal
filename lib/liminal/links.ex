@@ -17,8 +17,12 @@ defmodule Liminal.Links do
 
   defp topic(user_id), do: "user_links:#{user_id}"
 
+  defp broadcast(user_id, message) do
+    Phoenix.PubSub.broadcast(Liminal.PubSub, topic(user_id), message)
+  end
+
   defp broadcast_link_deleted(user_id, link_id) do
-    Phoenix.PubSub.broadcast(Liminal.PubSub, topic(user_id), {:link_deleted, link_id})
+    broadcast(user_id, {:link_deleted, link_id})
   end
 
   @default_tags [
@@ -153,9 +157,15 @@ defmodule Liminal.Links do
     user_id = scope.user.id
     ^user_id = link.user_id
 
-    link
-    |> Link.changeset(attrs)
-    |> Repo.update()
+    case link |> Link.changeset(attrs) |> Repo.update() do
+      {:ok, updated_link} ->
+        updated_link = Repo.preload(updated_link, [link_tags: :tag], force: true)
+        broadcast(user_id, {:link_updated, updated_link})
+        {:ok, updated_link}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -191,9 +201,15 @@ defmodule Liminal.Links do
     user_id = scope.user.id
     ^user_id = link.user_id
 
-    link
-    |> Ecto.Changeset.change(viewed_at: DateTime.utc_now(:second))
-    |> Repo.update()
+    case link |> Ecto.Changeset.change(viewed_at: DateTime.utc_now(:second)) |> Repo.update() do
+      {:ok, updated_link} ->
+        updated_link = Repo.preload(updated_link, [link_tags: :tag], force: true)
+        broadcast(user_id, {:link_updated, updated_link})
+        {:ok, updated_link}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -203,9 +219,15 @@ defmodule Liminal.Links do
     user_id = scope.user.id
     ^user_id = link.user_id
 
-    link
-    |> Ecto.Changeset.change(viewed_at: nil)
-    |> Repo.update()
+    case link |> Ecto.Changeset.change(viewed_at: nil) |> Repo.update() do
+      {:ok, updated_link} ->
+        updated_link = Repo.preload(updated_link, [link_tags: :tag], force: true)
+        broadcast(user_id, {:link_updated, updated_link})
+        {:ok, updated_link}
+
+      error ->
+        error
+    end
   end
 
   ## Tagging
@@ -226,15 +248,26 @@ defmodule Liminal.Links do
 
     now = DateTime.utc_now(:second)
 
-    Repo.insert(
-      %LinkTag{
-        link_id: link.id,
-        tag_id: tag.id,
-        expires_at: expires_at,
-        inserted_at: now
-      },
-      on_conflict: :nothing
-    )
+    result =
+      Repo.insert(
+        %LinkTag{
+          link_id: link.id,
+          tag_id: tag.id,
+          expires_at: expires_at,
+          inserted_at: now
+        },
+        on_conflict: :nothing
+      )
+
+    case result do
+      {:ok, _link_tag} ->
+        updated_link = Repo.preload(link, [link_tags: :tag], force: true)
+        broadcast(user_id, {:link_updated, updated_link})
+        result
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -275,6 +308,8 @@ defmodule Liminal.Links do
 
           {:ok, :link_deleted}
         else
+          link = Repo.get!(Link, link_id) |> Repo.preload(link_tags: :tag)
+          broadcast(link.user_id, {:link_updated, link})
           {:ok, :tag_removed}
         end
     end
@@ -377,6 +412,8 @@ defmodule Liminal.Links do
     |> Repo.transaction()
     |> case do
       {:ok, %{link: link}} ->
+        link = Repo.preload(link, link_tags: :tag)
+        broadcast(scope.user.id, {:link_created, link})
         {:ok, link}
 
       {:error, :link, changeset, _changes} ->
