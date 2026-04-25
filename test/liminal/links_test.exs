@@ -600,4 +600,117 @@ defmodule Liminal.LinksTest do
       end
     end
   end
+
+  describe "update_link_metadata/2" do
+    test "updates metadata fields on a link without a title" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope, %{title: nil})
+
+      metadata = %{
+        title: "Fetched Title",
+        description: "A description from the page",
+        favicon_url: "https://example.com/favicon.ico"
+      }
+
+      assert {:ok, updated} = Links.update_link_metadata(link, metadata)
+      assert updated.title == "Fetched Title"
+      assert updated.description == "A description from the page"
+      assert updated.favicon_url == "https://example.com/favicon.ico"
+      assert updated.indexed_at != nil
+    end
+
+    test "preserves user-provided title" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope, %{title: "My Custom Title"})
+
+      metadata = %{
+        title: "Fetched Title That Should Be Ignored",
+        description: "Some description"
+      }
+
+      assert {:ok, updated} = Links.update_link_metadata(link, metadata)
+      assert updated.title == "My Custom Title"
+      assert updated.description == "Some description"
+      assert updated.indexed_at != nil
+    end
+
+    test "broadcasts {:link_updated, link} on success" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope, %{title: nil})
+
+      Links.subscribe_links(scope)
+
+      metadata = %{title: "Broadcast Title", description: "desc"}
+      {:ok, _updated} = Links.update_link_metadata(link, metadata)
+
+      assert_receive {:link_updated, broadcast_link}
+      assert broadcast_link.id == link.id
+      assert broadcast_link.title == "Broadcast Title"
+      assert broadcast_link.indexed_at != nil
+      assert Ecto.assoc_loaded?(broadcast_link.link_tags)
+    end
+  end
+
+  describe "list_unindexed_links/1" do
+    test "returns links without indexed_at that are old enough" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope)
+
+      # Back-date inserted_at to make it eligible (older than 1 minute cutoff)
+      past = DateTime.utc_now(:second) |> DateTime.add(-2, :minute)
+
+      Liminal.Repo.update_all(
+        Ecto.Query.from(l in Liminal.Links.Link, where: l.id == ^link.id),
+        set: [inserted_at: past]
+      )
+
+      results = Links.list_unindexed_links()
+      assert Enum.any?(results, fn l -> l.id == link.id end)
+    end
+
+    test "excludes recently created links" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope)
+
+      # Default inserted_at is ~now, within the 1 minute cutoff
+      results = Links.list_unindexed_links()
+      refute Enum.any?(results, fn l -> l.id == link.id end)
+    end
+
+    test "excludes already indexed links" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope, %{title: nil})
+
+      # Back-date inserted_at so it would normally qualify
+      past = DateTime.utc_now(:second) |> DateTime.add(-2, :minute)
+
+      Liminal.Repo.update_all(
+        Ecto.Query.from(l in Liminal.Links.Link, where: l.id == ^link.id),
+        set: [inserted_at: past]
+      )
+
+      # Index it via update_link_metadata
+      {:ok, _} = Links.update_link_metadata(link, %{title: "Indexed"})
+
+      results = Links.list_unindexed_links()
+      refute Enum.any?(results, fn l -> l.id == link.id end)
+    end
+
+    test "respects limit option" do
+      scope = user_scope_fixture()
+      past = DateTime.utc_now(:second) |> DateTime.add(-2, :minute)
+
+      for _ <- 1..3 do
+        l = link_fixture(scope)
+
+        Liminal.Repo.update_all(
+          Ecto.Query.from(lnk in Liminal.Links.Link, where: lnk.id == ^l.id),
+          set: [inserted_at: past]
+        )
+      end
+
+      results = Links.list_unindexed_links(limit: 2)
+      assert length(results) == 2
+    end
+  end
 end

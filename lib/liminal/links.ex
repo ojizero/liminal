@@ -141,6 +141,24 @@ defmodule Liminal.Links do
   defp apply_link_filter(query, :all), do: query
 
   @doc """
+  Returns links where indexing hasn't completed yet.
+  Uses `indexed_at IS NULL AND inserted_at < now - older_than_minutes` to avoid
+  racing with in-progress indexing tasks.
+  """
+  def list_unindexed_links(opts \\ []) do
+    older_than_minutes = Keyword.get(opts, :older_than_minutes, 1)
+    limit = Keyword.get(opts, :limit, 10)
+    cutoff = DateTime.utc_now(:second) |> DateTime.add(-older_than_minutes, :minute)
+
+    from(l in Link,
+      where: is_nil(l.indexed_at) and l.inserted_at < ^cutoff,
+      order_by: [asc: l.inserted_at],
+      limit: ^limit
+    )
+    |> Repo.all()
+  end
+
+  @doc """
   Gets a single link by id, scoped to the user, with preloaded tags.
 
   Raises `Ecto.NoResultsError` if not found.
@@ -190,6 +208,26 @@ defmodule Liminal.Links do
   """
   def change_link(link, attrs \\ %{}) do
     Link.changeset(link, attrs)
+  end
+
+  @doc """
+  Updates a link's metadata fields from the indexer.
+  Only sets title from metadata if the user hasn't already provided one.
+  """
+  def update_link_metadata(link, metadata) do
+    # Only set title from metadata if the user hasn't provided one
+    metadata = if link.title, do: Map.delete(metadata, :title), else: metadata
+    metadata = Map.put(metadata, :indexed_at, DateTime.utc_now(:second))
+
+    case link |> Link.metadata_changeset(metadata) |> Repo.update() do
+      {:ok, updated_link} ->
+        updated_link = Repo.preload(updated_link, [link_tags: :tag], force: true)
+        broadcast(link.user_id, {:link_updated, updated_link})
+        {:ok, updated_link}
+
+      error ->
+        error
+    end
   end
 
   ## Viewed state
@@ -414,6 +452,14 @@ defmodule Liminal.Links do
       {:ok, %{link: link}} ->
         link = Repo.preload(link, link_tags: :tag)
         broadcast(scope.user.id, {:link_created, link})
+
+        if Application.get_env(:liminal, :start_indexer, true) do
+          Task.Supervisor.start_child(
+            Liminal.Links.IndexerTaskSupervisor,
+            fn -> Liminal.Links.Indexer.index(link.id, scope.user.id) end
+          )
+        end
+
         {:ok, link}
 
       {:error, :link, changeset, _changes} ->

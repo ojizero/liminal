@@ -26,6 +26,17 @@ defmodule Liminal.Links.Janitor do
   @impl true
   def handle_info(:sweep, state) do
     Liminal.Links.cleanup_expired()
+
+    if Application.get_env(:liminal, :start_indexer, true) do
+      Liminal.Links.list_unindexed_links()
+      |> Enum.each(fn link ->
+        Task.Supervisor.start_child(
+          Liminal.Links.IndexerTaskSupervisor,
+          fn -> Liminal.Links.Indexer.index(link.id, link.user_id) end
+        )
+      end)
+    end
+
     schedule_sweep(@sweep_interval_ms)
     {:noreply, state}
   end

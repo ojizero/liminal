@@ -15,6 +15,7 @@ defmodule Liminal.Application do
          repos: Application.fetch_env!(:liminal, :ecto_repos), skip: skip_migrations?()},
         {DNSCluster, query: Application.get_env(:liminal, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Liminal.PubSub},
+        {Task.Supervisor, name: Liminal.Links.IndexerTaskSupervisor},
         # Start to serve requests, typically the last entry
         LiminalWeb.Endpoint
       ] ++ janitor_children()
