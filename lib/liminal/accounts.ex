@@ -8,6 +8,15 @@ defmodule Liminal.Accounts do
 
   alias Liminal.Accounts.{Scope, User, UserToken}
 
+  @admin_cache_key {__MODULE__, :has_admins}
+
+  @doc """
+  Returns whether public signups are enabled via configuration.
+  """
+  def signups_enabled? do
+    Application.get_env(:liminal, :signups_enabled, false)
+  end
+
   ## Database getters
 
   @doc """
@@ -84,6 +93,26 @@ defmodule Liminal.Accounts do
     Repo.transact(fn ->
       with {:ok, user} <- Repo.insert(User.registration_changeset(%User{}, attrs)),
            :ok <- Liminal.Links.create_default_tags(user.id) do
+        {:ok, user}
+      end
+    end)
+  end
+
+  @doc """
+  Registers the first admin user during initial instance setup.
+  Only succeeds if no admin users exist yet. Raises if admins already exist.
+  """
+  def register_admin(attrs) do
+    if any_admins?(), do: raise("cannot register admin: admin users already exist")
+
+    Repo.transact(fn ->
+      with {:ok, user} <-
+             %User{}
+             |> User.registration_changeset(attrs)
+             |> Ecto.Changeset.put_change(:role, "admin")
+             |> Repo.insert(),
+           :ok <- Liminal.Links.create_default_tags(user.id) do
+        :persistent_term.put(@admin_cache_key, true)
         {:ok, user}
       end
     end)
@@ -289,7 +318,15 @@ defmodule Liminal.Accounts do
   def promote_user(scope, user) do
     ensure_admin!(scope)
     ensure_not_admin!(user)
-    Repo.update(User.role_changeset(user, %{role: "admin"}))
+
+    case Repo.update(User.role_changeset(user, %{role: "admin"})) do
+      {:ok, user} ->
+        :persistent_term.put(@admin_cache_key, true)
+        {:ok, user}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -347,6 +384,27 @@ defmodule Liminal.Accounts do
   # could leave zero admins. Acceptable for a small app with few admins.
   defp admin_count do
     Repo.one(from u in User, where: u.role == "admin", select: count(u.id))
+  end
+
+  @doc """
+  Returns true if at least one admin user exists in the system.
+  Used to determine if first-time setup is needed.
+  """
+  def any_admins? do
+    case :persistent_term.get(@admin_cache_key, :not_set) do
+      true ->
+        true
+
+      :not_set ->
+        result = Repo.exists?(from u in User, where: u.role == "admin")
+        if result, do: :persistent_term.put(@admin_cache_key, true)
+        result
+    end
+  end
+
+  @doc false
+  def reset_admin_cache do
+    :persistent_term.erase(@admin_cache_key)
   end
 
   @doc """

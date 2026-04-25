@@ -10,16 +10,25 @@ defmodule LiminalWeb.UserLive.Registration do
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="mx-auto max-w-sm">
         <div class="text-center">
-          <.header>
-            Register for an account
-            <:subtitle>
-              Already registered?
-              <.link navigate={~p"/users/log-in"} class="font-semibold text-brand hover:underline">
-                Log in
-              </.link>
-              to your account now.
-            </:subtitle>
-          </.header>
+          <%= if @admin_setup do %>
+            <.header>
+              Set up your instance
+              <:subtitle>
+                Create the first admin account to get started.
+              </:subtitle>
+            </.header>
+          <% else %>
+            <.header>
+              Register for an account
+              <:subtitle>
+                Already registered?
+                <.link navigate={~p"/users/log-in"} class="font-semibold text-brand hover:underline">
+                  Log in
+                </.link>
+                to your account now.
+              </:subtitle>
+            </.header>
+          <% end %>
         </div>
 
         <.form for={@form} id="registration_form" phx-submit="save" phx-change="validate">
@@ -48,9 +57,15 @@ defmodule LiminalWeb.UserLive.Registration do
             required
           />
 
-          <.button phx-disable-with="Creating account..." class="btn btn-primary w-full">
-            Create an account
-          </.button>
+          <%= if @admin_setup do %>
+            <.button phx-disable-with="Creating admin account..." class="btn btn-primary w-full">
+              Create Admin Account
+            </.button>
+          <% else %>
+            <.button phx-disable-with="Creating account..." class="btn btn-primary w-full">
+              Create an account
+            </.button>
+          <% end %>
         </.form>
       </div>
     </Layouts.app>
@@ -64,22 +79,58 @@ defmodule LiminalWeb.UserLive.Registration do
   end
 
   def mount(_params, _session, socket) do
-    changeset = Accounts.change_user_registration(%User{})
+    signups_enabled = Accounts.signups_enabled?()
+    has_admins = Accounts.any_admins?()
 
-    {:ok, assign_form(socket, changeset), temporary_assigns: [form: nil]}
+    cond do
+      signups_enabled ->
+        changeset = Accounts.change_user_registration(%User{})
+
+        {:ok,
+         socket
+         |> assign(:admin_setup, false)
+         |> assign_form(changeset), temporary_assigns: [form: nil]}
+
+      not has_admins ->
+        changeset = Accounts.change_user_registration(%User{})
+
+        {:ok,
+         socket
+         |> assign(:admin_setup, true)
+         |> assign_form(changeset), temporary_assigns: [form: nil]}
+
+      true ->
+        {:ok,
+         socket
+         |> put_flash(:error, "Public signups are disabled. Please contact an administrator.")
+         |> push_navigate(to: ~p"/users/log-in")}
+    end
   end
 
   @impl true
   def handle_event("save", %{"user" => user_params}, socket) do
-    case Accounts.register_user(user_params) do
-      {:ok, _user} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Account created successfully! Please log in.")
-         |> push_navigate(to: ~p"/users/log-in")}
+    if socket.assigns.admin_setup do
+      case Accounts.register_admin(user_params) do
+        {:ok, _user} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Admin account created successfully! Please log in.")
+           |> push_navigate(to: ~p"/users/log-in")}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign_form(socket, changeset)}
+        {:error, %Ecto.Changeset{} = changeset} ->
+          {:noreply, assign_form(socket, changeset)}
+      end
+    else
+      case Accounts.register_user(user_params) do
+        {:ok, _user} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Account created successfully! Please log in.")
+           |> push_navigate(to: ~p"/users/log-in")}
+
+        {:error, %Ecto.Changeset{} = changeset} ->
+          {:noreply, assign_form(socket, changeset)}
+      end
     end
   end
 

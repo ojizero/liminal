@@ -29,6 +29,8 @@ config :swoosh, :api_client, false
 # Don't start the Janitor GenServer during tests
 config :liminal, start_janitor: false
 
+config :liminal, :signups_enabled, true
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

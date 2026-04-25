@@ -20,7 +20,7 @@ defmodule LiminalWeb.UserLive.SettingsTest do
       assert {:error, redirect} = live(conn, ~p"/users/settings")
 
       assert {:redirect, %{to: path, flash: flash}} = redirect
-      assert path == ~p"/users/log-in"
+      assert path == ~p"/users/register"
       assert %{"error" => "You must log in to access this page."} = flash
     end
 

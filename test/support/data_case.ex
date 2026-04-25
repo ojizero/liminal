@@ -36,6 +36,7 @@ defmodule Liminal.DataCase do
   Sets up the sandbox based on the test tags.
   """
   def setup_sandbox(tags) do
+    Liminal.Accounts.reset_admin_cache()
     pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Liminal.Repo, shared: not tags[:async])
     on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
   end

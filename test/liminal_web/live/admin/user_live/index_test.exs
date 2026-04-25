@@ -8,7 +8,7 @@ defmodule LiminalWeb.Admin.UserLive.IndexTest do
     test "redirects from /admin/users to login", %{conn: conn} do
       assert {:error, redirect} = live(conn, ~p"/admin/users")
       assert {:redirect, %{to: to}} = redirect
-      assert to =~ ~p"/users/log-in"
+      assert to =~ ~p"/users/register"
     end
   end
 

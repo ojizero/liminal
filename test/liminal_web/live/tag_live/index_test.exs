@@ -8,7 +8,7 @@ defmodule LiminalWeb.TagLive.IndexTest do
     test "redirects from /tags", %{conn: conn} do
       assert {:error, redirect} = live(conn, ~p"/tags")
       assert {:redirect, %{to: to}} = redirect
-      assert to =~ ~p"/users/log-in"
+      assert to =~ ~p"/users/register"
     end
   end
 

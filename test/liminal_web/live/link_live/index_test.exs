@@ -8,7 +8,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
     test "redirects from /", %{conn: conn} do
       assert {:error, redirect} = live(conn, ~p"/")
       assert {:redirect, %{to: to}} = redirect
-      assert to =~ ~p"/users/log-in"
+      assert to =~ ~p"/users/register"
     end
   end
 

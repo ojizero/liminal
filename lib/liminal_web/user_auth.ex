@@ -221,10 +221,13 @@ defmodule LiminalWeb.UserAuth do
     if socket.assigns.current_scope && socket.assigns.current_scope.user do
       {:cont, socket}
     else
+      redirect_path =
+        if Accounts.any_admins?(), do: ~p"/users/log-in", else: ~p"/users/register"
+
       socket =
         socket
         |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
-        |> Phoenix.LiveView.redirect(to: ~p"/users/log-in")
+        |> Phoenix.LiveView.redirect(to: redirect_path)
 
       {:halt, socket}
     end
@@ -287,10 +290,13 @@ defmodule LiminalWeb.UserAuth do
     if conn.assigns.current_scope && conn.assigns.current_scope.user do
       conn
     else
+      redirect_path =
+        if Accounts.any_admins?(), do: ~p"/users/log-in", else: ~p"/users/register"
+
       conn
       |> put_flash(:error, "You must log in to access this page.")
       |> maybe_store_return_to()
-      |> redirect(to: ~p"/users/log-in")
+      |> redirect(to: redirect_path)
       |> halt()
     end
   end

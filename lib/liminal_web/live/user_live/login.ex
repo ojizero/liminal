@@ -1,6 +1,8 @@
 defmodule LiminalWeb.UserLive.Login do
   use LiminalWeb, :live_view
 
+  alias Liminal.Accounts
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -10,14 +12,16 @@ defmodule LiminalWeb.UserLive.Login do
           <.header>
             <p>Log in</p>
             <:subtitle>
-              <%= if @current_scope do %>
-                You need to reauthenticate to perform sensitive actions on your account.
-              <% else %>
-                Don't have an account? <.link
-                  navigate={~p"/users/register"}
-                  class="font-semibold text-brand hover:underline"
-                  phx-no-format
-                >Sign up</.link> for an account now.
+              <%= cond do %>
+                <% !!@current_scope -> %>
+                  You need to reauthenticate to perform sensitive actions on your account.
+                <% @show_signup_link -> %>
+                  Don't have an account? <.link
+                    navigate={~p"/users/register"}
+                    class="font-semibold text-brand hover:underline"
+                    phx-no-format
+                  >Sign up</.link> for an account now.
+                <% true -> %>
               <% end %>
             </:subtitle>
           </.header>
@@ -60,13 +64,21 @@ defmodule LiminalWeb.UserLive.Login do
 
   @impl true
   def mount(_params, _session, socket) do
-    username =
-      Phoenix.Flash.get(socket.assigns.flash, :username) ||
-        get_in(socket.assigns, [:current_scope, Access.key(:user), Access.key(:username)])
+    signups_enabled = Accounts.signups_enabled?()
+    has_admins = Accounts.any_admins?()
 
-    form = to_form(%{"username" => username}, as: "user")
+    if not signups_enabled and not has_admins do
+      {:ok, push_navigate(socket, to: ~p"/users/register")}
+    else
+      username =
+        Phoenix.Flash.get(socket.assigns.flash, :username) ||
+          get_in(socket.assigns, [:current_scope, Access.key(:user), Access.key(:username)])
 
-    {:ok, assign(socket, form: form, trigger_submit: false)}
+      form = to_form(%{"username" => username}, as: "user")
+      show_signup_link = signups_enabled or not has_admins
+
+      {:ok, assign(socket, form: form, trigger_submit: false, show_signup_link: show_signup_link)}
+    end
   end
 
   @impl true
