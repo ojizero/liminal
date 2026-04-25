@@ -188,6 +188,23 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert render(view) =~ "Last tag removed"
     end
 
+    test "link deleted via PubSub is removed from the stream", %{conn: conn, scope: scope} do
+      link = link_fixture(scope, %{url: "https://cross-session.com", title: "Cross Session"})
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      assert has_element?(view, "#links", "Cross Session")
+
+      # Simulate deletion from another session/janitor
+      Phoenix.PubSub.broadcast(
+        Liminal.PubSub,
+        "user_links:#{scope.user.id}",
+        {:link_deleted, link.id}
+      )
+
+      render(view)
+      refute has_element?(view, "#links", "Cross Session")
+    end
+
     test "filter toggles work", %{conn: conn, scope: scope} do
       _link1 = link_fixture(scope, %{url: "https://unviewed.com", title: "Unviewed Link"})
       link2 = link_fixture(scope, %{url: "https://viewed.com", title: "Viewed Link"})

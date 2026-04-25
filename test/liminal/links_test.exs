@@ -194,6 +194,17 @@ defmodule Liminal.LinksTest do
       assert {:ok, _deleted} = Links.delete_link(scope, link)
       assert [] = Links.list_links(scope, filter: :all)
     end
+
+    test "broadcasts {:link_deleted, link_id} on success" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope)
+
+      Links.subscribe_links(scope)
+      {:ok, _} = Links.delete_link(scope, link)
+
+      assert_receive {:link_deleted, link_id}
+      assert link_id == link.id
+    end
   end
 
   describe "mark_viewed/2" do
@@ -344,6 +355,34 @@ defmodule Liminal.LinksTest do
     test "returns {:ok, :tag_removed} for a non-existent ID" do
       assert {:ok, :tag_removed} = Links.cleanup_link(Ecto.UUID.generate())
     end
+
+    test "broadcasts {:link_deleted, link_id} when link becomes orphaned" do
+      scope = user_scope_fixture()
+      tag = tag_fixture(scope)
+      link = link_fixture(scope, %{tag_ids: [tag.id]})
+
+      Links.subscribe_links(scope)
+      refetched = Links.get_link!(scope, link.id)
+      [lt] = refetched.link_tags
+
+      assert {:ok, :link_deleted} = Links.cleanup_link(lt.id)
+      assert_receive {:link_deleted, link_id}
+      assert link_id == link.id
+    end
+
+    test "does not broadcast when tags remain" do
+      scope = user_scope_fixture()
+      tag1 = tag_fixture(scope)
+      tag2 = tag_fixture(scope)
+      link = link_fixture(scope, %{tag_ids: [tag1.id, tag2.id]})
+
+      Links.subscribe_links(scope)
+      refetched = Links.get_link!(scope, link.id)
+      target = Enum.find(refetched.link_tags, &(&1.tag_id == tag1.id))
+
+      assert {:ok, :tag_removed} = Links.cleanup_link(target.id)
+      refute_receive {:link_deleted, _}
+    end
   end
 
   describe "cleanup_expired/0" do
@@ -375,6 +414,27 @@ defmodule Liminal.LinksTest do
 
       refetched = Links.get_link!(scope, link.id)
       assert length(refetched.link_tags) == 1
+    end
+
+    test "broadcasts for each orphaned link during sweep" do
+      scope = user_scope_fixture()
+      tag = tag_fixture(scope, %{expires_in_days: 1})
+      link = link_fixture(scope, %{tag_ids: [tag.id]})
+
+      Links.subscribe_links(scope)
+
+      refetched = Links.get_link!(scope, link.id)
+      [lt] = refetched.link_tags
+      past = DateTime.add(DateTime.utc_now(:second), -1, :day)
+
+      Liminal.Repo.update_all(
+        Ecto.Query.from(lt_q in Liminal.Links.LinkTag, where: lt_q.id == ^lt.id),
+        set: [expires_at: past]
+      )
+
+      assert :ok = Links.cleanup_expired()
+      assert_receive {:link_deleted, link_id}
+      assert link_id == link.id
     end
 
     test "only removes expired, keeps remaining tags on same link" do

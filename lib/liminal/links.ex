@@ -8,6 +8,19 @@ defmodule Liminal.Links do
   alias Liminal.Repo
   alias Liminal.Links.{Tag, Link, LinkTag}
 
+  ## PubSub
+
+  @doc "Subscribe the calling process to link events for the given user."
+  def subscribe_links(scope) do
+    Phoenix.PubSub.subscribe(Liminal.PubSub, topic(scope.user.id))
+  end
+
+  defp topic(user_id), do: "user_links:#{user_id}"
+
+  defp broadcast_link_deleted(user_id, link_id) do
+    Phoenix.PubSub.broadcast(Liminal.PubSub, topic(user_id), {:link_deleted, link_id})
+  end
+
   @default_tags [
     %{name: "saved for later", expires_in_days: 30},
     %{name: "read later", expires_in_days: 14},
@@ -152,7 +165,14 @@ defmodule Liminal.Links do
     user_id = scope.user.id
     ^user_id = link.user_id
 
-    Repo.delete(link)
+    case Repo.delete(link) do
+      {:ok, _} = result ->
+        broadcast_link_deleted(user_id, link.id)
+        result
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -245,7 +265,14 @@ defmodule Liminal.Links do
           |> Repo.aggregate(:count)
 
         if remaining == 0 do
+          user_id =
+            from(l in Link, where: l.id == ^link_id, select: l.user_id)
+            |> Repo.one()
+
           from(l in Link, where: l.id == ^link_id) |> Repo.delete_all()
+
+          if user_id, do: broadcast_link_deleted(user_id, link_id)
+
           {:ok, :link_deleted}
         else
           {:ok, :tag_removed}

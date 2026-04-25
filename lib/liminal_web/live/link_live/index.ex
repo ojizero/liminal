@@ -176,6 +176,8 @@ defmodule LiminalWeb.LinkLive.Index do
     tags = Links.list_tags(scope)
     links = Links.list_links(scope, filter: :unviewed)
 
+    if connected?(socket), do: Links.subscribe_links(scope)
+
     socket =
       socket
       |> assign(:tags, tags)
@@ -216,6 +218,11 @@ defmodule LiminalWeb.LinkLive.Index do
     |> assign(:link, link)
     |> assign(:selected_tag_ids, [])
     |> assign(:form, to_form(Links.change_link(link)))
+  end
+
+  @impl true
+  def handle_info({:link_deleted, link_id}, socket) do
+    {:noreply, stream_delete(socket, :links, %{id: link_id})}
   end
 
   @impl true
