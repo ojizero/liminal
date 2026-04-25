@@ -1,0 +1,45 @@
+# Build artifacts
+_build/
+deps/
+node_modules/
+
+# Git
+.git
+
+# Database files
+db/*.db*
+
+# Generated assets
+priv/static/assets/
+priv/static/cache_manifest.json
+
+# Crash dumps
+erl_crash.dump
+
+# Environment and secrets
+.env
+.env.*
+
+# Docker files (avoid recursive builds)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation and metadata
+README.md
+AGENTS.md
+CLAUDE.md
+LICENSE*
+
+# Tool configs
+.claude/
+.mise.toml
+.mise.local.toml
+aegis.toml
+.aegis/
+
+# Other artifacts
+cover/
+doc/
+tmp/
+*.ez

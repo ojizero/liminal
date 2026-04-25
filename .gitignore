@@ -46,3 +46,6 @@ npm-debug.log
 aegis.toml
 .aegis/
 
+# Environment files (contain secrets)
+/.env
+
