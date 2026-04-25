@@ -106,47 +106,51 @@ defmodule LiminalWeb.Admin.UserLive.IndexTest do
     end
   end
 
-  describe "admin user - demote admin" do
+  describe "admin user - step down" do
     setup :register_and_log_in_admin
 
-    test "demotes another admin to normal user", %{conn: conn} do
-      other_admin = admin_user_fixture(%{username: "demoteme"})
-      {:ok, view, _html} = live(conn, ~p"/admin/users")
-
-      assert has_element?(view, "#users", "demoteme")
-
-      assert has_element?(
-               view,
-               "button[phx-click='demote_admin'][phx-value-id='#{other_admin.id}']"
-             )
-
-      view
-      |> element("button[phx-click='demote_admin'][phx-value-id='#{other_admin.id}']")
-      |> render_click()
-
-      assert has_element?(view, "#users .badge-ghost", "user")
-    end
-
-    test "does not show demote button for current user's own row", %{conn: conn, user: admin} do
+    test "shows step down button for current admin's own row", %{conn: conn, user: admin} do
       {:ok, view, _html} = live(conn, ~p"/admin/users")
 
       assert has_element?(view, "#users", admin.username)
-      refute has_element?(view, "button[phx-click='demote_admin'][phx-value-id='#{admin.id}']")
+      assert has_element?(view, "button[phx-click='step_down']")
     end
 
-    test "shows error flash when trying to demote the last admin", %{conn: conn, user: admin} do
-      other_admin = admin_user_fixture(%{username: "lastadmin"})
+    test "does not show any action buttons for other admin rows", %{conn: conn} do
+      other_admin = admin_user_fixture(%{username: "otheradmin"})
       {:ok, view, _html} = live(conn, ~p"/admin/users")
 
-      # Make the logged-in admin no longer admin in DB so other_admin is the last admin.
-      # The LiveView socket retains the admin scope, so ensure_admin! still passes.
-      Liminal.Repo.update!(Ecto.Changeset.change(admin, role: "user"))
+      assert has_element?(view, "#users", "otheradmin")
+      refute has_element?(view, "button[phx-click='step_down'][phx-value-id='#{other_admin.id}']")
+
+      refute has_element?(
+               view,
+               "button[phx-click='make_admin'][phx-value-id='#{other_admin.id}']"
+             )
+
+      refute has_element?(view, "button[phx-click='delete'][phx-value-id='#{other_admin.id}']")
+    end
+
+    test "stepping down redirects to home with flash", %{conn: conn, user: admin} do
+      _other_admin = admin_user_fixture(%{username: "keepadmin"})
+      {:ok, view, _html} = live(conn, ~p"/admin/users")
 
       view
-      |> element("button[phx-click='demote_admin'][phx-value-id='#{other_admin.id}']")
+      |> element("button[phx-click='step_down']")
       |> render_click()
 
-      assert render(view) =~ "Cannot demote the last admin."
+      flash = assert_redirect(view, ~p"/")
+      assert flash["info"] == "#{admin.username} is now a normal user."
+    end
+
+    test "shows error flash when last admin tries to step down", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/admin/users")
+
+      view
+      |> element("button[phx-click='step_down']")
+      |> render_click()
+
+      assert render(view) =~ "You are the last admin and cannot step down."
     end
   end
 

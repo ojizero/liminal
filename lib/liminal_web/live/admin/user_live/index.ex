@@ -62,18 +62,19 @@ defmodule LiminalWeb.Admin.UserLive.Index do
 
           <%!-- Actions --%>
           <%= cond do %>
-            <% user.role == "admin" and user.id != @current_scope.user.id -> %>
+            <% user.role == "admin" and user.id == @current_scope.user.id -> %>
               <div class="flex gap-1 items-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  phx-click="demote_admin"
-                  phx-value-id={user.id}
-                  data-confirm="Remove admin privileges from this user?"
+                  phx-click="step_down"
+                  data-confirm="Are you sure? You will need another admin to restore your privileges."
                   class="btn btn-ghost btn-sm"
                 >
                   Become normal user
                 </button>
               </div>
-            <% user.role != "admin" -> %>
+            <% user.role == "admin" -> %>
+              <%!-- Other admin users — no actions --%>
+            <% true -> %>
               <div class="flex gap-1 items-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   phx-click="make_admin"
@@ -116,8 +117,6 @@ defmodule LiminalWeb.Admin.UserLive.Index do
                   Delete
                 </button>
               </div>
-            <% true -> %>
-              <%!-- Current admin user — no actions (use settings page) --%>
           <% end %>
 
           <%!-- Reset link display --%>
@@ -239,36 +238,29 @@ defmodule LiminalWeb.Admin.UserLive.Index do
       {:ok, updated_user} ->
         {:noreply,
          socket
-         |> put_flash(:info, "User is now an admin.")
+         |> put_flash(:info, "#{user.username} is now an admin.")
          |> stream_insert(:users, updated_user)}
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to make user an admin.")}
+        {:noreply, put_flash(socket, :error, "Failed to make #{user.username} an admin.")}
     end
   end
 
-  def handle_event("demote_admin", %{"id" => id}, socket) do
+  def handle_event("step_down", _params, socket) do
     scope = socket.assigns.current_scope
-    user = Accounts.get_user!(id)
 
-    case Accounts.demote_user(scope, user) do
-      {:ok, updated_user} ->
+    case Accounts.step_down_from_admin(scope) do
+      {:ok, _updated_user} ->
         {:noreply,
          socket
-         |> put_flash(:info, "User is now a normal user.")
-         |> stream_insert(:users, updated_user)}
+         |> put_flash(:info, "#{scope.user.username} is now a normal user.")
+         |> redirect(to: ~p"/")}
 
       {:error, :last_admin} ->
-        {:noreply, put_flash(socket, :error, "Cannot demote the last admin.")}
-
-      {:error, :self_demotion} ->
-        {:noreply, put_flash(socket, :error, "Cannot demote yourself from the admin panel.")}
+        {:noreply, put_flash(socket, :error, "You are the last admin and cannot step down.")}
 
       {:error, :not_admin} ->
-        {:noreply, put_flash(socket, :error, "User is not an admin.")}
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to demote user.")}
+        {:noreply, put_flash(socket, :error, "You are not an admin.")}
     end
   end
 
@@ -280,11 +272,11 @@ defmodule LiminalWeb.Admin.UserLive.Index do
       {:ok, updated_user} ->
         {:noreply,
          socket
-         |> put_flash(:info, "User disabled.")
+         |> put_flash(:info, "#{user.username} disabled.")
          |> stream_insert(:users, updated_user)}
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to disable user.")}
+        {:noreply, put_flash(socket, :error, "Failed to disable #{user.username}.")}
     end
   end
 
@@ -296,11 +288,11 @@ defmodule LiminalWeb.Admin.UserLive.Index do
       {:ok, updated_user} ->
         {:noreply,
          socket
-         |> put_flash(:info, "User enabled.")
+         |> put_flash(:info, "#{user.username} enabled.")
          |> stream_insert(:users, updated_user)}
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to enable user.")}
+        {:noreply, put_flash(socket, :error, "Failed to enable #{user.username}.")}
     end
   end
 
@@ -311,7 +303,7 @@ defmodule LiminalWeb.Admin.UserLive.Index do
 
     {:noreply,
      socket
-     |> put_flash(:info, "User deleted.")
+     |> put_flash(:info, "#{user.username} deleted.")
      |> stream_delete(:users, user)}
   end
 
