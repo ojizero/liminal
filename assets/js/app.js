@@ -37,6 +37,15 @@ topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
+// Close dropdowns when clicking outside
+document.addEventListener("click", (event) => {
+  document.querySelectorAll("details.dropdown[open]").forEach((details) => {
+    if (!details.contains(event.target)) {
+      details.removeAttribute("open")
+    }
+  })
+})
+
 // connect if there are any LiveViews on the page
 liveSocket.connect()
 

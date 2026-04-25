@@ -43,6 +43,7 @@ defmodule LiminalWeb.CoreComponents do
   attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
   attr :title, :string, default: nil
   attr :kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup"
+  attr :autoclose, :boolean, default: true, doc: "whether to auto-dismiss the flash after a timeout"
   attr :rest, :global, doc: "the arbitrary HTML attributes to add to the flash container"
 
   slot :inner_block, doc: "the optional inner block that renders the flash message"
@@ -55,6 +56,8 @@ defmodule LiminalWeb.CoreComponents do
       :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
       id={@id}
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
+      phx-hook=".FlashAutoClose"
+      data-timeout={@autoclose && "5000"}
       role="alert"
       class="toast toast-top toast-end z-50"
       {@rest}
@@ -76,6 +79,18 @@ defmodule LiminalWeb.CoreComponents do
         </button>
       </div>
     </div>
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".FlashAutoClose">
+      export default {
+        mounted() {
+          const timeout = parseInt(this.el.dataset.timeout, 10)
+          if (!timeout) return
+          this.timer = setTimeout(() => this.el.click(), timeout)
+        },
+        destroyed() {
+          clearTimeout(this.timer)
+        }
+      }
+    </script>
     """
   end
 

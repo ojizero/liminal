@@ -110,6 +110,7 @@ defmodule LiminalWeb.Layouts do
       <.flash
         id="client-error"
         kind={:error}
+        autoclose={false}
         title={gettext("We can't find the internet")}
         phx-disconnected={show(".phx-client-error #client-error") |> JS.remove_attribute("hidden")}
         phx-connected={hide("#client-error") |> JS.set_attribute({"hidden", ""})}
@@ -122,6 +123,7 @@ defmodule LiminalWeb.Layouts do
       <.flash
         id="server-error"
         kind={:error}
+        autoclose={false}
         title={gettext("Something went wrong!")}
         phx-disconnected={show(".phx-server-error #server-error") |> JS.remove_attribute("hidden")}
         phx-connected={hide("#server-error") |> JS.set_attribute({"hidden", ""})}
