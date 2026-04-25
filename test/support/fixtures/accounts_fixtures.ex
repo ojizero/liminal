@@ -40,6 +40,27 @@ defmodule Liminal.AccountsFixtures do
     Scope.for_user(user)
   end
 
+  def admin_user_fixture(attrs \\ %{}) do
+    user = user_fixture(attrs)
+    Liminal.Repo.update!(Ecto.Changeset.change(user, role: "admin"))
+  end
+
+  def admin_scope_fixture do
+    admin_user_fixture() |> user_scope_fixture()
+  end
+
+  def invited_user_fixture(attrs \\ %{}) do
+    admin_scope = admin_scope_fixture()
+
+    {:ok, {user, _token}} =
+      Accounts.invite_user(admin_scope, %{
+        username: Map.get(attrs, :username, unique_username()),
+        role: Map.get(attrs, :role, "user")
+      })
+
+    user
+  end
+
   def set_password(user) do
     {:ok, {user, _expired_tokens}} =
       Accounts.update_user_password(user, %{password: valid_user_password()})

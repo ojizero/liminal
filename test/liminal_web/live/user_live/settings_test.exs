@@ -108,6 +108,125 @@ defmodule LiminalWeb.UserLive.SettingsTest do
     end
   end
 
+  describe "delete account" do
+    test "delete button renders for all users", %{conn: conn} do
+      user = user_fixture()
+
+      {:ok, view, _html} =
+        conn
+        |> log_in_user(user)
+        |> live(~p"/users/settings")
+
+      assert has_element?(view, "#delete-account-btn")
+    end
+
+    test "normal user can delete their account", %{conn: conn} do
+      user = user_fixture()
+
+      {:ok, view, _html} =
+        conn
+        |> log_in_user(user)
+        |> live(~p"/users/settings")
+
+      view
+      |> element("#delete-account-btn")
+      |> render_click()
+
+      assert_redirect(view, ~p"/users/log-in")
+    end
+
+    test "admin with other admins can delete their account", %{conn: conn} do
+      _other_admin = admin_user_fixture(%{username: "other_admin"})
+      admin = admin_user_fixture(%{username: "self_del_admin"})
+
+      {:ok, view, _html} =
+        conn
+        |> log_in_user(admin)
+        |> live(~p"/users/settings")
+
+      view
+      |> element("#delete-account-btn")
+      |> render_click()
+
+      assert_redirect(view, ~p"/users/log-in")
+    end
+
+    test "last admin cannot delete their account", %{conn: conn} do
+      admin = admin_user_fixture()
+
+      {:ok, view, _html} =
+        conn
+        |> log_in_user(admin)
+        |> live(~p"/users/settings")
+
+      view
+      |> element("#delete-account-btn")
+      |> render_click()
+
+      assert has_element?(view, "#delete-account-btn")
+      assert render(view) =~ "You are the last admin"
+    end
+  end
+
+  describe "become normal user" do
+    test "button renders only for admin users", %{conn: conn} do
+      admin = admin_user_fixture()
+
+      {:ok, view, _html} =
+        conn
+        |> log_in_user(admin)
+        |> live(~p"/users/settings")
+
+      assert has_element?(view, "#become-normal-user-btn")
+    end
+
+    test "button does NOT render for normal users", %{conn: conn} do
+      user = user_fixture()
+
+      {:ok, view, _html} =
+        conn
+        |> log_in_user(user)
+        |> live(~p"/users/settings")
+
+      refute has_element?(view, "#become-normal-user-btn")
+    end
+
+    test "admin can become normal user", %{conn: conn} do
+      _other_admin = admin_user_fixture(%{username: "stay_admin"})
+      admin = admin_user_fixture(%{username: "step_down"})
+
+      {:ok, view, _html} =
+        conn
+        |> log_in_user(admin)
+        |> live(~p"/users/settings")
+
+      view
+      |> element("#become-normal-user-btn")
+      |> render_click()
+
+      assert_redirect(view, ~p"/users/settings")
+
+      updated_user = Accounts.get_user!(admin.id)
+      assert updated_user.role == "user"
+    end
+
+    test "last admin cannot become normal user", %{conn: conn} do
+      admin = admin_user_fixture()
+
+      {:ok, view, _html} =
+        conn
+        |> log_in_user(admin)
+        |> live(~p"/users/settings")
+
+      view
+      |> element("#become-normal-user-btn")
+      |> render_click()
+
+      assert has_element?(view, "#become-normal-user-btn")
+      assert render(view) =~ "You are the last admin"
+    end
+  end
+
   describe "update username form" do
     setup %{conn: conn} do
       user = user_fixture()

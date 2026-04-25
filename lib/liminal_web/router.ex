@@ -59,6 +59,16 @@ defmodule LiminalWeb.Router do
     post "/users/update-password", UserSessionController, :update_password
   end
 
+  scope "/admin", LiminalWeb.Admin do
+    pipe_through [:browser, :require_authenticated_user, :require_admin_user]
+
+    live_session :require_admin,
+      on_mount: [{LiminalWeb.UserAuth, :require_admin}] do
+      live "/users", UserLive.Index, :index
+      live "/users/new", UserLive.Index, :new
+    end
+  end
+
   scope "/", LiminalWeb do
     pipe_through [:browser]
 
@@ -66,6 +76,7 @@ defmodule LiminalWeb.Router do
       on_mount: [{LiminalWeb.UserAuth, :mount_current_scope}] do
       live "/users/register", UserLive.Registration, :new
       live "/users/log-in", UserLive.Login, :new
+      live "/users/reset-password/:token", UserLive.ResetPassword, :edit
     end
 
     post "/users/log-in", UserSessionController, :create

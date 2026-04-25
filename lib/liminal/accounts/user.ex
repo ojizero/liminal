@@ -6,6 +6,8 @@ defmodule Liminal.Accounts.User do
     field :username, :string
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
+    field :role, :string, default: "user"
+    field :disabled_at, :utc_datetime
     field :confirmed_at, :utc_datetime
     field :authenticated_at, :utc_datetime, virtual: true
 
@@ -141,4 +143,38 @@ defmodule Liminal.Accounts.User do
     Bcrypt.no_user_verify()
     false
   end
+
+  @doc """
+  A user changeset for inviting users (admin-created, no password).
+
+  Validates username, casts role, and confirms the account.
+  The invited user sets their password later via a reset link.
+  """
+  def invite_changeset(user, attrs) do
+    user
+    |> username_changeset(attrs)
+    |> cast(attrs, [:role])
+    |> validate_inclusion(:role, ~w(admin user))
+    |> confirm_changeset()
+  end
+
+  @doc """
+  A user changeset for changing the role.
+  """
+  def role_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:role])
+    |> validate_required([:role])
+    |> validate_inclusion(:role, ~w(admin user))
+  end
+
+  @doc """
+  Returns a changeset that disables the user by setting `disabled_at`.
+  """
+  def disable_changeset(user), do: change(user, disabled_at: DateTime.utc_now(:second))
+
+  @doc """
+  Returns a changeset that enables the user by clearing `disabled_at`.
+  """
+  def enable_changeset(user), do: change(user, disabled_at: nil)
 end

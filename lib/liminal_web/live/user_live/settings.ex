@@ -70,6 +70,38 @@ defmodule LiminalWeb.UserLive.Settings do
           Save Password
         </.button>
       </.form>
+
+      <%= if @current_scope.user.role == "admin" do %>
+        <div class="divider" />
+        <.header>
+          Admin Role
+          <:subtitle>
+            You are currently an admin. You can step down to become a normal user.
+          </:subtitle>
+        </.header>
+        <button
+          id="become-normal-user-btn"
+          phx-click="become_normal_user"
+          data-confirm="Are you sure? You will need another admin to restore your privileges."
+          class="btn btn-ghost btn-sm hover:text-warning"
+        >
+          Become normal user
+        </button>
+      <% end %>
+
+      <div class="divider" />
+      <.header>
+        Danger Zone
+        <:subtitle>Permanently delete your account and all associated data.</:subtitle>
+      </.header>
+      <button
+        id="delete-account-btn"
+        phx-click="delete_account"
+        data-confirm="Are you absolutely sure? This will permanently delete your account and all your data."
+        class="btn btn-ghost btn-sm hover:text-error"
+      >
+        Delete my account
+      </button>
     </Layouts.app>
     """
   end
@@ -143,6 +175,39 @@ defmodule LiminalWeb.UserLive.Settings do
 
       changeset ->
         {:noreply, assign(socket, password_form: to_form(changeset, action: :insert))}
+    end
+  end
+
+  def handle_event("delete_account", _params, socket) do
+    scope = socket.assigns.current_scope
+    true = Accounts.sudo_mode?(scope.user)
+
+    case Accounts.delete_own_account(scope) do
+      {:ok, _user} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Your account has been deleted.")
+         |> redirect(to: ~p"/users/log-in")}
+
+      {:error, :last_admin} ->
+        {:noreply,
+         put_flash(socket, :error, "You are the last admin and cannot delete your account.")}
+    end
+  end
+
+  def handle_event("become_normal_user", _params, socket) do
+    scope = socket.assigns.current_scope
+    true = Accounts.sudo_mode?(scope.user)
+
+    case Accounts.step_down_from_admin(scope) do
+      {:ok, _updated_user} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "You are now a normal user.")
+         |> redirect(to: ~p"/users/settings")}
+
+      {:error, :last_admin} ->
+        {:noreply, put_flash(socket, :error, "You are the last admin and cannot step down.")}
     end
   end
 end

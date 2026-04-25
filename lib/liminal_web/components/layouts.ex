@@ -5,6 +5,8 @@ defmodule LiminalWeb.Layouts do
   """
   use LiminalWeb, :html
 
+  alias Liminal.Accounts.Scope
+
   # Embed all files in layouts/* within this module.
   # The default root.html.heex file contains the HTML
   # skeleton of your application, namely HTML headers
@@ -44,6 +46,9 @@ defmodule LiminalWeb.Layouts do
           <nav class="flex gap-1">
             <.link navigate={~p"/"} class="btn btn-ghost btn-sm">Links</.link>
             <.link navigate={~p"/tags"} class="btn btn-ghost btn-sm">Tags</.link>
+            <%= if Scope.admin?(@current_scope) do %>
+              <.link navigate={~p"/admin/users"} class="btn btn-ghost btn-sm">Admin</.link>
+            <% end %>
           </nav>
         <% end %>
       </div>

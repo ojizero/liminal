@@ -387,4 +387,74 @@ defmodule LiminalWeb.UserAuthTest do
       }
     end
   end
+
+  describe "require_admin_user/2" do
+    setup %{conn: conn} do
+      %{conn: UserAuth.fetch_current_scope_for_user(conn, [])}
+    end
+
+    test "redirects if user is not admin", %{conn: conn, user: user} do
+      conn =
+        conn
+        |> assign(:current_scope, Scope.for_user(user))
+        |> fetch_flash()
+        |> UserAuth.require_admin_user([])
+
+      assert conn.halted
+      assert redirected_to(conn) == ~p"/"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "not authorized"
+    end
+
+    test "does not redirect if user is admin", %{conn: conn} do
+      admin = admin_user_fixture()
+
+      conn =
+        conn
+        |> assign(:current_scope, Scope.for_user(admin))
+        |> UserAuth.require_admin_user([])
+
+      refute conn.halted
+      refute conn.status
+    end
+  end
+
+  describe "on_mount :require_admin" do
+    test "admin user socket continues", %{conn: conn} do
+      admin = %{admin_user_fixture() | authenticated_at: DateTime.utc_now(:second)}
+      user_token = Accounts.generate_user_session_token(admin)
+      session = conn |> put_session(:user_token, user_token) |> get_session()
+
+      {:cont, updated_socket} =
+        UserAuth.on_mount(:require_admin, %{}, session, %LiveView.Socket{})
+
+      assert updated_socket.assigns.current_scope.user.id == admin.id
+    end
+
+    test "non-admin user socket halts with redirect", %{conn: conn, user: user} do
+      user_token = Accounts.generate_user_session_token(user)
+      session = conn |> put_session(:user_token, user_token) |> get_session()
+
+      socket = %LiveView.Socket{
+        endpoint: LiminalWeb.Endpoint,
+        assigns: %{__changed__: %{}, flash: %{}}
+      }
+
+      {:halt, updated_socket} = UserAuth.on_mount(:require_admin, %{}, session, socket)
+
+      assert updated_socket.assigns.current_scope.user.id == user.id
+    end
+
+    test "no user socket halts with redirect", %{conn: conn} do
+      session = conn |> get_session()
+
+      socket = %LiveView.Socket{
+        endpoint: LiminalWeb.Endpoint,
+        assigns: %{__changed__: %{}, flash: %{}}
+      }
+
+      {:halt, updated_socket} = UserAuth.on_mount(:require_admin, %{}, session, socket)
+
+      assert updated_socket.assigns.current_scope == nil
+    end
+  end
 end
