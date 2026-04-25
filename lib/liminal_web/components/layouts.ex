@@ -39,8 +39,8 @@ defmodule LiminalWeb.Layouts do
     ~H"""
     <header class="navbar px-4 sm:px-6 lg:px-8">
       <div class="flex-1 flex items-center gap-4">
-        <.link navigate={~p"/"} class="text-lg font-bold tracking-tight">
-          Liminal
+        <.link navigate={~p"/"} class="flex items-center gap-2 text-lg font-bold tracking-tight">
+          <img src={~p"/liminal.svg"} class="size-6" alt="" /> liminal
         </.link>
         <%= if @current_scope do %>
           <nav class="flex gap-1">
@@ -52,25 +52,32 @@ defmodule LiminalWeb.Layouts do
           </nav>
         <% end %>
       </div>
-      <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
-          <li>
-            <.theme_toggle />
-          </li>
-          <%= if @current_scope do %>
-            <li class="text-sm">
-              {@current_scope.user.username}
-            </li>
-            <li>
-              <.link navigate={~p"/users/settings"} class="btn btn-ghost btn-sm">Settings</.link>
-            </li>
-            <li>
-              <.link href={~p"/users/log-out"} method="delete" class="btn btn-ghost btn-sm">
-                Log out
-              </.link>
-            </li>
-          <% end %>
-        </ul>
+      <div class="flex-none flex items-center gap-3">
+        <.theme_toggle />
+        <%= if @current_scope do %>
+          <details class="dropdown dropdown-end">
+            <summary class="btn btn-ghost btn-sm flex items-center gap-2">
+              <.icon name="hero-user-circle" class="size-5" />
+              <span class="text-sm">{@current_scope.user.username}</span>
+            </summary>
+            <ul class="dropdown-content menu bg-base-200 rounded-box z-10 w-48 p-2 shadow mt-2">
+              <li>
+                <.link navigate={~p"/users/settings"} class="flex items-center gap-2">
+                  <.icon name="hero-cog-6-tooth" class="size-4" /> Settings
+                </.link>
+              </li>
+              <li>
+                <.link
+                  href={~p"/users/log-out"}
+                  method="delete"
+                  class="flex items-center gap-2 text-error hover:text-error"
+                >
+                  <.icon name="hero-arrow-right-start-on-rectangle" class="size-4" /> Log out
+                </.link>
+              </li>
+            </ul>
+          </details>
+        <% end %>
       </div>
     </header>
 
