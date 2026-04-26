@@ -321,5 +321,367 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       refute has_element?(view, "#links", "Unviewed Link")
       assert has_element?(view, "#links", "Viewed Link")
     end
+
+    # ------------------------------------------------------------------
+    # Tag filter tests
+    # ------------------------------------------------------------------
+
+    test "tag filter chips appear for user's tags", %{conn: conn, scope: scope} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      tags = Liminal.Links.list_tags(scope)
+
+      for tag <- tags do
+        assert has_element?(
+                 view,
+                 "button[phx-click='toggle_filter_tag'][phx-value-id='#{tag.id}']",
+                 tag.name
+               )
+      end
+    end
+
+    test "clicking a tag chip filters links to that tag", %{conn: conn, scope: scope} do
+      tag1 = tag_fixture(scope, %{name: "filter-alpha"})
+      tag2 = tag_fixture(scope, %{name: "filter-beta"})
+
+      _link1 = link_fixture(scope, %{title: "Link One", tag_ids: [tag1.id]})
+      _link2 = link_fixture(scope, %{title: "Link Two", tag_ids: [tag2.id]})
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Switch to "All" so both links are visible regardless of viewed state
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+      assert has_element?(view, "#links", "Link One")
+      assert has_element?(view, "#links", "Link Two")
+
+      # Click tag1 chip
+      view
+      |> element("button[phx-click='toggle_filter_tag'][phx-value-id='#{tag1.id}']")
+      |> render_click()
+
+      assert has_element?(view, "#links", "Link One")
+      refute has_element?(view, "#links", "Link Two")
+    end
+
+    test "toggling tag chip off shows all links again", %{conn: conn, scope: scope} do
+      tag1 = tag_fixture(scope, %{name: "toggle-alpha"})
+      tag2 = tag_fixture(scope, %{name: "toggle-beta"})
+
+      _link1 = link_fixture(scope, %{title: "Toggle One", tag_ids: [tag1.id]})
+      _link2 = link_fixture(scope, %{title: "Toggle Two", tag_ids: [tag2.id]})
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Switch to "All" filter
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      # Toggle tag1 on
+      view
+      |> element("button[phx-click='toggle_filter_tag'][phx-value-id='#{tag1.id}']")
+      |> render_click()
+
+      assert has_element?(view, "#links", "Toggle One")
+      refute has_element?(view, "#links", "Toggle Two")
+
+      # Toggle tag1 off again
+      view
+      |> element("button[phx-click='toggle_filter_tag'][phx-value-id='#{tag1.id}']")
+      |> render_click()
+
+      assert has_element?(view, "#links", "Toggle One")
+      assert has_element?(view, "#links", "Toggle Two")
+    end
+
+    test "multiple tag chips filter with union (any match)", %{conn: conn, scope: scope} do
+      tag1 = tag_fixture(scope, %{name: "union-alpha"})
+      tag2 = tag_fixture(scope, %{name: "union-beta"})
+      tag3 = tag_fixture(scope, %{name: "union-gamma"})
+
+      _link1 = link_fixture(scope, %{title: "Union One", tag_ids: [tag1.id]})
+      _link2 = link_fixture(scope, %{title: "Union Two", tag_ids: [tag2.id]})
+      _link3 = link_fixture(scope, %{title: "Union Three", tag_ids: [tag3.id]})
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Switch to "All" filter
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      # Toggle tag1 and tag2
+      view
+      |> element("button[phx-click='toggle_filter_tag'][phx-value-id='#{tag1.id}']")
+      |> render_click()
+
+      view
+      |> element("button[phx-click='toggle_filter_tag'][phx-value-id='#{tag2.id}']")
+      |> render_click()
+
+      assert has_element?(view, "#links", "Union One")
+      assert has_element?(view, "#links", "Union Two")
+      refute has_element?(view, "#links", "Union Three")
+    end
+
+    # ------------------------------------------------------------------
+    # Sort tests
+    # ------------------------------------------------------------------
+
+    test "sort form wraps the select with phx-change", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      assert has_element?(view, "form#sort-form[phx-change='sort']")
+      assert has_element?(view, "form#sort-form select[name='sort']")
+    end
+
+    test "default sort is newest first", %{conn: conn, scope: scope} do
+      older_link = link_fixture(scope, %{title: "Older Default"})
+      _newer_link = link_fixture(scope, %{title: "Newer Default"})
+
+      past = DateTime.utc_now(:second) |> DateTime.add(-1, :hour)
+
+      import Ecto.Query
+
+      Liminal.Repo.update_all(
+        from(l in Liminal.Links.Link, where: l.id == ^older_link.id),
+        set: [inserted_at: past]
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      html = render(view)
+      newer_pos = :binary.match(html, "Newer Default") |> elem(0)
+      older_pos = :binary.match(html, "Older Default") |> elem(0)
+
+      assert newer_pos < older_pos,
+             "Expected 'Newer Default' before 'Older Default' in default newest-first sort"
+    end
+
+    test "sort dropdown changes link ordering", %{conn: conn, scope: scope} do
+      older_link = link_fixture(scope, %{title: "Older Link"})
+      _newer_link = link_fixture(scope, %{title: "Newer Link"})
+
+      # Backdate older_link's inserted_at
+      past = DateTime.utc_now(:second) |> DateTime.add(-1, :hour)
+
+      import Ecto.Query
+
+      Liminal.Repo.update_all(
+        from(l in Liminal.Links.Link, where: l.id == ^older_link.id),
+        set: [inserted_at: past]
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Switch to "All" filter
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      # Sort oldest first
+      view
+      |> element("#sort-form")
+      |> render_change(%{"sort" => "time_added_asc"})
+
+      html = render(view)
+      older_pos = :binary.match(html, "Older Link") |> elem(0)
+      newer_pos = :binary.match(html, "Newer Link") |> elem(0)
+
+      assert older_pos < newer_pos,
+             "Expected 'Older Link' to appear before 'Newer Link' when sorted oldest first"
+    end
+
+    test "sort by expiring soon orders by link expiry", %{conn: conn, scope: scope} do
+      tag_soon = tag_fixture(scope, %{name: "expiring-soon-tag", expires_in_days: 3})
+      tag_later = tag_fixture(scope, %{name: "expiring-later-tag", expires_in_days: 30})
+
+      _link_soon =
+        link_fixture(scope, %{title: "Expiring Soon Link", tag_ids: [tag_soon.id]})
+
+      _link_later =
+        link_fixture(scope, %{title: "Expiring Later Link", tag_ids: [tag_later.id]})
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Switch to "All" filter
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      # Sort by expiring soon
+      view
+      |> element("#sort-form")
+      |> render_change(%{"sort" => "expiring_soon"})
+
+      html = render(view)
+      soon_pos = :binary.match(html, "Expiring Soon Link") |> elem(0)
+      later_pos = :binary.match(html, "Expiring Later Link") |> elem(0)
+
+      assert soon_pos < later_pos,
+             "Expected 'Expiring Soon Link' to appear before 'Expiring Later Link'"
+    end
+
+    test "sort newest first reverses oldest first ordering", %{conn: conn, scope: scope} do
+      older_link = link_fixture(scope, %{title: "Reverse Older"})
+      _newer_link = link_fixture(scope, %{title: "Reverse Newer"})
+
+      past = DateTime.utc_now(:second) |> DateTime.add(-1, :hour)
+
+      import Ecto.Query
+
+      Liminal.Repo.update_all(
+        from(l in Liminal.Links.Link, where: l.id == ^older_link.id),
+        set: [inserted_at: past]
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      # Sort oldest first
+      view |> element("#sort-form") |> render_change(%{"sort" => "time_added_asc"})
+
+      html = render(view)
+
+      assert :binary.match(html, "Reverse Older") |> elem(0) <
+               :binary.match(html, "Reverse Newer") |> elem(0)
+
+      # Sort newest first again
+      view |> element("#sort-form") |> render_change(%{"sort" => "time_added_desc"})
+
+      html = render(view)
+
+      assert :binary.match(html, "Reverse Newer") |> elem(0) <
+               :binary.match(html, "Reverse Older") |> elem(0)
+    end
+
+    test "sort persists across filter changes", %{conn: conn, scope: scope} do
+      older_link = link_fixture(scope, %{title: "Persist Older"})
+      _newer_link = link_fixture(scope, %{title: "Persist Newer"})
+
+      past = DateTime.utc_now(:second) |> DateTime.add(-1, :hour)
+
+      import Ecto.Query
+
+      Liminal.Repo.update_all(
+        from(l in Liminal.Links.Link, where: l.id == ^older_link.id),
+        set: [inserted_at: past]
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      # Sort oldest first
+      view |> element("#sort-form") |> render_change(%{"sort" => "time_added_asc"})
+
+      # Switch filter to unviewed — sort should be preserved
+      view
+      |> element("button[phx-click='filter'][phx-value-filter='unviewed']")
+      |> render_click()
+
+      html = render(view)
+
+      assert :binary.match(html, "Persist Older") |> elem(0) <
+               :binary.match(html, "Persist Newer") |> elem(0)
+    end
+
+    test "all sort options preserve all links (no items lost)", %{conn: conn, scope: scope} do
+      _link1 = link_fixture(scope, %{title: "Preserve Alpha"})
+      _link2 = link_fixture(scope, %{title: "Preserve Beta"})
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      for sort <- ["time_added_desc", "time_added_asc", "expiring_soon"] do
+        view |> element("#sort-form") |> render_change(%{"sort" => sort})
+
+        assert has_element?(view, "#links", "Preserve Alpha"),
+               "Lost 'Preserve Alpha' after sorting by #{sort}"
+
+        assert has_element?(view, "#links", "Preserve Beta"),
+               "Lost 'Preserve Beta' after sorting by #{sort}"
+      end
+    end
+
+    # ------------------------------------------------------------------
+    # Combined filter + sort tests
+    # ------------------------------------------------------------------
+
+    test "tag filter and sort work together", %{conn: conn, scope: scope} do
+      tag1 = tag_fixture(scope, %{name: "combo-alpha"})
+      tag2 = tag_fixture(scope, %{name: "combo-beta"})
+
+      link_a = link_fixture(scope, %{title: "Combo A", tag_ids: [tag1.id]})
+      _link_b = link_fixture(scope, %{title: "Combo B", tag_ids: [tag1.id]})
+      _link_c = link_fixture(scope, %{title: "Combo C", tag_ids: [tag2.id]})
+
+      # Backdate link_a so it's the oldest
+      past = DateTime.utc_now(:second) |> DateTime.add(-1, :hour)
+
+      import Ecto.Query
+
+      Liminal.Repo.update_all(
+        from(l in Liminal.Links.Link, where: l.id == ^link_a.id),
+        set: [inserted_at: past]
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Switch to "All" filter
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      # Filter by tag1
+      view
+      |> element("button[phx-click='toggle_filter_tag'][phx-value-id='#{tag1.id}']")
+      |> render_click()
+
+      # Sort oldest first
+      view
+      |> element("#sort-form")
+      |> render_change(%{"sort" => "time_added_asc"})
+
+      html = render(view)
+
+      # Combo C should not be visible (wrong tag)
+      refute html =~ "Combo C"
+
+      # Combo A should appear before Combo B (oldest first)
+      a_pos = :binary.match(html, "Combo A") |> elem(0)
+      b_pos = :binary.match(html, "Combo B") |> elem(0)
+
+      assert a_pos < b_pos,
+             "Expected 'Combo A' to appear before 'Combo B' when sorted oldest first"
+    end
+
+    # ------------------------------------------------------------------
+    # PubSub + tag filter tests
+    # ------------------------------------------------------------------
+
+    test "link_created broadcast respects tag filter", %{conn: conn, scope: scope} do
+      tag1 = tag_fixture(scope, %{name: "pubsub-alpha"})
+      tag2 = tag_fixture(scope, %{name: "pubsub-beta"})
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Toggle tag1 filter — only links with tag1 should appear
+      view
+      |> element("button[phx-click='toggle_filter_tag'][phx-value-id='#{tag1.id}']")
+      |> render_click()
+
+      # Create a link with tag2 (does NOT match the active filter)
+      link =
+        link_fixture(scope, %{
+          title: "Broadcast No Match",
+          tag_ids: [tag2.id]
+        })
+
+      refetched = Liminal.Links.get_link!(scope, link.id)
+
+      Phoenix.PubSub.broadcast(
+        Liminal.PubSub,
+        "user_links:#{scope.user.id}",
+        {:link_created, refetched}
+      )
+
+      render(view)
+      refute has_element?(view, "#links", "Broadcast No Match")
+    end
   end
 end

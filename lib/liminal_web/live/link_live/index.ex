@@ -17,18 +17,54 @@ defmodule LiminalWeb.LinkLive.Index do
         </:actions>
       </.header>
 
-      <%!-- Filter buttons --%>
-      <div class="flex gap-2 mb-4">
+      <%!-- Filter buttons and sort control --%>
+      <div class="flex items-center gap-2 mb-4">
+        <div class="flex gap-2">
+          <button
+            :for={filter <- [:unviewed, :all, :viewed]}
+            phx-click="filter"
+            phx-value-filter={filter}
+            class={[
+              "btn btn-sm",
+              if(@filter == filter, do: "btn-primary", else: "btn-ghost")
+            ]}
+          >
+            {filter |> Atom.to_string() |> String.capitalize()}
+          </button>
+        </div>
+
+        <div class="flex-1" />
+
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-base-content/60">Sort:</span>
+          <form phx-change="sort" id="sort-form">
+            <select
+              name="sort"
+              class="select select-sm select-bordered"
+            >
+              <option value="time_added_desc" selected={@sort == :time_added_desc}>
+                Newest first
+              </option>
+              <option value="time_added_asc" selected={@sort == :time_added_asc}>Oldest first</option>
+              <option value="expiring_soon" selected={@sort == :expiring_soon}>Expiring soon</option>
+            </select>
+          </form>
+        </div>
+      </div>
+
+      <%!-- Tag filter chips --%>
+      <div :if={@tags != []} class="flex flex-wrap gap-2 mb-4">
+        <span class="text-sm text-base-content/60 self-center mr-1">Tags:</span>
         <button
-          :for={filter <- [:unviewed, :all, :viewed]}
-          phx-click="filter"
-          phx-value-filter={filter}
+          :for={tag <- @tags}
+          phx-click="toggle_filter_tag"
+          phx-value-id={tag.id}
           class={[
-            "btn btn-sm",
-            if(@filter == filter, do: "btn-primary", else: "btn-ghost")
+            "badge cursor-pointer select-none transition-colors",
+            if(tag.id in @filter_tag_ids, do: "badge-primary", else: "badge-outline badge-ghost")
           ]}
         >
-          {filter |> Atom.to_string() |> String.capitalize()}
+          {tag.name}
         </button>
       </div>
 
@@ -182,6 +218,8 @@ defmodule LiminalWeb.LinkLive.Index do
       socket
       |> assign(:tags, tags)
       |> assign(:filter, :unviewed)
+      |> assign(:sort, :time_added_desc)
+      |> assign(:filter_tag_ids, [])
       |> stream(:links, links)
 
     {:ok, socket}
@@ -226,16 +264,24 @@ defmodule LiminalWeb.LinkLive.Index do
   end
 
   def handle_info({:link_created, link}, socket) do
-    if matches_filter?(link, socket.assigns.filter) do
-      {:noreply, stream_insert(socket, :links, link, at: 0)}
+    if matches_filters?(link, socket.assigns) do
+      if socket.assigns.sort == :time_added_desc do
+        {:noreply, stream_insert(socket, :links, link, at: 0)}
+      else
+        {:noreply, refetch_links(socket)}
+      end
     else
       {:noreply, socket}
     end
   end
 
   def handle_info({:link_updated, link}, socket) do
-    if matches_filter?(link, socket.assigns.filter) do
-      {:noreply, stream_insert(socket, :links, link)}
+    if matches_filters?(link, socket.assigns) do
+      if socket.assigns.sort == :time_added_desc do
+        {:noreply, stream_insert(socket, :links, link)}
+      else
+        {:noreply, refetch_links(socket)}
+      end
     else
       {:noreply, stream_delete(socket, :links, link)}
     end
@@ -324,15 +370,18 @@ defmodule LiminalWeb.LinkLive.Index do
 
   def handle_event("filter", %{"filter" => filter_str}, socket) do
     filter = String.to_existing_atom(filter_str)
-    scope = socket.assigns.current_scope
-    links = Links.list_links(scope, filter: filter)
+    {:noreply, socket |> assign(:filter, filter) |> refetch_links()}
+  end
 
-    socket =
-      socket
-      |> assign(:filter, filter)
-      |> stream(:links, links, reset: true)
+  def handle_event("sort", %{"sort" => sort_str}, socket) do
+    sort = String.to_existing_atom(sort_str)
+    {:noreply, socket |> assign(:sort, sort) |> refetch_links()}
+  end
 
-    {:noreply, socket}
+  def handle_event("toggle_filter_tag", %{"id" => tag_id}, socket) do
+    current = socket.assigns.filter_tag_ids
+    updated = if tag_id in current, do: List.delete(current, tag_id), else: [tag_id | current]
+    {:noreply, socket |> assign(:filter_tag_ids, updated) |> refetch_links()}
   end
 
   defp save_link(socket, :new, link_params) do
@@ -378,7 +427,31 @@ defmodule LiminalWeb.LinkLive.Index do
     end
   end
 
-  defp matches_filter?(_link, :all), do: true
-  defp matches_filter?(link, :unviewed), do: is_nil(link.viewed_at)
-  defp matches_filter?(link, :viewed), do: not is_nil(link.viewed_at)
+  defp refetch_links(socket) do
+    scope = socket.assigns.current_scope
+
+    links =
+      Links.list_links(scope,
+        filter: socket.assigns.filter,
+        sort: socket.assigns.sort,
+        tag_ids: socket.assigns.filter_tag_ids
+      )
+
+    stream(socket, :links, links, reset: true)
+  end
+
+  defp matches_filters?(link, assigns) do
+    matches_viewed_filter?(link, assigns.filter) and
+      matches_tag_filter?(link, assigns.filter_tag_ids)
+  end
+
+  defp matches_viewed_filter?(_link, :all), do: true
+  defp matches_viewed_filter?(link, :unviewed), do: is_nil(link.viewed_at)
+  defp matches_viewed_filter?(link, :viewed), do: not is_nil(link.viewed_at)
+
+  defp matches_tag_filter?(_link, []), do: true
+
+  defp matches_tag_filter?(link, tag_ids) do
+    Enum.any?(link.link_tags, fn lt -> lt.tag_id in tag_ids end)
+  end
 end

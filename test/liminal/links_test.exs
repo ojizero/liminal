@@ -579,6 +579,112 @@ defmodule Liminal.LinksTest do
     end
   end
 
+  describe "list_links/2 tag filtering and sorting" do
+    test "tag_ids filter returns only links with matching tags" do
+      scope = user_scope_fixture()
+      tag1 = tag_fixture(scope)
+      tag2 = tag_fixture(scope)
+      link1 = link_fixture(scope, %{tag_ids: [tag1.id]})
+      _link2 = link_fixture(scope, %{tag_ids: [tag2.id]})
+
+      results = Links.list_links(scope, filter: :all, tag_ids: [tag1.id])
+      ids = Enum.map(results, & &1.id)
+      assert link1.id in ids
+      assert length(ids) == 1
+    end
+
+    test "empty tag_ids returns all links" do
+      scope = user_scope_fixture()
+      tag1 = tag_fixture(scope)
+      tag2 = tag_fixture(scope)
+      link1 = link_fixture(scope, %{tag_ids: [tag1.id]})
+      link2 = link_fixture(scope, %{tag_ids: [tag2.id]})
+
+      results = Links.list_links(scope, filter: :all, tag_ids: [])
+      ids = Enum.map(results, & &1.id)
+      assert link1.id in ids
+      assert link2.id in ids
+    end
+
+    test "tag_ids with multiple IDs returns union (any match)" do
+      scope = user_scope_fixture()
+      tag1 = tag_fixture(scope)
+      tag2 = tag_fixture(scope)
+      tag3 = tag_fixture(scope)
+      link1 = link_fixture(scope, %{tag_ids: [tag1.id]})
+      link2 = link_fixture(scope, %{tag_ids: [tag2.id]})
+      _link3 = link_fixture(scope, %{tag_ids: [tag3.id]})
+
+      results = Links.list_links(scope, filter: :all, tag_ids: [tag1.id, tag2.id])
+      ids = Enum.map(results, & &1.id)
+      assert link1.id in ids
+      assert link2.id in ids
+      assert length(ids) == 2
+    end
+
+    test "sort :time_added_asc returns oldest first" do
+      scope = user_scope_fixture()
+      link1 = link_fixture(scope, %{title: "older"})
+      link2 = link_fixture(scope, %{title: "newer"})
+
+      past = DateTime.utc_now(:second) |> DateTime.add(-1, :hour)
+
+      Liminal.Repo.update_all(
+        Ecto.Query.from(l in Liminal.Links.Link, where: l.id == ^link1.id),
+        set: [inserted_at: past]
+      )
+
+      results = Links.list_links(scope, filter: :all, sort: :time_added_asc)
+      ids = Enum.map(results, & &1.id)
+      assert [link1.id, link2.id] == ids
+    end
+
+    test "sort :expiring_soon orders by max expires_at ascending" do
+      scope = user_scope_fixture()
+      tag_soon = tag_fixture(scope, %{expires_in_days: 7})
+      tag_later = tag_fixture(scope, %{expires_in_days: 30})
+      link1 = link_fixture(scope, %{tag_ids: [tag_soon.id]})
+      link2 = link_fixture(scope, %{tag_ids: [tag_later.id]})
+
+      results = Links.list_links(scope, filter: :all, sort: :expiring_soon)
+      ids = Enum.map(results, & &1.id)
+      assert [link1.id, link2.id] == ids
+    end
+
+    test "sort :expiring_soon puts nil expiry last" do
+      scope = user_scope_fixture()
+      tag_with_expiry = tag_fixture(scope, %{expires_in_days: 7})
+      tag_no_expiry = tag_fixture(scope, %{expires_in_days: nil})
+      link1 = link_fixture(scope, %{tag_ids: [tag_with_expiry.id]})
+      link2 = link_fixture(scope, %{tag_ids: [tag_no_expiry.id]})
+
+      results = Links.list_links(scope, filter: :all, sort: :expiring_soon)
+      ids = Enum.map(results, & &1.id)
+      assert [link1.id, link2.id] == ids
+    end
+
+    test "combined filter, tag_ids, and sort" do
+      scope = user_scope_fixture()
+      tag1 = tag_fixture(scope)
+      tag2 = tag_fixture(scope)
+      link1 = link_fixture(scope, %{title: "unviewed-tag1", tag_ids: [tag1.id]})
+      link2 = link_fixture(scope, %{title: "viewed-tag1", tag_ids: [tag1.id]})
+      _link3 = link_fixture(scope, %{title: "unviewed-tag2", tag_ids: [tag2.id]})
+
+      {:ok, _} = Links.mark_viewed(scope, link2)
+
+      results =
+        Links.list_links(scope,
+          filter: :unviewed,
+          tag_ids: [tag1.id],
+          sort: :time_added_desc
+        )
+
+      ids = Enum.map(results, & &1.id)
+      assert ids == [link1.id]
+    end
+  end
+
   describe "ownership enforcement" do
     test "update_link/3 on another user's link raises MatchError" do
       scope_a = user_scope_fixture()
