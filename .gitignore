@@ -49,3 +49,17 @@ aegis.toml
 # Environment files (contain secrets)
 /.env
 
+# Playwright CLI (Claude Code playwright skill)
+.playwright-cli/
+screenshots/
+
+# Playwright test artifacts
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.auth/
+
+# Playwright browser cache
+/.playwright/
+!/.playwright/cli.config.json
+
