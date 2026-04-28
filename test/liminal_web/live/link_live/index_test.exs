@@ -38,12 +38,11 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       tags = Liminal.Links.list_tags(scope)
       tag = hd(tags)
 
-      view |> element("a", "Add Link") |> render_click()
       assert has_element?(view, "#link-form")
 
       # Select a tag
       view
-      |> element("input[type='checkbox'][phx-value-id='#{tag.id}']")
+      |> element("button[phx-click='toggle_tag'][phx-value-id='#{tag.id}']")
       |> render_click()
 
       view
@@ -56,7 +55,6 @@ defmodule LiminalWeb.LinkLive.IndexTest do
     test "add a link without selecting tags shows error", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
-      view |> element("a", "Add Link") |> render_click()
       assert has_element?(view, "#link-form")
 
       view
@@ -67,13 +65,13 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert render(view) =~ "Select at least one tag"
     end
 
-    test "tag checkboxes shown on new link form", %{conn: conn, scope: scope} do
-      {:ok, view, _html} = live(conn, ~p"/links/new")
+    test "tag pills shown on new link form", %{conn: conn, scope: scope} do
+      {:ok, view, _html} = live(conn, ~p"/")
 
       tags = Liminal.Links.list_tags(scope)
 
       for tag <- tags do
-        assert has_element?(view, "input[type='checkbox'][phx-value-id='#{tag.id}']")
+        assert has_element?(view, "button[phx-click='toggle_tag'][phx-value-id='#{tag.id}']")
       end
     end
 
@@ -82,10 +80,10 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       {:ok, view, _html} = live(conn, ~p"/")
 
       view |> element("a[href='/links/#{link.id}/edit']") |> render_click()
-      assert has_element?(view, "#link-form")
+      assert has_element?(view, "#edit-link-form")
 
       view
-      |> form("#link-form", link: %{title: "New Title"})
+      |> form("#edit-link-form", edit_link: %{title: "New Title"})
       |> render_submit()
 
       assert has_element?(view, "#links", "New Title")

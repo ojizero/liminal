@@ -49,7 +49,6 @@ defmodule LiminalWeb.Router do
       live "/users/settings", UserLive.Settings, :edit
 
       live "/", LinkLive.Index, :index
-      live "/links/new", LinkLive.Index, :new
       live "/links/:id/edit", LinkLive.Index, :edit
       live "/tags", TagLive.Index, :index
       live "/tags/new", TagLive.Index, :new
