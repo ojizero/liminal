@@ -4,10 +4,9 @@ set -e
 PUID=${PUID:-911}
 PGID=${PGID:-911}
 
-addgroup --gid "$PGID" liminal 2>/dev/null || true
-adduser --uid "$PUID" --ingroup liminal --home /app --shell /bin/sh --disabled-password --no-create-home --gecos "" liminal 2>/dev/null || true
+groupmod -o -g "$PGID" liminal
+usermod -o -u "$PUID" liminal
 
-chown "$PUID":"$PGID" /data
 chown -R "$PUID":"$PGID" /app
 
-exec gosu "$PUID":"$PGID" "$@"
+exec gosu liminal "$@"

@@ -69,8 +69,10 @@ ENV LC_ALL=en_US.UTF-8
 
 WORKDIR /app
 
-# Create data directory for SQLite
-RUN mkdir -p /data
+# Create data directory for SQLite and pre-create liminal user with default UID/GID
+RUN mkdir -p /data && \
+    groupadd -g 911 liminal && \
+    useradd -u 911 -g liminal -d /app -s /bin/sh -M liminal
 
 # Copy release from builder
 COPY --from=builder /app/_build/prod/rel/liminal ./
