@@ -218,7 +218,10 @@ defmodule LiminalWeb.LinkLive.Index do
               </div>
 
               <%!-- Footer: favicon + domain + hover actions --%>
-              <div class="flex items-center gap-2 mt-auto pt-2 border-t border-base-300 text-xs text-base-content/50 cursor-default" data-no-navigate>
+              <div
+                class="flex items-center gap-2 mt-auto pt-2 border-t border-base-300 text-xs text-base-content/50 cursor-default"
+                data-no-navigate
+              >
                 <%= if link.favicon_url do %>
                   <img src={link.favicon_url} class="size-4 rounded" alt="" />
                 <% end %>
