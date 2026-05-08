@@ -234,6 +234,7 @@ defmodule Liminal.Links do
 
     case Repo.delete(link) do
       {:ok, _} = result ->
+        Liminal.Links.ImageDownloader.delete(link.image_path)
         broadcast_link_deleted(user_id, link.id)
         result
 
@@ -375,13 +376,14 @@ defmodule Liminal.Links do
           |> Repo.aggregate(:count)
 
         if remaining == 0 do
-          user_id =
-            from(l in Link, where: l.id == ^link_id, select: l.user_id)
-            |> Repo.one()
+          link = Repo.get(Link, link_id)
 
           from(l in Link, where: l.id == ^link_id) |> Repo.delete_all()
 
-          if user_id, do: broadcast_link_deleted(user_id, link_id)
+          if link do
+            Liminal.Links.ImageDownloader.delete(link.image_path)
+            broadcast_link_deleted(link.user_id, link_id)
+          end
 
           {:ok, :link_deleted}
         else

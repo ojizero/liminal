@@ -89,6 +89,16 @@ defmodule Liminal.Links.MetadataParserTest do
 
       assert %{description: nil} = MetadataParser.parse(html, @base_url)
     end
+
+    test "falls back to twitter:description as tertiary source" do
+      html = """
+      <html><head>
+        <meta name="twitter:description" content="Twitter Description">
+      </head></html>
+      """
+
+      assert %{description: "Twitter Description"} = MetadataParser.parse(html, @base_url)
+    end
   end
 
   describe "favicon extraction" do
@@ -172,14 +182,69 @@ defmodule Liminal.Links.MetadataParserTest do
     end
   end
 
+  describe "image extraction" do
+    test "extracts image_url from og:image meta tag" do
+      html = """
+      <html><head>
+        <meta property="og:image" content="https://example.com/image.jpg">
+      </head></html>
+      """
+
+      assert %{image_url: "https://example.com/image.jpg"} = MetadataParser.parse(html, @base_url)
+    end
+
+    test "extracts image_url from twitter:image when no og:image" do
+      html = """
+      <html><head>
+        <meta name="twitter:image" content="https://example.com/twitter.jpg">
+      </head></html>
+      """
+
+      assert %{image_url: "https://example.com/twitter.jpg"} =
+               MetadataParser.parse(html, @base_url)
+    end
+
+    test "og:image takes priority over twitter:image" do
+      html = """
+      <html><head>
+        <meta property="og:image" content="https://example.com/og.jpg">
+        <meta name="twitter:image" content="https://example.com/twitter.jpg">
+      </head></html>
+      """
+
+      assert %{image_url: "https://example.com/og.jpg"} = MetadataParser.parse(html, @base_url)
+    end
+
+    test "resolves relative image URL to absolute" do
+      html = """
+      <html><head>
+        <meta property="og:image" content="/images/hero.jpg">
+      </head></html>
+      """
+
+      assert %{image_url: "https://example.com/images/hero.jpg"} =
+               MetadataParser.parse(html, @base_url)
+    end
+
+    test "returns nil image_url when no image meta tags" do
+      html = """
+      <html><head>
+        <title>No image</title>
+      </head></html>
+      """
+
+      assert %{image_url: nil} = MetadataParser.parse(html, @base_url)
+    end
+  end
+
   describe "edge cases" do
     test "nil HTML returns all-nil map" do
-      assert %{title: nil, description: nil, favicon_url: nil} =
+      assert %{title: nil, description: nil, favicon_url: nil, image_url: nil} =
                MetadataParser.parse(nil, @base_url)
     end
 
     test "empty string HTML returns all-nil map" do
-      assert %{title: nil, description: nil, favicon_url: nil} =
+      assert %{title: nil, description: nil, favicon_url: nil, image_url: nil} =
                MetadataParser.parse("", @base_url)
     end
 

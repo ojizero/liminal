@@ -7,6 +7,7 @@ defmodule Liminal.Links.Link do
     field :title, :string
     field :description, :string
     field :favicon_url, :string
+    field :image_path, :string
     field :viewed_at, :utc_datetime
     field :indexed_at, :utc_datetime
 
@@ -26,6 +27,6 @@ defmodule Liminal.Links.Link do
   end
 
   def metadata_changeset(link, attrs) do
-    cast(link, attrs, [:title, :description, :favicon_url, :indexed_at])
+    cast(link, attrs, [:title, :description, :favicon_url, :image_path, :indexed_at])
   end
 end

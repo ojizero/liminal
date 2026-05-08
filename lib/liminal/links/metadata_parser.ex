@@ -1,6 +1,6 @@
 defmodule Liminal.Links.MetadataParser do
   @moduledoc """
-  Extracts metadata (title, description, favicon URL) from raw HTML using regex.
+  Extracts metadata (title, description, favicon URL, image URL) from raw HTML using regex.
 
   This module is pure -- no side effects, no HTTP calls.
   """
@@ -8,11 +8,12 @@ defmodule Liminal.Links.MetadataParser do
   @type metadata :: %{
           title: String.t() | nil,
           description: String.t() | nil,
-          favicon_url: String.t() | nil
+          favicon_url: String.t() | nil,
+          image_url: String.t() | nil
         }
 
   @doc """
-  Parses HTML and returns a map with extracted title, description, and favicon URL.
+  Parses HTML and returns a map with extracted title, description, favicon URL, and image URL.
 
   The `base_url` is used to resolve relative favicon URLs to absolute ones.
   """
@@ -21,12 +22,13 @@ defmodule Liminal.Links.MetadataParser do
     %{
       title: extract_title(html),
       description: extract_description(html),
-      favicon_url: extract_favicon(html, base_url)
+      favicon_url: extract_favicon(html, base_url),
+      image_url: extract_image(html, base_url)
     }
   end
 
   def parse(_html, _base_url) do
-    %{title: nil, description: nil, favicon_url: nil}
+    %{title: nil, description: nil, favicon_url: nil, image_url: nil}
   end
 
   # Title extraction: OG title first, then <title> tag fallback
@@ -45,7 +47,16 @@ defmodule Liminal.Links.MetadataParser do
   # Description extraction: OG description first, then meta name="description" fallback
 
   defp extract_description(html) do
-    extract_og_meta(html, "og:description") || extract_meta_name(html, "description")
+    extract_og_meta(html, "og:description") ||
+      extract_meta_name(html, "description") ||
+      extract_meta_name(html, "twitter:description")
+  end
+
+  # Image extraction: OG image first, then twitter:image fallback
+
+  defp extract_image(html, base_url) do
+    raw_url = extract_og_meta(html, "og:image") || extract_meta_name(html, "twitter:image")
+    if raw_url, do: resolve_url(raw_url, base_url), else: nil
   end
 
   # Favicon extraction: explicit <link rel="icon"> or <link rel="shortcut icon">, then /favicon.ico fallback

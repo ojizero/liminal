@@ -137,5 +137,83 @@ defmodule Liminal.Links.IndexerTest do
 
       assert :error = Indexer.index(bogus_id, scope.user.id)
     end
+
+    test "successful indexing with og:image downloads and stores image" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope, %{title: nil})
+
+      # Set up a temp upload dir for this test
+      tmp_dir =
+        Path.join(
+          System.tmp_dir!(),
+          "liminal_indexer_test_#{System.unique_integer([:positive])}"
+        )
+
+      Application.put_env(:liminal, :upload_dir, tmp_dir)
+
+      on_exit(fn ->
+        File.rm_rf(tmp_dir)
+        Application.delete_env(:liminal, :upload_dir)
+      end)
+
+      html_with_image = """
+      <html><head>
+        <title>Image Page</title>
+        <meta property="og:image" content="http://test.local/hero.png">
+      </head></html>
+      """
+
+      image_bytes = <<137, 80, 78, 71, 13, 10, 26, 10>>
+
+      opts =
+        build_req_options(fn conn ->
+          case conn.request_path do
+            "/hero.png" ->
+              conn
+              |> Plug.Conn.put_resp_content_type("image/png", nil)
+              |> Plug.Conn.send_resp(200, image_bytes)
+
+            _ ->
+              html_response(conn, html_with_image)
+          end
+        end)
+
+      assert :ok = Indexer.index(link.id, scope.user.id, opts)
+
+      updated = Links.get_link!(scope, link.id)
+      assert updated.image_path != nil
+      assert String.starts_with?(updated.image_path, "uploads/images/")
+      assert updated.title == "Image Page"
+    end
+
+    test "image download failure still indexes link successfully" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope, %{title: nil})
+
+      html_with_image = """
+      <html><head>
+        <title>Failing Image Page</title>
+        <meta property="og:image" content="http://test.local/broken.png">
+      </head></html>
+      """
+
+      opts =
+        build_req_options(fn conn ->
+          case conn.request_path do
+            "/broken.png" ->
+              Plug.Conn.send_resp(conn, 500, "Server Error")
+
+            _ ->
+              html_response(conn, html_with_image)
+          end
+        end)
+
+      assert :ok = Indexer.index(link.id, scope.user.id, opts)
+
+      updated = Links.get_link!(scope, link.id)
+      assert updated.title == "Failing Image Page"
+      assert updated.indexed_at != nil
+      assert is_nil(updated.image_path)
+    end
   end
 end

@@ -39,6 +39,32 @@ defmodule Liminal.Links.Indexer do
         case Req.get(link.url, req_options) do
           {:ok, %{status: 200, body: body}} when is_binary(body) ->
             metadata = Liminal.Links.MetadataParser.parse(body, link.url)
+
+            # Clean up previously stored image (e.g., during re-indexing)
+            if link.image_path do
+              Liminal.Links.ImageDownloader.delete(link.image_path)
+            end
+
+            image_path =
+              if metadata[:image_url] do
+                case Liminal.Links.ImageDownloader.download_and_store(metadata.image_url, opts) do
+                  {:ok, path} ->
+                    path
+
+                  {:error, reason} ->
+                    Logger.warning(
+                      "Indexer: image download failed for #{link_id}: #{inspect(reason)}"
+                    )
+
+                    nil
+                end
+              end
+
+            metadata =
+              metadata
+              |> Map.delete(:image_url)
+              |> Map.put(:image_path, image_path)
+
             Liminal.Links.update_link_metadata(link, metadata)
             :ok
 

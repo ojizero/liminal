@@ -68,23 +68,32 @@ defmodule LiminalWeb.LinkLive.Index do
       <%!-- Edit form (shown when editing a link) --%>
       <div :if={@editing_link} class="card bg-base-200 mb-6">
         <div class="card-body p-4">
-        <h3 class="text-sm font-semibold mb-2">Edit Link</h3>
-        <.form for={@edit_form} id="edit-link-form" phx-change="validate_edit" phx-submit="save_edit">
-          <.input field={@edit_form[:url]} type="url" label="URL" placeholder="https://..." />
-          <.input field={@edit_form[:title]} type="text" label="Title (optional)" />
+          <h3 class="text-sm font-semibold mb-2">Edit Link</h3>
+          <.form
+            for={@edit_form}
+            id="edit-link-form"
+            phx-change="validate_edit"
+            phx-submit="save_edit"
+          >
+            <.input field={@edit_form[:url]} type="url" label="URL" placeholder="https://..." />
+            <.input field={@edit_form[:title]} type="text" label="Title (optional)" />
 
-          <div class="flex gap-2 mt-2">
-            <.button variant="primary" phx-disable-with="Saving...">Save</.button>
-            <.button patch={~p"/"}>Cancel</.button>
-          </div>
-        </.form>
+            <div class="flex gap-2 mt-2">
+              <.button variant="primary" phx-disable-with="Saving...">Save</.button>
+              <.button patch={~p"/"}>Cancel</.button>
+            </div>
+          </.form>
         </div>
       </div>
 
       <%!-- Links (masonry) --%>
       <div id="masonry" phx-hook="Masonry" class="relative">
         <%!-- New link card (always first in masonry) --%>
-        <div id="new-link-card" data-masonry-item class="card bg-base-200 border border-dashed border-base-content/20">
+        <div
+          id="new-link-card"
+          data-masonry-item
+          class="card bg-base-200 border border-dashed border-base-content/20"
+        >
           <div class="card-body p-4">
             <.form for={@form} id="link-form" phx-change="validate" phx-submit="save">
               <.input field={@form[:url]} type="url" placeholder="https://..." />
@@ -123,104 +132,119 @@ defmodule LiminalWeb.LinkLive.Index do
           <div id="links-empty" class="hidden only:block text-center py-8 text-base-content/50">
             No links yet. Add one above!
           </div>
-        <div
-          :for={{id, link} <- @streams.links}
-          id={id}
-          data-masonry-item
-          class={[
-            "card bg-base-200 group",
-            link.viewed_at && "opacity-60"
-          ]}
-        >
-          <div class="card-body p-4 gap-2">
-          <%!-- Title --%>
-          <div class="font-medium line-clamp-2">
-            {link.title || link.url}
-          </div>
-
-          <%!-- Domain link --%>
-          <a
-            href={link.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-sm text-primary hover:underline truncate block"
+          <div
+            :for={{id, link} <- @streams.links}
+            id={id}
+            data-masonry-item
+            class={[
+              "card bg-base-200 group overflow-hidden",
+              link.viewed_at && "opacity-60"
+            ]}
           >
-            {URI.parse(link.url).host || link.url}
-          </a>
+            <%!-- Image banner (optional) --%>
+            <div :if={link.image_path} class="h-56 w-full shrink-0 overflow-hidden">
+              <img
+                src={"/#{link.image_path}"}
+                alt=""
+                class="h-full w-full object-cover"
+                loading="lazy"
+              />
+            </div>
 
-          <%!-- Tag pills --%>
-          <div class="flex flex-wrap gap-1.5 mt-1">
-            <span
-              :for={lt <- link.link_tags}
-              class="badge badge-sm badge-outline gap-1"
-            >
-              {lt.tag.name}
-              <button
-                phx-click="untag"
-                phx-value-link-id={link.id}
-                phx-value-tag-id={lt.tag_id}
-                class="hover:text-error"
-                title={"Remove #{lt.tag.name}"}
+            <div class="card-body p-4 gap-2">
+              <%!-- Title --%>
+              <div class="font-bold line-clamp-2">
+                {link.title || link.url}
+              </div>
+
+              <%!-- Description (optional) --%>
+              <p :if={link.description} class="text-sm text-base-content/70 line-clamp-3">
+                {link.description}
+              </p>
+
+              <%!-- Domain link --%>
+              <a
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-sm text-primary hover:underline truncate block"
               >
-                <.icon name="hero-x-mark" class="size-3" />
-              </button>
-            </span>
+                {URI.parse(link.url).host || link.url}
+              </a>
 
-            <%!-- Add tag dropdown --%>
-            <% assigned_ids = Enum.map(link.link_tags, & &1.tag_id) %>
-            <% available = Enum.reject(@tags, fn t -> t.id in assigned_ids end) %>
-            <details :if={available != []} class="dropdown">
-              <summary class="badge badge-sm badge-ghost cursor-pointer gap-1">
-                <.icon name="hero-plus" class="size-3" /> tag
-              </summary>
-              <ul class="dropdown-content menu bg-base-200 rounded-box z-10 p-2 shadow mt-1">
-                <li :for={tag <- available}>
+              <%!-- Tag pills --%>
+              <div class="flex flex-wrap gap-1.5 mt-1">
+                <span
+                  :for={lt <- link.link_tags}
+                  class="badge badge-sm badge-outline gap-1"
+                >
+                  {lt.tag.name}
                   <button
-                    phx-click="tag"
+                    phx-click="untag"
                     phx-value-link-id={link.id}
-                    phx-value-tag-id={tag.id}
+                    phx-value-tag-id={lt.tag_id}
+                    class="hover:text-error"
+                    title={"Remove #{lt.tag.name}"}
                   >
-                    {tag.name}
+                    <.icon name="hero-x-mark" class="size-3" />
                   </button>
-                </li>
-              </ul>
-            </details>
-          </div>
+                </span>
 
-          <%!-- Footer: favicon + domain + hover actions --%>
-          <div class="flex items-center gap-2 mt-auto pt-2 border-t border-base-300 text-xs text-base-content/50">
-            <%= if link.favicon_url do %>
-              <img src={link.favicon_url} class="size-4 rounded" alt="" />
-            <% end %>
-            <span class="truncate">{URI.parse(link.url).host || link.url}</span>
+                <%!-- Add tag dropdown --%>
+                <% assigned_ids = Enum.map(link.link_tags, & &1.tag_id) %>
+                <% available = Enum.reject(@tags, fn t -> t.id in assigned_ids end) %>
+                <details :if={available != []} class="dropdown">
+                  <summary class="badge badge-sm badge-ghost cursor-pointer gap-1">
+                    <.icon name="hero-plus" class="size-3" /> tag
+                  </summary>
+                  <ul class="dropdown-content menu bg-base-200 rounded-box z-10 p-2 shadow mt-1">
+                    <li :for={tag <- available}>
+                      <button
+                        phx-click="tag"
+                        phx-value-link-id={link.id}
+                        phx-value-tag-id={tag.id}
+                      >
+                        {tag.name}
+                      </button>
+                    </li>
+                  </ul>
+                </details>
+              </div>
 
-            <div class="flex gap-1 ml-auto shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                phx-click={if(link.viewed_at, do: "mark_unviewed", else: "mark_viewed")}
-                phx-value-id={link.id}
-                class="btn btn-ghost btn-xs btn-circle"
-                title={if(link.viewed_at, do: "Mark unviewed", else: "Mark viewed")}
-              >
-                <.icon
-                  name={if(link.viewed_at, do: "hero-check-circle-solid", else: "hero-circle")}
-                  class="size-3.5"
-                />
-              </button>
-              <.button patch={~p"/links/#{link.id}/edit"} class="btn btn-ghost btn-xs btn-circle">
-                <.icon name="hero-pencil-square" class="size-3.5" />
-              </.button>
-              <button
-                phx-click="delete"
-                phx-value-id={link.id}
-                data-confirm="Are you sure?"
-                class="btn btn-ghost btn-xs btn-circle hover:text-error"
-              >
-                <.icon name="hero-trash" class="size-3.5" />
-              </button>
+              <%!-- Footer: favicon + domain + hover actions --%>
+              <div class="flex items-center gap-2 mt-auto pt-2 border-t border-base-300 text-xs text-base-content/50">
+                <%= if link.favicon_url do %>
+                  <img src={link.favicon_url} class="size-4 rounded" alt="" />
+                <% end %>
+                <span class="truncate">{URI.parse(link.url).host || link.url}</span>
+
+                <div class="flex gap-1 ml-auto shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    phx-click={if(link.viewed_at, do: "mark_unviewed", else: "mark_viewed")}
+                    phx-value-id={link.id}
+                    class="btn btn-ghost btn-xs btn-circle"
+                    title={if(link.viewed_at, do: "Mark unviewed", else: "Mark viewed")}
+                  >
+                    <.icon
+                      name={if(link.viewed_at, do: "hero-check-circle-solid", else: "hero-circle")}
+                      class="size-3.5"
+                    />
+                  </button>
+                  <.button patch={~p"/links/#{link.id}/edit"} class="btn btn-ghost btn-xs btn-circle">
+                    <.icon name="hero-pencil-square" class="size-3.5" />
+                  </.button>
+                  <button
+                    phx-click="delete"
+                    phx-value-id={link.id}
+                    data-confirm="Are you sure?"
+                    class="btn btn-ghost btn-xs btn-circle hover:text-error"
+                  >
+                    <.icon name="hero-trash" class="size-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-          </div>
-        </div>
         </div>
       </div>
     </Layouts.app>
