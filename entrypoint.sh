@@ -10,4 +10,4 @@ adduser --uid "$PUID" --ingroup liminal --home /app --shell /bin/sh --disabled-p
 chown "$PUID":"$PGID" /data
 chown -R "$PUID":"$PGID" /app
 
-exec gosu liminal "$@"
+exec gosu "$PUID":"$PGID" "$@"
