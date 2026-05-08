@@ -26,14 +26,30 @@ config :liminal, LiminalWeb.Endpoint,
 if config_env() == :prod do
   log_level =
     case System.get_env("LOG_LEVEL", "warning") do
-      "emergency" -> :emergency
-      "alert" -> :alert
-      "critical" -> :critical
-      "error" -> :error
-      "warning" -> :warning
-      "notice" -> :notice
-      "info" -> :info
-      "debug" -> :debug
+      "emergency" ->
+        :emergency
+
+      "alert" ->
+        :alert
+
+      "critical" ->
+        :critical
+
+      "error" ->
+        :error
+
+      "warning" ->
+        :warning
+
+      "notice" ->
+        :notice
+
+      "info" ->
+        :info
+
+      "debug" ->
+        :debug
+
       other ->
         IO.warn("unknown LOG_LEVEL #{inspect(other)}, defaulting to :warning")
         :warning
