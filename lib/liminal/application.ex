@@ -7,6 +7,8 @@ defmodule Liminal.Application do
 
   @impl true
   def start(_type, _args) do
+    maybe_create_db()
+
     children =
       [
         LiminalWeb.Telemetry,
@@ -43,6 +45,12 @@ defmodule Liminal.Application do
       [Liminal.Links.Janitor]
     else
       []
+    end
+  end
+
+  defp maybe_create_db do
+    unless skip_migrations?() do
+      Liminal.Repo.__adapter__().storage_up(Liminal.Repo.config())
     end
   end
 

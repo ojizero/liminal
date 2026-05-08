@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 # Build arguments for easy version pinning
 ARG ELIXIR_VERSION=1.19.5
 ARG OTP_VERSION=28.5
@@ -23,12 +25,16 @@ ENV MIX_ENV="prod"
 
 # Install dependencies (cached layer)
 COPY mix.exs mix.lock ./
-RUN mix deps.get --only prod
+RUN --mount=type=cache,target=/root/.hex/packages \
+    --mount=type=cache,target=/root/.cache/rebar3 \
+    mix deps.get --only prod
 RUN mkdir config
 
 # Copy compile-time config (cached layer)
 COPY config/config.exs config/prod.exs config/
-RUN mix deps.compile
+RUN --mount=type=cache,target=/root/.hex/packages \
+    --mount=type=cache,target=/root/.cache/rebar3 \
+    mix deps.compile
 
 # Install esbuild + tailwind binaries
 RUN mix assets.setup
