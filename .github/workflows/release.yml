@@ -19,18 +19,19 @@ jobs:
       version: ${{ steps.check.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
       - name: Ensure version was bumped
         id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           current=$(grep 'version:' mix.exs | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          previous=$(git show HEAD~1:mix.exs | grep 'version:' | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          latest_tag=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "")
+          released=${latest_tag#v}
           echo "Current version:  $current"
-          echo "Previous version: $previous"
-          if [ "$current" = "$previous" ]; then
-            echo "::error::Version not bumped. Update the version in mix.exs before merging."
+          echo "Released version: ${released:-<none>}"
+          if [ "$current" = "$released" ]; then
+            echo "::error::Version $current already released. Bump the version in mix.exs before merging."
             exit 1
           fi
           echo "version=$current" >> "$GITHUB_OUTPUT"
