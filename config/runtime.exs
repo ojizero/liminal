@@ -24,6 +24,23 @@ config :liminal, LiminalWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
 if config_env() == :prod do
+  log_level =
+    case System.get_env("LOG_LEVEL", "warning") do
+      "emergency" -> :emergency
+      "alert" -> :alert
+      "critical" -> :critical
+      "error" -> :error
+      "warning" -> :warning
+      "notice" -> :notice
+      "info" -> :info
+      "debug" -> :debug
+      other ->
+        IO.warn("unknown LOG_LEVEL #{inspect(other)}, defaulting to :warning")
+        :warning
+    end
+
+  config :logger, level: log_level
+
   config :liminal, :signups_enabled, System.get_env("SIGNUPS_ENABLED", "false") == "true"
 
   database_path =

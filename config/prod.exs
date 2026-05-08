@@ -25,8 +25,7 @@ config :swoosh, api_client: Swoosh.ApiClient.Req
 # Disable Swoosh Local Memory Storage
 config :swoosh, local: false
 
-# Do not print debug messages in production
-config :logger, level: :info
+# Log level is controlled at runtime via the LOG_LEVEL env var (default: warning)
 
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.

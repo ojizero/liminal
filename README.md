@@ -65,6 +65,7 @@ docker compose up -d
 | `PORT` | No | `4000` | Server port |
 | `POOL_SIZE` | No | `5` | SQLite connection pool size |
 | `SIGNUPS_ENABLED` | No | `false` | Whether public registration is open |
+| `LOG_LEVEL` | No | `warning` | Log verbosity: `debug`, `info`, `notice`, `warning`, `error`, `critical`, `alert`, `emergency` |
 
 ## Development
 
