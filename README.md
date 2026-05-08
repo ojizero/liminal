@@ -60,6 +60,8 @@ docker compose up -d
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `SECRET_KEY_BASE` | Yes | — | Secret for signing cookies/sessions. Generate with `mix phx.gen.secret` |
+| `PUID` | No | `911` | UID for the container process. Match your host user (`id -u`) to avoid permission issues with mounted volumes |
+| `PGID` | No | `911` | GID for the container process. Match your host group (`id -g`) |
 | `DATABASE_PATH` | No | `/data/liminal.db` | Path to the SQLite database file |
 | `PHX_HOST` | No | `localhost` | Hostname for URL generation |
 | `PORT` | No | `4000` | Server port |

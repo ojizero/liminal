@@ -58,7 +58,7 @@ RUN mix release
 FROM ${RUNNER_IMAGE}
 
 RUN apt-get update -y && \
-    apt-get install -y libstdc++6 openssl libncurses6 locales ca-certificates \
+    apt-get install -y libstdc++6 openssl libncurses6 locales ca-certificates gosu \
     && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 # Set locale
@@ -69,22 +69,28 @@ ENV LC_ALL=en_US.UTF-8
 
 WORKDIR /app
 
-# Create data directory for SQLite and set ownership
-RUN mkdir -p /data && chown nobody:nogroup /data
+# Create data directory for SQLite
+RUN mkdir -p /data
 
 # Copy release from builder
-RUN chown nobody:nogroup /app
-COPY --from=builder --chown=nobody:nogroup /app/_build/prod/rel/liminal ./
+COPY --from=builder /app/_build/prod/rel/liminal ./
+
+# Copy entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 ENV PHX_SERVER=true
 ENV DATABASE_PATH=/data/liminal.db
 ENV PORT=4000
 
-USER nobody
+# UID/GID for the container process (LinuxServer.io-style)
+ENV PUID=911
+ENV PGID=911
 
 EXPOSE 4000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD /app/bin/liminal pid || exit 1
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/app/bin/liminal", "start"]
