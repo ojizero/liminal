@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+env:
+  MIX_ENV: test
+  ELIXIR_VERSION: "1.19.5"
+  OTP_VERSION: "28.5"
+
+jobs:
+  version-check:
+    name: Version Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure version was bumped
+        run: |
+          current=$(grep 'version:' mix.exs | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          main=$(git show origin/main:mix.exs | grep 'version:' | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "PR version:   $current"
+          echo "main version: $main"
+          if [ "$current" = "$main" ]; then
+            echo "::error::Version not bumped. Update the version in mix.exs before merging."
+            exit 1
+          fi
+
+  test:
+    name: Test & Lint
+    needs: version-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
+
+      - name: Cache deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: mix-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-${{ hashFiles('mix.lock') }}
+          restore-keys: |
+            mix-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Check formatting
+        run: mix format --check-formatted
+
+      - name: Compile (warnings as errors)
+        run: mix compile --warnings-as-errors
+
+      - name: Run tests
+        run: mix test
