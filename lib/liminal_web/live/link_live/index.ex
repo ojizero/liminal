@@ -10,7 +10,7 @@ defmodule LiminalWeb.LinkLive.Index do
       <.header>
         My Links
         <:actions>
-          <.button navigate={~p"/tags"}>Tags</.button>
+          <.button navigate={~p"/tags"}>Manage Tags</.button>
         </:actions>
       </.header>
 
@@ -106,6 +106,7 @@ defmodule LiminalWeb.LinkLive.Index do
                     type="button"
                     phx-click="toggle_tag"
                     phx-value-id={tag.id}
+                    title={"Expires in #{tag.expires_in_days} days"}
                     class={[
                       "badge badge-sm cursor-pointer select-none transition-colors",
                       if(tag.id in @selected_tag_ids,
@@ -136,8 +137,11 @@ defmodule LiminalWeb.LinkLive.Index do
             :for={{id, link} <- @streams.links}
             id={id}
             data-masonry-item
+            data-url={link.url}
+            data-id={link.id}
+            phx-hook=".LinkCard"
             class={[
-              "card bg-base-200 group overflow-hidden",
+              "card bg-base-200 group cursor-pointer hover:ring-2 hover:ring-base-content/10 transition-shadow",
               link.viewed_at && "opacity-60"
             ]}
           >
@@ -173,10 +177,11 @@ defmodule LiminalWeb.LinkLive.Index do
               </a>
 
               <%!-- Tag pills --%>
-              <div class="flex flex-wrap gap-1.5 mt-1">
+              <div class="flex flex-wrap gap-1.5 mt-1 cursor-default" data-no-navigate>
                 <span
                   :for={lt <- link.link_tags}
                   class="badge badge-sm badge-outline gap-1"
+                  title={time_remaining(lt.expires_at)}
                 >
                   {lt.tag.name}
                   <button
@@ -203,6 +208,7 @@ defmodule LiminalWeb.LinkLive.Index do
                         phx-click="tag"
                         phx-value-link-id={link.id}
                         phx-value-tag-id={tag.id}
+                        title={"Expires in #{tag.expires_in_days} days"}
                       >
                         {tag.name}
                       </button>
@@ -212,7 +218,7 @@ defmodule LiminalWeb.LinkLive.Index do
               </div>
 
               <%!-- Footer: favicon + domain + hover actions --%>
-              <div class="flex items-center gap-2 mt-auto pt-2 border-t border-base-300 text-xs text-base-content/50">
+              <div class="flex items-center gap-2 mt-auto pt-2 border-t border-base-300 text-xs text-base-content/50 cursor-default" data-no-navigate>
                 <%= if link.favicon_url do %>
                   <img src={link.favicon_url} class="size-4 rounded" alt="" />
                 <% end %>
@@ -248,6 +254,28 @@ defmodule LiminalWeb.LinkLive.Index do
         </div>
       </div>
     </Layouts.app>
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".LinkCard">
+      export default {
+        mounted() {
+          const url = this.el.dataset.url;
+          const linkId = this.el.dataset.id;
+
+          this.el.addEventListener("click", (e) => {
+            if (e.target.closest("[data-no-navigate], button, details, summary")) return;
+
+            this.pushEvent("mark_viewed", { id: linkId });
+
+            if (e.target.closest("a")) return;
+
+            if (e.metaKey || e.ctrlKey) {
+              window.open(url, "_blank", "noopener,noreferrer");
+            } else {
+              window.location.href = url;
+            }
+          });
+        }
+      }
+    </script>
     """
   end
 
@@ -505,5 +533,21 @@ defmodule LiminalWeb.LinkLive.Index do
 
   defp matches_tag_filter?(link, tag_ids) do
     Enum.any?(link.link_tags, fn lt -> lt.tag_id in tag_ids end)
+  end
+
+  defp time_remaining(nil), do: nil
+
+  defp time_remaining(expires_at) do
+    now = DateTime.utc_now()
+    diff_seconds = DateTime.diff(expires_at, now)
+
+    cond do
+      diff_seconds <= 0 -> "Expired"
+      diff_seconds < 3600 -> "Expires in #{div(diff_seconds, 60)} min"
+      diff_seconds < 86_400 -> "Expires in #{div(diff_seconds, 3600)} hours"
+      diff_seconds < 86_400 * 30 -> "Expires in #{div(diff_seconds, 86_400)} days"
+      diff_seconds < 86_400 * 365 -> "Expires in #{div(diff_seconds, 86_400 * 30)} months"
+      true -> "Expires in #{div(diff_seconds, 86_400 * 365)} years"
+    end
   end
 end

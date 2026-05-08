@@ -45,7 +45,6 @@ defmodule LiminalWeb.Layouts do
         <%= if @current_scope do %>
           <nav class="flex gap-1">
             <.link navigate={~p"/"} class="btn btn-ghost btn-sm">Links</.link>
-            <.link navigate={~p"/tags"} class="btn btn-ghost btn-sm">Tags</.link>
             <%= if Scope.admin?(@current_scope) do %>
               <.link navigate={~p"/admin/users"} class="btn btn-ghost btn-sm">Admin</.link>
             <% end %>
