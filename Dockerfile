@@ -69,10 +69,11 @@ ENV LC_ALL=en_US.UTF-8
 
 WORKDIR /app
 
-# Create data directory for SQLite and pre-create liminal user with default UID/GID
-RUN mkdir -p /data && \
-    groupadd -g 911 liminal && \
-    useradd -u 911 -g liminal -d /app -s /bin/sh -M liminal
+# Pre-create liminal user with default UID/GID
+RUN addgroup --gid 911 liminal && \
+    adduser --uid 911 --ingroup liminal \
+            --home /app --no-create-home \
+            --disabled-password --gecos "" liminal
 
 # Copy release from builder
 COPY --from=builder /app/_build/prod/rel/liminal ./
@@ -82,7 +83,6 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENV PHX_SERVER=true
-ENV DATABASE_PATH=/data/liminal.db
 ENV PORT=4000
 
 # UID/GID for the container process (LinuxServer.io-style)
