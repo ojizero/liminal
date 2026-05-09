@@ -38,6 +38,9 @@ if config_env() == :prod do
       "error" ->
         :error
 
+      "warn" ->
+        :warning
+
       "warning" ->
         :warning
 
@@ -58,6 +61,7 @@ if config_env() == :prod do
   config :logger, level: log_level
 
   config :liminal, :signups_enabled, System.get_env("SIGNUPS_ENABLED", "false") == "true"
+  config :liminal, :auto_migrate, System.get_env("AUTO_MIGRATE", "true") == "true"
 
   database_path =
     System.get_env("DATABASE_PATH") ||

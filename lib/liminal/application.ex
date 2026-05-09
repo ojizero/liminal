@@ -14,7 +14,7 @@ defmodule Liminal.Application do
         LiminalWeb.Telemetry,
         Liminal.Repo,
         {Ecto.Migrator,
-         repos: Application.fetch_env!(:liminal, :ecto_repos), skip: skip_migrations?()},
+         repos: Application.fetch_env!(:liminal, :ecto_repos), skip: not auto_migrate?()},
         {DNSCluster, query: Application.get_env(:liminal, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Liminal.PubSub},
         {Task.Supervisor, name: Liminal.Links.IndexerTaskSupervisor},
@@ -45,13 +45,12 @@ defmodule Liminal.Application do
   end
 
   defp maybe_create_db do
-    unless skip_migrations?() do
+    if auto_migrate?() do
       Liminal.Repo.__adapter__().storage_up(Liminal.Repo.config())
     end
   end
 
-  defp skip_migrations?() do
-    # By default, sqlite migrations are run when using a release
-    System.get_env("RELEASE_NAME") == nil
+  defp auto_migrate? do
+    Application.get_env(:liminal, :auto_migrate, true)
   end
 end
