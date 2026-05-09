@@ -88,10 +88,19 @@ if config_env() == :prod do
 
   host = System.get_env("PHX_HOST") || "example.com"
 
+  extra_origins =
+    case System.get_env("PHX_CHECK_ORIGINS") do
+      nil -> []
+      origins -> origins |> String.split(",") |> Enum.map(&String.trim/1)
+    end
+
+  check_origins = Enum.uniq(["//#{host}" | extra_origins])
+
   config :liminal, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   config :liminal, LiminalWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
+    check_origin: check_origins,
     http: [
       # Enable IPv6 and bind on all interfaces.
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.

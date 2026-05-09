@@ -63,6 +63,7 @@ docker compose up -d
 | `PGID` | No | `911` | GID for the container process. Match your host group (`id -g`) |
 | `DATABASE_PATH` | Yes | — | Path to the SQLite database file |
 | `PHX_HOST` | No | `example.com` | Hostname for URL generation |
+| `PHX_CHECK_ORIGINS` | No | — | Comma-separated additional allowed origins for LiveView WebSocket connections (e.g. `//domain2.com,//domain3.com`). `PHX_HOST` is always included automatically |
 | `PORT` | No | `4000` | Server port |
 | `POOL_SIZE` | No | `5` | SQLite connection pool size |
 | `SIGNUPS_ENABLED` | No | `false` | Whether public registration is open |

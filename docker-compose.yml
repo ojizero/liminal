@@ -14,6 +14,7 @@ services:
       - DATABASE_PATH=/data/liminal.db
       - PHX_SERVER=true
       - PHX_HOST=${PHX_HOST:-localhost}
+      # - PHX_CHECK_ORIGINS=//domain2.com,//domain3.com
       - PORT=${PORT:-4000}
       - POOL_SIZE=${POOL_SIZE:-5}
       - SIGNUPS_ENABLED=${SIGNUPS_ENABLED:-false}
