@@ -10,7 +10,7 @@ defmodule LiminalWeb.LinkLive.Index do
       <.header>
         My Links
         <:actions>
-          <.button navigate={~p"/tags"}>Manage Tags</.button>
+          <.button patch={~p"/tags"}>Manage Tags</.button>
         </:actions>
       </.header>
 
@@ -142,7 +142,13 @@ defmodule LiminalWeb.LinkLive.Index do
               link.viewed_at && "opacity-60"
             ]}
           >
-            <a :if={link.image_path} href={link.url} target="_blank" rel="noopener noreferrer" class="h-56 w-full shrink-0 overflow-hidden block">
+            <a
+              :if={link.image_path}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="h-56 w-full shrink-0 overflow-hidden block"
+            >
               <img
                 src={"/#{link.image_path}"}
                 alt=""
@@ -251,6 +257,45 @@ defmodule LiminalWeb.LinkLive.Index do
           </div>
         </div>
       </div>
+
+      <%!-- Tags modal --%>
+      <div
+        :if={@live_action in [:manage_tags, :new_tag, :edit_tag]}
+        id="tags-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center"
+        phx-mounted={
+          JS.transition({"ease-out duration-200", "opacity-0", "opacity-100"}, to: "#tags-modal")
+        }
+      >
+        <div
+          id="tags-modal-backdrop"
+          class="absolute inset-0 bg-black/50"
+          phx-click={JS.patch(~p"/")}
+        />
+        <div
+          id="tags-modal-content"
+          class="relative bg-base-100 rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col"
+          phx-window-keydown={JS.patch(~p"/")}
+          phx-key="Escape"
+        >
+          <div class="flex items-center justify-between p-5 border-b border-base-300">
+            <h2 class="text-lg font-semibold">Manage Tags</h2>
+            <.link patch={~p"/"} class="btn btn-ghost btn-sm btn-circle" aria-label="Close">
+              <.icon name="hero-x-mark" class="size-5" />
+            </.link>
+          </div>
+
+          <div class="p-5 overflow-y-auto flex-1">
+            <.live_component
+              module={LiminalWeb.TagLive.Index}
+              id="tags-manager"
+              current_scope={@current_scope}
+              action={@live_action}
+              tag_id={@tag_id}
+            />
+          </div>
+        </div>
+      </div>
     </Layouts.app>
     """
   end
@@ -276,6 +321,7 @@ defmodule LiminalWeb.LinkLive.Index do
       |> assign(:form, to_form(Links.change_link(link)))
       |> assign(:editing_link, nil)
       |> assign(:edit_form, nil)
+      |> assign(:tag_id, nil)
       |> stream(:links, links)
 
     {:ok, socket}
@@ -302,6 +348,24 @@ defmodule LiminalWeb.LinkLive.Index do
     |> assign(:edit_form, to_form(Links.change_link(link), as: :edit_link))
   end
 
+  defp apply_action(socket, :manage_tags, _params) do
+    socket
+    |> assign(:page_title, "Manage Tags")
+    |> assign(:tag_id, nil)
+  end
+
+  defp apply_action(socket, :new_tag, _params) do
+    socket
+    |> assign(:page_title, "New Tag")
+    |> assign(:tag_id, nil)
+  end
+
+  defp apply_action(socket, :edit_tag, %{"id" => id}) do
+    socket
+    |> assign(:page_title, "Edit Tag")
+    |> assign(:tag_id, id)
+  end
+
   @impl true
   def handle_info({:link_deleted, link_id}, socket) do
     {:noreply, stream_delete(socket, :links, %{id: link_id})}
@@ -317,6 +381,11 @@ defmodule LiminalWeb.LinkLive.Index do
     else
       {:noreply, socket}
     end
+  end
+
+  def handle_info({LiminalWeb.TagLive.Index, :tags_changed}, socket) do
+    tags = Links.list_tags(socket.assigns.current_scope)
+    {:noreply, assign(socket, :tags, tags)}
   end
 
   def handle_info({:link_updated, link}, socket) do

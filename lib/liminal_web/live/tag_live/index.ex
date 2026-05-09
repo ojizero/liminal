@@ -1,43 +1,39 @@
 defmodule LiminalWeb.TagLive.Index do
-  use LiminalWeb, :live_view
+  use LiminalWeb, :live_component
 
   alias Liminal.Links
 
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <.header>
-        Tags
-        <:actions>
-          <.button navigate={~p"/"}>Back to Links</.button>
-          <.button variant="primary" patch={~p"/tags/new"}>
-            <.icon name="hero-plus" class="size-4" /> New Tag
-          </.button>
-        </:actions>
-      </.header>
-
+    <div>
       <%!-- Inline form for new/edit --%>
-      <div :if={@live_action in [:new, :edit]} class="mb-6 p-4 bg-base-200 rounded-lg">
-        <.form for={@form} id="tag-form" phx-change="validate" phx-submit="save">
+      <div :if={@action in [:new_tag, :edit_tag]} class="mb-5 p-4 bg-base-200 rounded-lg">
+        <.form for={@form} id="tag-form" phx-change="validate" phx-submit="save" phx-target={@myself}>
           <.input field={@form[:name]} type="text" label="Name" />
           <.input field={@form[:expires_in_days]} type="number" label="Expires in (days)" />
-          <div class="flex gap-2 mt-2">
+          <div class="flex gap-2 mt-3">
             <.button variant="primary" phx-disable-with="Saving...">Save</.button>
             <.button patch={~p"/tags"}>Cancel</.button>
           </div>
         </.form>
       </div>
 
-      <%!-- Tags stream --%>
+      <div :if={@action == :manage_tags} class="mb-4">
+        <.button variant="primary" patch={~p"/tags/new"}>
+          <.icon name="hero-plus" class="size-4" /> New Tag
+        </.button>
+      </div>
+
+      <%!-- Tags list --%>
       <ul id="tags" phx-update="stream" class="space-y-3">
-        <li id="tags-empty" class="hidden only:block text-center py-8 text-base-content/50">
-          No tags yet. Create one above!
+        <li id="tags-empty" class="hidden only:block text-center py-6 text-base-content/50">
+          No tags yet.
         </li>
         <li
           :for={{id, tag} <- @streams.tags}
           id={id}
-          class="p-4 bg-base-200 rounded-lg flex items-center justify-between group"
+          class="p-4 bg-base-200 rounded-lg flex items-center justify-between"
         >
           <div>
             <span class="font-medium">{tag.name}</span>
@@ -46,14 +42,15 @@ defmodule LiminalWeb.TagLive.Index do
             </span>
           </div>
           <div class="flex gap-1">
-            <.button
+            <.link
               patch={~p"/tags/#{tag.id}/edit"}
               class="btn btn-ghost btn-sm btn-circle"
             >
               <.icon name="hero-pencil-square" class="size-4" />
-            </.button>
+            </.link>
             <button
               phx-click="delete"
+              phx-target={@myself}
               phx-value-id={tag.id}
               data-confirm="Are you sure? Links tagged with this tag will lose the tag."
               class="btn btn-ghost btn-sm btn-circle hover:text-error cursor-pointer"
@@ -63,44 +60,40 @@ defmodule LiminalWeb.TagLive.Index do
           </div>
         </li>
       </ul>
-    </Layouts.app>
+    </div>
     """
   end
 
   @impl true
-  def mount(_params, _session, socket) do
-    scope = socket.assigns.current_scope
-    tags = Links.list_tags(scope)
+  def update(assigns, socket) do
+    scope = assigns.current_scope
 
-    {:ok, stream(socket, :tags, tags)}
+    socket =
+      socket
+      |> assign(:current_scope, scope)
+      |> assign(:action, assigns.action)
+      |> apply_action(assigns.action, assigns)
+      |> stream(:tags, Links.list_tags(scope), reset: true)
+
+    {:ok, socket}
   end
 
-  @impl true
-  def handle_params(params, _url, socket) do
-    {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+  defp apply_action(socket, :manage_tags, _assigns) do
+    assign(socket, :form, nil)
   end
 
-  defp apply_action(socket, :index, _params) do
-    socket
-    |> assign(:page_title, "Tags")
-    |> assign(:tag, nil)
-    |> assign(:form, nil)
-  end
-
-  defp apply_action(socket, :new, _params) do
+  defp apply_action(socket, :new_tag, _assigns) do
     tag = %Liminal.Links.Tag{}
 
     socket
-    |> assign(:page_title, "New Tag")
     |> assign(:tag, tag)
     |> assign(:form, to_form(Links.change_tag(tag)))
   end
 
-  defp apply_action(socket, :edit, %{"id" => id}) do
+  defp apply_action(socket, :edit_tag, %{tag_id: id}) do
     tag = Links.get_tag!(socket.assigns.current_scope, id)
 
     socket
-    |> assign(:page_title, "Edit Tag")
     |> assign(:tag, tag)
     |> assign(:form, to_form(Links.change_tag(tag)))
   end
@@ -116,7 +109,7 @@ defmodule LiminalWeb.TagLive.Index do
   end
 
   def handle_event("save", %{"tag" => tag_params}, socket) do
-    save_tag(socket, socket.assigns.live_action, tag_params)
+    save_tag(socket, socket.assigns.action, tag_params)
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
@@ -124,14 +117,18 @@ defmodule LiminalWeb.TagLive.Index do
     tag = Links.get_tag!(scope, id)
     {:ok, _} = Links.delete_tag(scope, tag)
 
+    notify_parent(:tags_changed)
+
     {:noreply, stream_delete(socket, :tags, tag)}
   end
 
-  defp save_tag(socket, :new, tag_params) do
+  defp save_tag(socket, :new_tag, tag_params) do
     scope = socket.assigns.current_scope
 
     case Links.create_tag(scope, tag_params) do
       {:ok, tag} ->
+        notify_parent(:tags_changed)
+
         {:noreply,
          socket
          |> put_flash(:info, "Tag created")
@@ -143,11 +140,13 @@ defmodule LiminalWeb.TagLive.Index do
     end
   end
 
-  defp save_tag(socket, :edit, tag_params) do
+  defp save_tag(socket, :edit_tag, tag_params) do
     scope = socket.assigns.current_scope
 
     case Links.update_tag(scope, socket.assigns.tag, tag_params) do
       {:ok, tag} ->
+        notify_parent(:tags_changed)
+
         {:noreply,
          socket
          |> put_flash(:info, "Tag updated")
@@ -158,4 +157,6 @@ defmodule LiminalWeb.TagLive.Index do
         {:noreply, assign(socket, :form, to_form(changeset))}
     end
   end
+
+  defp notify_parent(msg), do: send(self(), {__MODULE__, msg})
 end
