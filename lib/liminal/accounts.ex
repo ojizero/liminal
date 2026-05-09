@@ -356,10 +356,12 @@ defmodule Liminal.Accounts do
   def delete_own_account(scope) do
     user = scope.user
 
-    if user.role == "admin" and admin_count() <= 1 do
-      {:error, :last_admin}
-    else
-      Repo.delete(user)
+    cond do
+      user.role == "admin" and admin_count() <= 1 ->
+        {:error, :last_admin}
+
+      :otherwise ->
+        Repo.delete(user)
     end
   end
 
@@ -391,14 +393,15 @@ defmodule Liminal.Accounts do
   Used to determine if first-time setup is needed.
   """
   def any_admins? do
-    case :persistent_term.get(@admin_cache_key, :not_set) do
-      true ->
-        true
+    with :not_set <- :persistent_term.get(@admin_cache_key, :not_set) do
+      Repo.exists?(from u in User, where: u.role == "admin")
+      |> tap(fn
+        true = _admin? ->
+          :persistent_term.put(@admin_cache_key, true)
 
-      :not_set ->
-        result = Repo.exists?(from u in User, where: u.role == "admin")
-        if result, do: :persistent_term.put(@admin_cache_key, true)
-        result
+        false = _no_admin? ->
+          :noop
+      end)
     end
   end
 
