@@ -45,7 +45,7 @@ defmodule LiminalWeb.TagLive.Index do
               {tag.expires_in_days} days
             </span>
           </div>
-          <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div class="flex gap-1">
             <.button
               patch={~p"/tags/#{tag.id}/edit"}
               class="btn btn-ghost btn-sm btn-circle"
@@ -56,7 +56,7 @@ defmodule LiminalWeb.TagLive.Index do
               phx-click="delete"
               phx-value-id={tag.id}
               data-confirm="Are you sure? Links tagged with this tag will lose the tag."
-              class="btn btn-ghost btn-sm btn-circle hover:text-error"
+              class="btn btn-ghost btn-sm btn-circle hover:text-error cursor-pointer"
             >
               <.icon name="hero-trash" class="size-4" />
             </button>

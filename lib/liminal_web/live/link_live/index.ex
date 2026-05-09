@@ -137,47 +137,35 @@ defmodule LiminalWeb.LinkLive.Index do
             :for={{id, link} <- @streams.links}
             id={id}
             data-masonry-item
-            data-url={link.url}
-            data-id={link.id}
-            phx-hook=".LinkCard"
             class={[
-              "card bg-base-200 group cursor-pointer hover:ring-2 hover:ring-base-content/10 transition-shadow",
+              "card bg-base-200",
               link.viewed_at && "opacity-60"
             ]}
           >
-            <%!-- Image banner (optional) --%>
-            <div :if={link.image_path} class="h-56 w-full shrink-0 overflow-hidden">
+            <a :if={link.image_path} href={link.url} target="_blank" rel="noopener noreferrer" class="h-56 w-full shrink-0 overflow-hidden block">
               <img
                 src={"/#{link.image_path}"}
                 alt=""
                 class="h-full w-full object-cover"
                 loading="lazy"
               />
-            </div>
+            </a>
 
             <div class="card-body p-4 gap-2">
-              <%!-- Title --%>
-              <div class="font-bold line-clamp-2">
-                {link.title || link.url}
-              </div>
-
-              <%!-- Description (optional) --%>
-              <p :if={link.description} class="text-sm text-base-content/70 line-clamp-3">
-                {link.description}
-              </p>
-
-              <%!-- Domain link --%>
               <a
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="text-sm text-primary hover:underline truncate block"
+                class="font-bold line-clamp-2 hover:underline"
               >
-                {URI.parse(link.url).host || link.url}
+                {link.title || link.url}
               </a>
 
-              <%!-- Tag pills --%>
-              <div class="flex flex-wrap gap-1.5 mt-1 cursor-default" data-no-navigate>
+              <p :if={link.description} class="text-sm text-base-content/70 line-clamp-3">
+                {link.description}
+              </p>
+
+              <div class="flex flex-wrap gap-1.5 mt-1">
                 <span
                   :for={lt <- link.link_tags}
                   class="badge badge-sm badge-outline gap-1"
@@ -195,7 +183,6 @@ defmodule LiminalWeb.LinkLive.Index do
                   </button>
                 </span>
 
-                <%!-- Add tag dropdown --%>
                 <% assigned_ids = Enum.map(link.link_tags, & &1.tag_id) %>
                 <% available = Enum.reject(@tags, fn t -> t.id in assigned_ids end) %>
                 <details :if={available != []} class="dropdown">
@@ -217,17 +204,20 @@ defmodule LiminalWeb.LinkLive.Index do
                 </details>
               </div>
 
-              <%!-- Footer: favicon + domain + hover actions --%>
-              <div
-                class="flex items-center gap-2 mt-auto pt-2 border-t border-base-300 text-xs text-base-content/50 cursor-default"
-                data-no-navigate
-              >
+              <div class="flex items-center gap-2 mt-auto pt-2 border-t border-base-300 text-xs text-base-content/50">
                 <%= if link.favicon_url do %>
                   <img src={link.favicon_url} class="size-4 rounded" alt="" />
                 <% end %>
-                <span class="truncate">{URI.parse(link.url).host || link.url}</span>
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="truncate hover:underline hover:text-primary"
+                >
+                  {URI.parse(link.url).host || link.url}
+                </a>
 
-                <div class="flex gap-1 ml-auto shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div class="flex gap-1 ml-auto shrink-0">
                   <button
                     phx-click={if(link.viewed_at, do: "mark_unviewed", else: "mark_viewed")}
                     phx-value-id={link.id}
@@ -235,18 +225,23 @@ defmodule LiminalWeb.LinkLive.Index do
                     title={if(link.viewed_at, do: "Mark unviewed", else: "Mark viewed")}
                   >
                     <.icon
-                      name={if(link.viewed_at, do: "hero-check-circle-solid", else: "hero-circle")}
+                      name={if(link.viewed_at, do: "hero-eye-slash", else: "hero-eye")}
                       class="size-3.5"
                     />
                   </button>
-                  <.button patch={~p"/links/#{link.id}/edit"} class="btn btn-ghost btn-xs btn-circle">
+                  <.link
+                    patch={~p"/links/#{link.id}/edit"}
+                    class="btn btn-ghost btn-xs btn-circle"
+                    title="Edit"
+                  >
                     <.icon name="hero-pencil-square" class="size-3.5" />
-                  </.button>
+                  </.link>
                   <button
                     phx-click="delete"
                     phx-value-id={link.id}
                     data-confirm="Are you sure?"
                     class="btn btn-ghost btn-xs btn-circle hover:text-error"
+                    title="Delete"
                   >
                     <.icon name="hero-trash" class="size-3.5" />
                   </button>
@@ -257,28 +252,6 @@ defmodule LiminalWeb.LinkLive.Index do
         </div>
       </div>
     </Layouts.app>
-    <script :type={Phoenix.LiveView.ColocatedHook} name=".LinkCard">
-      export default {
-        mounted() {
-          const url = this.el.dataset.url;
-          const linkId = this.el.dataset.id;
-
-          this.el.addEventListener("click", (e) => {
-            if (e.target.closest("[data-no-navigate], button, details, summary")) return;
-
-            this.pushEvent("mark_viewed", { id: linkId });
-
-            if (e.target.closest("a")) return;
-
-            if (e.metaKey || e.ctrlKey) {
-              window.open(url, "_blank", "noopener,noreferrer");
-            } else {
-              window.location.href = url;
-            }
-          });
-        }
-      }
-    </script>
     """
   end
 
