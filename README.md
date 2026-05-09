@@ -24,7 +24,6 @@ A self-hosted link manager and bookmarking app built with Phoenix LiveView and S
 ### Prerequisites
 
 - Elixir ~> 1.15 and Erlang/OTP
-- Node.js (for asset building)
 
 ### Local development
 
@@ -49,7 +48,7 @@ When no admin account exists, the registration page is open — the first user t
 
 ```bash
 cp .env.example .env
-# Edit .env — at minimum set SECRET_KEY_BASE
+# Edit .env — at minimum set SECRET_KEY_BASE and DATABASE_PATH
 # Generate one with: mix phx.gen.secret
 
 docker compose up -d
@@ -62,11 +61,12 @@ docker compose up -d
 | `SECRET_KEY_BASE` | Yes | — | Secret for signing cookies/sessions. Generate with `mix phx.gen.secret` |
 | `PUID` | No | `911` | UID for the container process. Match your host user (`id -u`) to avoid permission issues with mounted volumes |
 | `PGID` | No | `911` | GID for the container process. Match your host group (`id -g`) |
-| `DATABASE_PATH` | No | `/data/liminal.db` | Path to the SQLite database file |
-| `PHX_HOST` | No | `localhost` | Hostname for URL generation |
+| `DATABASE_PATH` | Yes | — | Path to the SQLite database file |
+| `PHX_HOST` | No | `example.com` | Hostname for URL generation |
 | `PORT` | No | `4000` | Server port |
 | `POOL_SIZE` | No | `5` | SQLite connection pool size |
 | `SIGNUPS_ENABLED` | No | `false` | Whether public registration is open |
+| `AUTO_MIGRATE` | No | `true` | Automatically create database and run migrations on startup |
 | `LOG_LEVEL` | No | `warning` | Log verbosity: `debug`, `info`, `notice`, `warning`, `error`, `critical`, `alert`, `emergency` |
 
 ## Development
