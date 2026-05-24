@@ -491,6 +491,39 @@ defmodule Liminal.LinksTest do
       assert length(refetched.link_tags) == 1
     end
 
+    test "removes viewed links after grace period even when tags are not expired" do
+      scope = user_scope_fixture()
+      tag = tag_fixture(scope, %{expires_in_days: 365})
+      link = link_fixture(scope, %{tag_ids: [tag.id]})
+      {:ok, _} = Links.mark_viewed(scope, link)
+
+      past = DateTime.add(DateTime.utc_now(:second), -2, :day)
+
+      Liminal.Repo.update_all(
+        from(l in Liminal.Links.Link, where: l.id == ^link.id),
+        set: [viewed_at: past]
+      )
+
+      assert :ok = Links.cleanup_expired()
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Links.get_link!(scope, link.id)
+      end
+    end
+
+    test "preserves recently viewed links before grace period elapses" do
+      scope = user_scope_fixture()
+      tag = tag_fixture(scope, %{expires_in_days: 365})
+      link = link_fixture(scope, %{tag_ids: [tag.id]})
+      {:ok, _} = Links.mark_viewed(scope, link)
+
+      assert :ok = Links.cleanup_expired()
+
+      refetched = Links.get_link!(scope, link.id)
+      assert refetched.viewed_at != nil
+      assert length(refetched.link_tags) == 1
+    end
+
     test "broadcasts for each orphaned link during sweep" do
       scope = user_scope_fixture()
       tag = tag_fixture(scope, %{expires_in_days: 1})

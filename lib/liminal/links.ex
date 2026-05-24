@@ -5,6 +5,8 @@ defmodule Liminal.Links do
 
   import Ecto.Query
 
+  require Logger
+
   alias Liminal.Repo
   alias Liminal.Links.{Tag, Link, LinkTag}
 
@@ -411,21 +413,73 @@ defmodule Liminal.Links do
 
   ## Expiry cleanup
 
+  @default_viewed_grace_seconds 86_400
+
   @doc """
-  For each expired link_tag, removes it and deletes the owning link if
-  orphaned. Used by the Janitor's periodic sweep.
+  Deletes links viewed longer than the configured grace period (default 1 day;
+  see `:viewed_grace_seconds` application env) with all their tags, then removes
+  expired link_tags and deletes orphaned links. Used by the Janitor's periodic sweep.
   """
   def cleanup_expired do
     now = DateTime.utc_now(:second)
+    viewed_cutoff = viewed_expiry_cutoff(now)
 
-    from(lt in LinkTag,
-      where: not is_nil(lt.expires_at) and lt.expires_at <= ^now,
-      select: lt.id
-    )
-    |> Repo.all()
-    |> Enum.each(&cleanup_link/1)
+    stale_viewed_link_ids =
+      from(l in Link,
+        where: not is_nil(l.viewed_at) and l.viewed_at <= ^viewed_cutoff,
+        select: l.id
+      )
+      |> Repo.all()
+
+    Enum.each(stale_viewed_link_ids, &cleanup_viewed_link/1)
+
+    expired_link_tag_ids =
+      from(lt in LinkTag,
+        where: not is_nil(lt.expires_at) and lt.expires_at <= ^now,
+        select: lt.id
+      )
+      |> Repo.all()
+
+    Enum.each(expired_link_tag_ids, &cleanup_link/1)
 
     :ok
+  end
+
+  defp viewed_expiry_cutoff(now) do
+    grace_seconds =
+      Application.get_env(:liminal, :viewed_grace_seconds, @default_viewed_grace_seconds)
+
+    DateTime.add(now, -grace_seconds, :second)
+  end
+
+  defp cleanup_viewed_link(link_id) do
+    case Repo.get(Link, link_id) do
+      nil ->
+        :ok
+
+      %Link{} = link ->
+        with {:ok, _} <- Repo.transaction(fn -> delete_viewed_link_records(link) end) do
+          broadcast_link_deleted(link.user_id, link.id)
+          :ok
+        else
+          {:error, reason} ->
+            message =
+              "failed to delete viewed link #{link.id} (#{link.url}): #{inspect(reason)}"
+
+            Logger.warning("Links: #{message}")
+            {:error, message}
+        end
+    end
+  end
+
+  defp delete_viewed_link_records(link) do
+    from(lt in LinkTag, where: lt.link_id == ^link.id) |> Repo.delete_all()
+    from(l in Link, where: l.id == ^link.id) |> Repo.delete_all()
+
+    case Liminal.Links.ImageDownloader.delete(link.image_path) do
+      :ok -> :ok
+      {:error, reason} -> Repo.rollback(reason)
+    end
   end
 
   ## Link creation with tags

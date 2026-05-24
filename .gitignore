@@ -52,6 +52,9 @@ aegis.toml
 # Environment files (contain secrets)
 /.env
 
+# Cursor debug session logs
+.cursor/debug-*.log
+
 # Playwright CLI (Claude Code playwright skill)
 .playwright-cli/
 screenshots/

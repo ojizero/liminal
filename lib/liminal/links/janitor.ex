@@ -7,7 +7,7 @@ defmodule Liminal.Links.Janitor do
 
   use GenServer
 
-  @sweep_interval_ms :timer.minutes(5)
+  @default_sweep_interval_ms :timer.minutes(5)
 
   ## Client API
 
@@ -37,11 +37,15 @@ defmodule Liminal.Links.Janitor do
       end)
     end
 
-    schedule_sweep(@sweep_interval_ms)
+    schedule_sweep(sweep_interval_ms())
     {:noreply, state}
   end
 
   defp schedule_sweep(delay_ms) do
     Process.send_after(self(), :sweep, delay_ms)
+  end
+
+  defp sweep_interval_ms do
+    Application.get_env(:liminal, :janitor_sweep_interval_ms, @default_sweep_interval_ms)
   end
 end
