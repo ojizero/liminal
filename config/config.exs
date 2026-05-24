@@ -24,6 +24,11 @@ config :liminal,
   ecto_repos: [Liminal.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
 
+config :liminal, Liminal.Retry,
+  max_attempts: 10,
+  base_delay_seconds: 300,
+  max_delay_seconds: 86_400
+
 config :liminal, Liminal.Repo,
   migration_primary_key: [name: :id, type: :binary_id, null: false],
   migration_foreign_key: [type: :binary_id]

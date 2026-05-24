@@ -681,5 +681,29 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       render(view)
       refute has_element?(view, "#links", "Broadcast No Match")
     end
+
+    test "shows indexing failed badge and retry button for gave-up links", %{
+      conn: conn,
+      scope: scope
+    } do
+      link = link_fixture(scope, %{url: "https://blocked.example.com", title: "Blocked"})
+      now = DateTime.utc_now(:second)
+
+      import Ecto.Query
+
+      Liminal.Repo.update_all(
+        from(l in Liminal.Links.Link, where: l.id == ^link.id),
+        set: [
+          index_attempt_count: 10,
+          index_gave_up_at: now,
+          index_last_attempted_at: now
+        ]
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      assert has_element?(view, "#links", "Indexing failed")
+      assert has_element?(view, "button[phx-click='retry_indexing'][phx-value-id='#{link.id}']")
+    end
   end
 end

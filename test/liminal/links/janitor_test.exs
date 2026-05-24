@@ -59,7 +59,7 @@ defmodule Liminal.Links.JanitorTest do
       )
 
       # Verify the link is unindexed and eligible
-      assert [unindexed] = Links.list_unindexed_links()
+      assert [unindexed] = Links.list_index_retry_candidates()
       assert unindexed.id == link.id
 
       # Sweep completes without crashing (indexer tasks are gated by start_indexer config)

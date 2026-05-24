@@ -10,6 +10,10 @@ defmodule Liminal.Links.Link do
     field :image_path, :string
     field :viewed_at, :utc_datetime
     field :indexed_at, :utc_datetime
+    field :index_attempt_count, :integer, default: 0
+    field :index_last_attempted_at, :utc_datetime
+    field :index_next_attempt_at, :utc_datetime
+    field :index_gave_up_at, :utc_datetime
 
     belongs_to :user, Liminal.Accounts.User
     has_many :link_tags, Liminal.Links.LinkTag
@@ -27,6 +31,26 @@ defmodule Liminal.Links.Link do
   end
 
   def metadata_changeset(link, attrs) do
-    cast(link, attrs, [:title, :description, :favicon_url, :image_path, :indexed_at])
+    cast(link, attrs, [
+      :title,
+      :description,
+      :favicon_url,
+      :image_path,
+      :indexed_at,
+      :index_attempt_count,
+      :index_last_attempted_at,
+      :index_next_attempt_at,
+      :index_gave_up_at
+    ])
+  end
+
+  def index_retry_changeset(link, attrs) do
+    cast(link, attrs, [
+      :index_attempt_count,
+      :index_last_attempted_at,
+      :index_next_attempt_at,
+      :index_gave_up_at,
+      :indexed_at
+    ])
   end
 end

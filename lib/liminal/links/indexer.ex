@@ -18,8 +18,8 @@ defmodule Liminal.Links.Indexer do
   @doc """
   Fetches the HTML at the link's URL, parses metadata, and persists it.
 
-  Returns `:ok` on success, `:error` on failure. Failed links are left
-  without `indexed_at` so the Janitor can retry them later.
+  Returns `:ok` on success, `:error` on failure. Failed links record retry
+  state via `Links.record_index_failure/1` for the Janitor to retry with backoff.
 
   ## Options
 
@@ -70,6 +70,7 @@ defmodule Liminal.Links.Indexer do
 
           {:ok, %{status: status}} ->
             Logger.warning("Indexer: non-200 status #{status} for link #{link_id} (#{link.url})")
+            Liminal.Links.record_index_failure(link)
             :error
 
           {:error, reason} ->
@@ -77,6 +78,7 @@ defmodule Liminal.Links.Indexer do
               "Indexer: request failed for link #{link_id} (#{link.url}): #{inspect(reason)}"
             )
 
+            Liminal.Links.record_index_failure(link)
             :error
         end
     end

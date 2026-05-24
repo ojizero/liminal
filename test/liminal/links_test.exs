@@ -790,12 +790,11 @@ defmodule Liminal.LinksTest do
     end
   end
 
-  describe "list_unindexed_links/1" do
+  describe "list_index_retry_candidates/1" do
     test "returns links without indexed_at that are old enough" do
       scope = user_scope_fixture()
       link = link_fixture(scope)
 
-      # Back-date inserted_at to make it eligible (older than 1 minute cutoff)
       past = DateTime.utc_now(:second) |> DateTime.add(-2, :minute)
 
       Liminal.Repo.update_all(
@@ -803,7 +802,7 @@ defmodule Liminal.LinksTest do
         set: [inserted_at: past]
       )
 
-      results = Links.list_unindexed_links()
+      results = Links.list_index_retry_candidates()
       assert Enum.any?(results, fn l -> l.id == link.id end)
     end
 
@@ -811,8 +810,7 @@ defmodule Liminal.LinksTest do
       scope = user_scope_fixture()
       link = link_fixture(scope)
 
-      # Default inserted_at is ~now, within the 1 minute cutoff
-      results = Links.list_unindexed_links()
+      results = Links.list_index_retry_candidates()
       refute Enum.any?(results, fn l -> l.id == link.id end)
     end
 
@@ -820,7 +818,6 @@ defmodule Liminal.LinksTest do
       scope = user_scope_fixture()
       link = link_fixture(scope, %{title: nil})
 
-      # Back-date inserted_at so it would normally qualify
       past = DateTime.utc_now(:second) |> DateTime.add(-2, :minute)
 
       Liminal.Repo.update_all(
@@ -828,11 +825,68 @@ defmodule Liminal.LinksTest do
         set: [inserted_at: past]
       )
 
-      # Index it via update_link_metadata
       {:ok, _} = Links.update_link_metadata(link, %{title: "Indexed"})
 
-      results = Links.list_unindexed_links()
+      results = Links.list_index_retry_candidates()
       refute Enum.any?(results, fn l -> l.id == link.id end)
+    end
+
+    test "excludes links with future next attempt" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope)
+      past = DateTime.utc_now(:second) |> DateTime.add(-2, :minute)
+      future = DateTime.utc_now(:second) |> DateTime.add(1, :hour)
+
+      Liminal.Repo.update_all(
+        Ecto.Query.from(l in Liminal.Links.Link, where: l.id == ^link.id),
+        set: [inserted_at: past, index_next_attempt_at: future]
+      )
+
+      results = Links.list_index_retry_candidates()
+      refute Enum.any?(results, fn l -> l.id == link.id end)
+    end
+
+    test "excludes links that gave up" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope)
+      past = DateTime.utc_now(:second) |> DateTime.add(-2, :minute)
+      now = DateTime.utc_now(:second)
+
+      Liminal.Repo.update_all(
+        Ecto.Query.from(l in Liminal.Links.Link, where: l.id == ^link.id),
+        set: [inserted_at: past, index_gave_up_at: now]
+      )
+
+      results = Links.list_index_retry_candidates()
+      refute Enum.any?(results, fn l -> l.id == link.id end)
+    end
+
+    test "includes failed links before inserted_at cutoff when already attempted" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope)
+      future = DateTime.utc_now(:second) |> DateTime.add(1, :hour)
+
+      Liminal.Repo.update_all(
+        Ecto.Query.from(l in Liminal.Links.Link, where: l.id == ^link.id),
+        set: [
+          index_attempt_count: 1,
+          index_last_attempted_at: DateTime.utc_now(:second),
+          index_next_attempt_at: future
+        ]
+      )
+
+      results = Links.list_index_retry_candidates()
+      refute Enum.any?(results, fn l -> l.id == link.id end)
+
+      past = DateTime.utc_now(:second) |> DateTime.add(-5, :second)
+
+      Liminal.Repo.update_all(
+        Ecto.Query.from(l in Liminal.Links.Link, where: l.id == ^link.id),
+        set: [index_next_attempt_at: past]
+      )
+
+      results = Links.list_index_retry_candidates()
+      assert Enum.any?(results, fn l -> l.id == link.id end)
     end
 
     test "respects limit option" do
@@ -848,8 +902,78 @@ defmodule Liminal.LinksTest do
         )
       end
 
-      results = Links.list_unindexed_links(limit: 2)
+      results = Links.list_index_retry_candidates(limit: 2)
       assert length(results) == 2
+    end
+  end
+
+  describe "record_index_failure/1" do
+    test "increments attempt count and schedules next retry" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope, %{title: nil})
+
+      assert {:ok, updated} = Links.record_index_failure(link)
+      assert updated.index_attempt_count == 1
+      assert updated.index_last_attempted_at != nil
+      assert updated.index_next_attempt_at != nil
+      assert is_nil(updated.index_gave_up_at)
+    end
+
+    test "gives up after max attempts" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope, %{title: nil})
+
+      Application.put_env(:liminal, Liminal.Retry, max_attempts: 3)
+
+      on_exit(fn -> Application.delete_env(:liminal, Liminal.Retry) end)
+
+      {:ok, link} = Links.record_index_failure(link)
+      {:ok, link} = Links.record_index_failure(link)
+      assert {:ok, updated} = Links.record_index_failure(link)
+
+      assert updated.index_attempt_count == 3
+      assert updated.index_gave_up_at != nil
+      assert is_nil(updated.index_next_attempt_at)
+    end
+  end
+
+  describe "retry_indexing/2" do
+    test "resets retry state for gave-up link" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope, %{title: nil})
+      now = DateTime.utc_now(:second)
+
+      Liminal.Repo.update_all(
+        Ecto.Query.from(l in Liminal.Links.Link, where: l.id == ^link.id),
+        set: [
+          index_attempt_count: 10,
+          index_gave_up_at: now,
+          index_last_attempted_at: now
+        ]
+      )
+
+      link = Links.get_link!(scope, link.id)
+
+      assert {:ok, updated} = Links.retry_indexing(scope, link)
+      assert updated.index_attempt_count == 0
+      assert is_nil(updated.index_gave_up_at)
+      assert is_nil(updated.index_next_attempt_at)
+    end
+  end
+
+  describe "list_unindexed_links/1" do
+    test "delegates to list_index_retry_candidates/1" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope)
+
+      past = DateTime.utc_now(:second) |> DateTime.add(-2, :minute)
+
+      Liminal.Repo.update_all(
+        Ecto.Query.from(l in Liminal.Links.Link, where: l.id == ^link.id),
+        set: [inserted_at: past]
+      )
+
+      assert Links.list_unindexed_links() == Links.list_index_retry_candidates()
     end
   end
 end

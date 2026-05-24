@@ -89,3 +89,13 @@ config :phoenix_live_view,
 config :swoosh, :api_client, false
 
 config :liminal, :signups_enabled, false
+
+# Faster indexer retry cycle for local development verification
+config :liminal, Liminal.Retry,
+  max_attempts: 3,
+  base_delay_seconds: 8,
+  max_delay_seconds: 30
+
+config :liminal, :janitor_sweep_interval_ms, 12_000
+config :liminal, :index_retry_older_than_minutes, 0
+config :liminal, :viewed_grace_seconds, 5

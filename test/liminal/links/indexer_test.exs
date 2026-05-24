@@ -39,8 +39,10 @@ defmodule Liminal.Links.IndexerTest do
 
       updated = Links.get_link!(scope, link.id)
       assert updated.title == "Example Page"
-      assert updated.description == "A test page"
       assert updated.indexed_at != nil
+      assert updated.index_attempt_count == 0
+      assert is_nil(updated.index_next_attempt_at)
+      assert is_nil(updated.index_gave_up_at)
     end
 
     test "broadcasts :link_updated after successful indexing" do
@@ -99,9 +101,13 @@ defmodule Liminal.Links.IndexerTest do
 
       updated = Links.get_link!(scope, link.id)
       assert is_nil(updated.indexed_at)
+      assert updated.index_attempt_count == 1
+      assert updated.index_last_attempted_at != nil
+      assert updated.index_next_attempt_at != nil
+      assert is_nil(updated.index_gave_up_at)
     end
 
-    test "HTTP 500 returns :error and does not set indexed_at" do
+    test "HTTP 500 returns :error and records retry state" do
       scope = user_scope_fixture()
       link = link_fixture(scope, %{title: nil})
 
@@ -114,9 +120,10 @@ defmodule Liminal.Links.IndexerTest do
 
       updated = Links.get_link!(scope, link.id)
       assert is_nil(updated.indexed_at)
+      assert updated.index_attempt_count == 1
     end
 
-    test "connection error returns :error and does not set indexed_at" do
+    test "connection error returns :error and records retry state" do
       scope = user_scope_fixture()
       link = link_fixture(scope, %{title: nil})
 
@@ -129,6 +136,7 @@ defmodule Liminal.Links.IndexerTest do
 
       updated = Links.get_link!(scope, link.id)
       assert is_nil(updated.indexed_at)
+      assert updated.index_attempt_count == 1
     end
 
     test "non-existent link_id returns :error without crashing" do

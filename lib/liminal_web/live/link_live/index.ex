@@ -167,6 +167,38 @@ defmodule LiminalWeb.LinkLive.Index do
                 {link.title || link.url}
               </a>
 
+              <%= case index_status(link) do %>
+                <% :pending -> %>
+                  <span class="badge badge-sm badge-ghost gap-1 w-fit">
+                    <.icon name="hero-arrow-path" class="size-3 animate-spin" /> Fetching metadata…
+                  </span>
+                <% :scheduled -> %>
+                  <span
+                    class="badge badge-sm badge-ghost w-fit"
+                    title={"Next attempt #{format_datetime(link.index_next_attempt_at)}"}
+                  >
+                    Retry scheduled · {time_until(link.index_next_attempt_at)}
+                  </span>
+                <% :gave_up -> %>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span
+                      class="badge badge-sm badge-warning w-fit"
+                      title={"Gave up #{format_datetime(link.index_gave_up_at)} after #{link.index_attempt_count} attempts"}
+                    >
+                      Indexing failed
+                    </span>
+                    <button
+                      phx-click="retry_indexing"
+                      phx-value-id={link.id}
+                      class="btn btn-xs btn-outline"
+                      phx-disable-with="Retrying…"
+                    >
+                      Retry indexing
+                    </button>
+                  </div>
+                <% :indexed -> %>
+              <% end %>
+
               <p :if={link.description} class="text-sm text-base-content/70 line-clamp-3">
                 {link.description}
               </p>
@@ -462,6 +494,22 @@ defmodule LiminalWeb.LinkLive.Index do
     {:noreply, stream_delete(socket, :links, link)}
   end
 
+  def handle_event("retry_indexing", %{"id" => id}, socket) do
+    scope = socket.assigns.current_scope
+    link = Links.get_link!(scope, id)
+
+    case Links.retry_indexing(scope, link) do
+      {:ok, updated_link} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Indexing retry queued")
+         |> stream_insert(:links, updated_link)}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Could not retry indexing")}
+    end
+  end
+
   def handle_event("mark_viewed", %{"id" => id}, socket) do
     scope = socket.assigns.current_scope
     link = Links.get_link!(scope, id)
@@ -594,5 +642,42 @@ defmodule LiminalWeb.LinkLive.Index do
       diff_seconds < 86_400 * 365 -> "Expires in #{div(diff_seconds, 86_400 * 30)} months"
       true -> "Expires in #{div(diff_seconds, 86_400 * 365)} years"
     end
+  end
+
+  defp index_status(link) do
+    cond do
+      not is_nil(link.indexed_at) ->
+        :indexed
+
+      not is_nil(link.index_gave_up_at) ->
+        :gave_up
+
+      not is_nil(link.index_next_attempt_at) and
+          DateTime.compare(link.index_next_attempt_at, DateTime.utc_now(:second)) == :gt ->
+        :scheduled
+
+      true ->
+        :pending
+    end
+  end
+
+  defp time_until(nil), do: "soon"
+
+  defp time_until(at) do
+    now = DateTime.utc_now()
+    diff_seconds = DateTime.diff(at, now)
+
+    cond do
+      diff_seconds <= 0 -> "now"
+      diff_seconds < 3600 -> "in #{div(diff_seconds, 60)} min"
+      diff_seconds < 86_400 -> "in #{div(diff_seconds, 3600)} hours"
+      true -> "in #{div(diff_seconds, 86_400)} days"
+    end
+  end
+
+  defp format_datetime(nil), do: "unknown"
+
+  defp format_datetime(dt) do
+    Calendar.strftime(dt, "%Y-%m-%d %H:%M UTC")
   end
 end

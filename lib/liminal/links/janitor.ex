@@ -28,7 +28,7 @@ defmodule Liminal.Links.Janitor do
     Liminal.Links.cleanup_expired()
 
     if Application.get_env(:liminal, :start_indexer, true) do
-      Liminal.Links.list_unindexed_links()
+      Liminal.Links.list_index_retry_candidates()
       |> Enum.each(fn link ->
         Task.Supervisor.start_child(
           Liminal.Links.IndexerTaskSupervisor,
