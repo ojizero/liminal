@@ -23,7 +23,7 @@ defmodule Liminal.Links.ImageDownloader do
       dest_dir = upload_dir()
       File.mkdir_p!(dest_dir)
       File.write!(Path.join(dest_dir, filename), body)
-      {:ok, "uploads/images/" <> filename}
+      {:ok, Liminal.UploadPaths.relative_path(filename)}
     else
       {:ok, %{status: _}} -> {:error, :bad_status}
       {:error, _} = err -> err
@@ -33,7 +33,7 @@ defmodule Liminal.Links.ImageDownloader do
   def delete(nil), do: :ok
 
   def delete(image_path) do
-    full_path = Path.join(static_dir(), image_path)
+    full_path = Liminal.UploadPaths.file_path(image_path)
 
     case File.rm(full_path) do
       :ok -> :ok
@@ -42,13 +42,7 @@ defmodule Liminal.Links.ImageDownloader do
     end
   end
 
-  defp static_dir do
-    Application.app_dir(:liminal, "priv/static")
-  end
-
-  defp upload_dir do
-    Application.get_env(:liminal, :upload_dir, Path.join(static_dir(), "uploads/images"))
-  end
+  defp upload_dir, do: Liminal.UploadPaths.upload_dir()
 
   defp validate_content_type(headers) do
     content_type = get_content_type(headers)

@@ -17,7 +17,7 @@ defmodule LiminalWeb do
   those modules here.
   """
 
-  def static_paths, do: ~w(assets fonts images uploads liminal.svg robots.txt)
+  def static_paths, do: ~w(assets fonts images liminal.svg robots.txt)
 
   def router do
     quote do
