@@ -62,6 +62,7 @@ docker compose up -d
 | `PUID` | No | `911` | UID for the container process. Match your host user (`id -u`) to avoid permission issues with mounted volumes |
 | `PGID` | No | `911` | GID for the container process. Match your host group (`id -g`) |
 | `DATABASE_PATH` | Yes | — | Path to the SQLite database file |
+| `UPLOAD_DIR` | No | `priv/static/uploads/images` in release | Directory for downloaded link preview images. Docker Compose sets `/data/uploads/images` on the same persistent volume as the database |
 | `PHX_HOST` | No | `example.com` | Hostname for URL generation |
 | `PHX_CHECK_ORIGINS` | No | — | Comma-separated additional allowed origins for LiveView WebSocket connections (e.g. `//domain2.com,//domain3.com`). `PHX_HOST` is always included automatically |
 | `PORT` | No | `4000` | Server port |

@@ -28,6 +28,8 @@ defmodule LiminalWeb.Endpoint do
     only_matching: ~w(liminal),
     raise_on_missing_only: code_reloading?
 
+  plug LiminalWeb.Plugs.UploadStatic
+
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
   if code_reloading? do

@@ -102,11 +102,15 @@ defmodule Liminal.Links.ImageDownloaderTest do
   end
 
   describe "delete/1" do
-    test "removes file from disk", %{tmp_dir: _tmp_dir} do
+    test "removes file from disk", %{tmp_dir: tmp_dir} do
       opts = build_opts(fn conn -> image_plug(conn) end)
       {:ok, path} = ImageDownloader.download_and_store("http://example.com/img.png", opts)
 
+      filename = Path.basename(path)
+      assert File.exists?(Path.join(tmp_dir, filename))
+
       assert :ok = ImageDownloader.delete(path)
+      refute File.exists?(Path.join(tmp_dir, filename))
     end
 
     test "returns :ok for nil" do
