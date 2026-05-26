@@ -65,27 +65,6 @@ defmodule LiminalWeb.LinkLive.Index do
         </button>
       </div>
 
-      <%!-- Edit form (shown when editing a link) --%>
-      <div :if={@editing_link} class="card bg-base-200 mb-6">
-        <div class="card-body p-4">
-          <h3 class="text-sm font-semibold mb-2">Edit Link</h3>
-          <.form
-            for={@edit_form}
-            id="edit-link-form"
-            phx-change="validate_edit"
-            phx-submit="save_edit"
-          >
-            <.input field={@edit_form[:url]} type="url" label="URL" placeholder="https://..." />
-            <.input field={@edit_form[:title]} type="text" label="Title (optional)" />
-
-            <div class="flex gap-2 mt-2">
-              <.button variant="primary" phx-disable-with="Saving...">Save</.button>
-              <.button patch={~p"/"}>Cancel</.button>
-            </div>
-          </.form>
-        </div>
-      </div>
-
       <%!-- Links (masonry) --%>
       <div id="masonry" phx-hook="Masonry" class="relative">
         <%!-- New link card (always first in masonry) --%>
@@ -290,44 +269,46 @@ defmodule LiminalWeb.LinkLive.Index do
         </div>
       </div>
 
-      <%!-- Tags modal --%>
-      <div
-        :if={@live_action in [:manage_tags, :new_tag, :edit_tag]}
-        id="tags-modal"
-        class="fixed inset-0 z-50 flex items-center justify-center"
-        phx-mounted={
-          JS.transition({"ease-out duration-200", "opacity-0", "opacity-100"}, to: "#tags-modal")
-        }
+      <.modal
+        id="edit-link-modal"
+        show={@live_action == :edit}
+        on_cancel={JS.patch(~p"/")}
+        show_close={false}
+        box_class="sm:max-w-xl"
       >
-        <div
-          id="tags-modal-backdrop"
-          class="absolute inset-0 bg-black/50"
-          phx-click={JS.patch(~p"/")}
-        />
-        <div
-          id="tags-modal-content"
-          class="relative bg-base-100 rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col"
-          phx-window-keydown={JS.patch(~p"/")}
-          phx-key="Escape"
+        <:title>Edit Link</:title>
+        <.form
+          :if={@edit_form}
+          for={@edit_form}
+          id="edit-link-form"
+          phx-change="validate_edit"
+          phx-submit="save_edit"
         >
-          <div class="flex items-center justify-between p-5 border-b border-base-300">
-            <h2 class="text-lg font-semibold">Manage Tags</h2>
-            <.link patch={~p"/"} class="btn btn-ghost btn-sm btn-circle" aria-label="Close">
-              <.icon name="hero-x-mark" class="size-5" />
-            </.link>
-          </div>
+          <.input field={@edit_form[:url]} type="url" label="URL" placeholder="https://..." />
+          <.input field={@edit_form[:title]} type="text" label="Title (optional)" />
 
-          <div class="p-5 overflow-y-auto flex-1">
-            <.live_component
-              module={LiminalWeb.TagLive.Index}
-              id="tags-manager"
-              current_scope={@current_scope}
-              action={@live_action}
-              tag_id={@tag_id}
-            />
+          <div class="flex gap-2 mt-4">
+            <.button variant="primary" phx-disable-with="Saving...">Save</.button>
+            <.button patch={~p"/"}>Cancel</.button>
           </div>
-        </div>
-      </div>
+        </.form>
+      </.modal>
+
+      <.modal
+        id="tags-modal"
+        show={@live_action in [:manage_tags, :new_tag, :edit_tag]}
+        on_cancel={JS.patch(~p"/")}
+        box_class="sm:max-w-lg"
+      >
+        <:title>Manage Tags</:title>
+        <.live_component
+          module={LiminalWeb.TagLive.Index}
+          id="tags-manager"
+          current_scope={@current_scope}
+          action={@live_action}
+          tag_id={@tag_id}
+        />
+      </.modal>
     </Layouts.app>
     """
   end
