@@ -28,18 +28,36 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          source .github/scripts/release_scope.sh
-
-          current=$(current_version)
+          current=$(grep 'version:' mix.exs | head -1 | sed 's/.*"\(.*\)".*/\1/')
           latest_tag=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "")
           released=${latest_tag#v}
-          range=$(git_diff_range "$latest_tag")
+
+          if [[ -n "$latest_tag" ]]; then
+            range="${latest_tag}..HEAD"
+          else
+            range="$(git hash-object -t tree /dev/null)..HEAD"
+          fi
 
           echo "Current version:  $current"
           echo "Released version: ${released:-<none>}"
           echo "Diff range:       $range"
 
-          if has_releasable_changes "$range"; then
+          needs_release=false
+
+          while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+
+            case "$file" in
+              .github/*|.agents/*|.claude/*|test/*|README.md|AGENTS.md|CLAUDE.md|.gitignore|.dockerignore|LICENSE*)
+                ;;
+              *)
+                needs_release=true
+                break
+                ;;
+            esac
+          done < <(git diff --name-only "$range")
+
+          if [[ "$needs_release" == true ]]; then
             echo "Releasable changes detected since ${latest_tag:-initial commit}."
             echo "needs_release=true" >> "$GITHUB_OUTPUT"
             echo "version=$current" >> "$GITHUB_OUTPUT"
