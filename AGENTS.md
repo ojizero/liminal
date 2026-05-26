@@ -509,32 +509,7 @@ And **never** do this:
 
 <!-- usage-rules-end -->
 
-## Cursor Cloud specific instructions
+## Development environment
 
-### Services overview
-
-Liminal is a self-hosted link manager / bookmarking app. It uses **SQLite** (embedded, no external DB needed) so there is only one service to run.
-
-### Running the app
-
-```bash
-mix phx.server   # starts at http://localhost:4000
-```
-
-The first registered user automatically becomes admin. Registration is open when no users exist.
-
-### Lint / Format / Test
-
-```bash
-mix precommit   # compile --warnings-as-errors + format + test (runs in :test env)
-mix test        # just tests
-mix format      # just formatting
-```
-
-### Non-obvious caveats
-
-- **mise** manages Erlang/Elixir/Node versions (see `.mise.toml`). Run `mise install` after version changes.
-- The `mix setup` alias installs deps, creates/migrates the DB, and downloads tailwind + esbuild binaries. It is idempotent.
-- Background workers (Janitor, Indexer) are disabled in `:test` env, so tests don't make HTTP calls.
-- SQLite DB files live in `db/` (`liminal_dev.db`, `liminal_test.db`). Delete them to reset.
-- The `precommit` alias runs in the `:test` environment (`preferred_envs: [precommit: :test]`).
+- **mise** manages Erlang/Elixir/Node versions (see `.mise.toml`). Run `mise install` after version bumps.
+- See the README for `mix setup`, `mix phx.server`, and `mix precommit` usage.
