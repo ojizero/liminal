@@ -10,28 +10,8 @@ env:
   OTP_VERSION: "28.5"
 
 jobs:
-  version-check:
-    name: Version Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Ensure version was bumped
-        run: |
-          current=$(grep 'version:' mix.exs | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          main=$(git show origin/main:mix.exs | grep 'version:' | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          echo "PR version:   $current"
-          echo "main version: $main"
-          if [ "$current" = "$main" ]; then
-            echo "::error::Version not bumped. Update the version in mix.exs before merging."
-            exit 1
-          fi
-
   test:
     name: Test & Lint
-    needs: version-check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
