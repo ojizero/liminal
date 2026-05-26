@@ -75,6 +75,65 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       end
     end
 
+    test "renders keyboard shortcut hints for link form", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      assert has_element?(view, "#new-link-card kbd", "⌘")
+      assert has_element?(view, "#new-link-card kbd", "Super")
+      assert has_element?(view, "#new-link-card kbd", "Ctrl")
+      assert has_element?(view, "#new-link-card kbd", "Shift")
+      assert has_element?(view, "#new-link-card kbd", "1..9")
+    end
+
+    test "shortcut focus event pushes client focus event", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_focus_new_link", %{})
+
+      assert_push_event(view, "focus-new-link-url", %{})
+    end
+
+    test "mod+shift+digit shortcut toggles new-link tag selection", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#masonry")
+      |> render_hook("handle_shortcut_keydown", %{
+        "key" => "1",
+        "code" => "Digit1",
+        "metaKey" => true,
+        "ctrlKey" => false,
+        "shiftKey" => true,
+        "repeat" => false,
+        "platform" => "MacIntel",
+        "targetTagName" => "BODY",
+        "targetType" => nil,
+        "targetIsContentEditable" => false
+      })
+
+      view
+      |> form("#link-form", link: %{url: "https://example.com/shortcut-tag"})
+      |> render_submit()
+
+      assert has_element?(view, "#links", "https://example.com/shortcut-tag")
+    end
+
+    test "hook event toggles tag by index for focused input scenario", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_toggle_tag_by_index", %{"index" => 1})
+
+      view
+      |> form("#link-form", link: %{url: "https://example.com/shortcut-hook"})
+      |> render_submit()
+
+      assert has_element?(view, "#links", "https://example.com/shortcut-hook")
+    end
+
     test "edit a link", %{conn: conn, scope: scope} do
       link = link_fixture(scope, %{url: "https://old.com", title: "Old Title"})
       {:ok, view, _html} = live(conn, ~p"/")

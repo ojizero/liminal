@@ -26,11 +26,67 @@ import {hooks as colocatedHooks} from "phoenix-colocated/liminal"
 import topbar from "../vendor/topbar"
 import Masonry from "./masonry_hook"
 
+const platform = navigator.userAgentData?.platform || navigator.platform || ""
+const isWindowsPlatform = /win/i.test(platform)
+
+const usesModKey = (event) => {
+  if (isWindowsPlatform) return event.ctrlKey
+  return event.metaKey
+}
+
+const LinkShortcuts = {
+  mounted() {
+    this.onKeyDown = (event) => {
+      if (event.repeat) return
+
+      const key = event.key?.toLowerCase()
+      if (key === "k" && usesModKey(event)) {
+        event.preventDefault()
+        this.pushEvent("shortcut_focus_new_link", {})
+        return
+      }
+
+      const digitMatch = /^Digit([1-9])$/.exec(event.code || "")
+      const digit = digitMatch ? Number.parseInt(digitMatch[1], 10) : null
+      if (digit && usesModKey(event) && event.shiftKey) {
+        event.preventDefault()
+        this.pushEvent("shortcut_toggle_tag_by_index", {index: digit})
+      }
+    }
+
+    window.addEventListener("keydown", this.onKeyDown, true)
+
+    this.handleEvent("focus-new-link-url", () => {
+      const input = document.querySelector("#link_url")
+      if (input) input.focus()
+    })
+  },
+
+  destroyed() {
+    window.removeEventListener("keydown", this.onKeyDown, true)
+  }
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, Masonry},
+  hooks: {...colocatedHooks, Masonry, LinkShortcuts},
+  metadata: {
+    keydown: (event) => ({
+      key: event.key,
+      metaKey: event.metaKey,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      altKey: event.altKey,
+      repeat: event.repeat,
+      code: event.code,
+      platform,
+      targetTagName: event.target?.tagName,
+      targetType: event.target?.type,
+      targetIsContentEditable: event.target?.isContentEditable
+    })
+  }
 })
 
 // Show progress bar on live navigation and form submits
