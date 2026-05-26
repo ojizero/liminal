@@ -17,24 +17,42 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.check.outputs.version }}
+      needs_release: ${{ steps.check.outputs.needs_release }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Ensure version was bumped
+      - name: Determine release requirements
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          current=$(grep 'version:' mix.exs | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          source .github/scripts/release_scope.sh
+
+          current=$(current_version)
           latest_tag=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "")
           released=${latest_tag#v}
+          range=$(git_diff_range "$latest_tag")
+
           echo "Current version:  $current"
           echo "Released version: ${released:-<none>}"
-          if [ "$current" = "$released" ]; then
-            echo "::error::Version $current already released. Bump the version in mix.exs before merging."
-            exit 1
+          echo "Diff range:       $range"
+
+          if has_releasable_changes "$range"; then
+            echo "Releasable changes detected since ${latest_tag:-initial commit}."
+            echo "needs_release=true" >> "$GITHUB_OUTPUT"
+            echo "version=$current" >> "$GITHUB_OUTPUT"
+
+            if [[ -n "$released" && "$current" = "$released" ]]; then
+              echo "::error::Version $current already released. Bump the version in mix.exs before merging releasable changes."
+              exit 1
+            fi
+          else
+            echo "Only non-releasable changes detected (CI, tests, docs, etc.). Skipping release."
+            echo "needs_release=false" >> "$GITHUB_OUTPUT"
+            echo "version=$current" >> "$GITHUB_OUTPUT"
           fi
-          echo "version=$current" >> "$GITHUB_OUTPUT"
 
   test:
     name: Test & Lint
@@ -73,9 +91,11 @@ jobs:
   docker:
     name: Build & Push Docker
     needs: [version-check, test]
+    if: needs.version-check.outputs.needs_release == 'true'
     runs-on: ubuntu-latest
     environment: production
     permissions:
+      actions: write
       contents: read
       packages: write
     steps:
@@ -84,6 +104,8 @@ jobs:
       - uses: docker/setup-qemu-action@v3
 
       - uses: docker/setup-buildx-action@v3
+        with:
+          version: latest
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -109,12 +131,17 @@ jobs:
             ${{ env.DOCKERHUB_IMAGE }}:latest
             ${{ env.GHCR_IMAGE }}:${{ needs.version-check.outputs.version }}
             ${{ env.GHCR_IMAGE }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha,scope=liminal
+            type=registry,ref=${{ env.GHCR_IMAGE }}:buildcache
+          cache-to: |
+            type=gha,mode=max,scope=liminal
+            type=registry,ref=${{ env.GHCR_IMAGE }}:buildcache,mode=max
 
   release:
     name: GitHub Release
     needs: [version-check, docker]
+    if: needs.version-check.outputs.needs_release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
