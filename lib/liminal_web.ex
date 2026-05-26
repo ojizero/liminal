@@ -86,6 +86,7 @@ defmodule LiminalWeb do
       import Phoenix.HTML
       # Core UI components
       import LiminalWeb.CoreComponents
+      import LiminalWeb.Components.Modal
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS
