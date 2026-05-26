@@ -18,9 +18,16 @@ defmodule LiminalWeb.Components.Modal do
   attr :show, :boolean, default: false
   attr :on_cancel, JS, default: %JS{}
   attr :closeable, :boolean, default: true
-  attr :show_close, :boolean, default: true, doc: "footer Close button in modal-action (daisyUI default)"
+
+  attr :show_close, :boolean,
+    default: true,
+    doc: "footer Close button in modal-action (daisyUI default)"
+
   attr :close_label, :string, default: "Close"
-  attr :box_class, :string, default: nil, doc: "extra modal-box classes (prefer sm:max-w-* so bottom sheet stays full width)"
+
+  attr :box_class, :string,
+    default: nil,
+    doc: "extra modal-box classes (prefer sm:max-w-* so bottom sheet stays full width)"
 
   slot :inner_block, required: true
   slot :title
