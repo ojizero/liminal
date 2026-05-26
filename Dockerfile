@@ -25,16 +25,12 @@ ENV MIX_ENV="prod"
 
 # Install dependencies (cached layer)
 COPY mix.exs mix.lock ./
-RUN --mount=type=cache,target=/root/.hex/packages \
-    --mount=type=cache,target=/root/.cache/rebar3 \
-    mix deps.get --only prod
+RUN mix deps.get --only prod
 RUN mkdir config
 
 # Copy compile-time config (cached layer)
 COPY config/config.exs config/prod.exs config/
-RUN --mount=type=cache,target=/root/.hex/packages \
-    --mount=type=cache,target=/root/.cache/rebar3 \
-    mix deps.compile
+RUN mix deps.compile
 
 # Install esbuild + tailwind binaries
 RUN mix assets.setup
