@@ -21,6 +21,7 @@ custom classes must fully style the input
 ### JS and CSS guidelines
 
 - **Use Tailwind CSS classes and custom CSS rules** to create polished, responsive, and visually stunning interfaces.
+- DaisyUI is allowed for component primitives used in this project; prefer canonical DaisyUI patterns when a DaisyUI component is requested.
 - Tailwindcss v4 **no longer needs a tailwind.config.js** and uses a new import syntax in `app.css`:
 
       @import "tailwindcss" source(none);
@@ -30,11 +31,24 @@ custom classes must fully style the input
 
 - **Always use and maintain this import syntax** in the app.css file for projects generated with `phx.new`
 - **Never** use `@apply` when writing raw css
-- **Always** manually write your own tailwind-based components instead of using daisyUI for a unique, world-class design
 - Out of the box **only the app.js and app.css bundles are supported**
   - You cannot reference an external vendor'd script `src` or link `href` in the layouts
   - You must import the vendor deps into app.js and app.css to use them
   - **Never write inline <script>custom js</script> tags within templates**
+
+### External docs policy
+
+- For third-party UI libraries used by the task (for example, DaisyUI), consult official docs first and use them as the baseline unless the user explicitly requests a deviation.
+
+### JavaScript minimization policy
+
+- "Minimize JS; only use it when it MUST be used" is a hard requirement.
+- "No JS" is a preference unless the user explicitly marks it as a strict requirement.
+- Prefer this order:
+  1. Pure LiveView/HEEx patterns
+  2. `Phoenix.LiveView.JS` commands
+  3. Custom JS hooks/files only when required for behavior that 1-2 cannot provide reliably
+- When step 3 is chosen, explain in one sentence why lower-JS options were insufficient.
 
 ### UI/UX & design guidelines
 
