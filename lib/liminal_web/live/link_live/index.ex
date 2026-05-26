@@ -82,26 +82,50 @@ defmodule LiminalWeb.LinkLive.Index do
         >
           <div class="card-body p-4">
             <.form for={@form} id="link-form" phx-change="validate" phx-submit="save">
-              <.input field={@form[:url]} type="url" placeholder="https://..." />
-              <div class="mt-2 text-xs text-base-content/50 flex items-center gap-1.5">
-                <span>New link</span>
-                <kbd class="kbd kbd-xs">⌘</kbd>
-                <kbd class="kbd kbd-xs">K</kbd>
-                <span>/</span>
-                <kbd class="kbd kbd-xs">Super</kbd>
-                <kbd class="kbd kbd-xs">K</kbd>
-                <span>/</span>
-                <kbd class="kbd kbd-xs">Ctrl</kbd>
-                <kbd class="kbd kbd-xs">K</kbd>
+              <div class="fieldset mb-2">
+                <div class="relative">
+                  <input
+                    type="url"
+                    name={@form[:url].name}
+                    id={@form[:url].id}
+                    value={Phoenix.HTML.Form.normalize_value("url", @form[:url].value)}
+                    placeholder="https://..."
+                    class={[
+                      "w-full input",
+                      @shortcut_platform && "pr-16",
+                      @form[:url].errors != [] && "input-error"
+                    ]}
+                    phx-debounce="300"
+                  />
+                  <div
+                    :if={@shortcut_platform}
+                    id="link-url-shortcut"
+                    class="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-0.5"
+                  >
+                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                      {shortcut_mod_label(@shortcut_platform)}
+                    </kbd>
+                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                      K
+                    </kbd>
+                  </div>
+                </div>
               </div>
 
               <div :if={@tags != []} class="mt-3">
                 <div class="flex flex-wrap items-center gap-1.5">
                   <span class="text-sm font-medium">Tags</span>
-                  <span class="text-xs text-base-content/50">Toggle with</span>
-                  <kbd class="kbd kbd-xs">Mod</kbd>
-                  <kbd class="kbd kbd-xs">Shift</kbd>
-                  <kbd class="kbd kbd-xs">1..9</kbd>
+                  <span :if={@shortcut_platform} class="flex items-center gap-0.5">
+                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                      {shortcut_mod_label(@shortcut_platform)}
+                    </kbd>
+                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                      Shift
+                    </kbd>
+                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                      1..9
+                    </kbd>
+                  </span>
                 </div>
                 <div class="flex flex-wrap gap-2 mt-1">
                   <button
@@ -361,6 +385,7 @@ defmodule LiminalWeb.LinkLive.Index do
       |> assign(:editing_link, nil)
       |> assign(:edit_form, nil)
       |> assign(:tag_id, nil)
+      |> assign(:shortcut_platform, nil)
       |> stream(:links, links)
 
     {:ok, socket}
@@ -460,6 +485,10 @@ defmodule LiminalWeb.LinkLive.Index do
 
   def handle_event("toggle_tag", %{"id" => tag_id}, socket) do
     {:noreply, toggle_selected_tag(socket, tag_id)}
+  end
+
+  def handle_event("set_shortcut_platform", %{"platform" => platform}, socket) do
+    {:noreply, assign(socket, :shortcut_platform, parse_shortcut_platform(platform))}
   end
 
   def handle_event("shortcut_focus_new_link", _params, socket) do
@@ -633,6 +662,15 @@ defmodule LiminalWeb.LinkLive.Index do
   end
 
   defp index_to_tag(_index, _tags), do: nil
+
+  defp parse_shortcut_platform("mac"), do: :mac
+  defp parse_shortcut_platform("windows"), do: :windows
+  defp parse_shortcut_platform("linux"), do: :linux
+  defp parse_shortcut_platform(_platform), do: :linux
+
+  defp shortcut_mod_label(:mac), do: "⌘"
+  defp shortcut_mod_label(:linux), do: "Super"
+  defp shortcut_mod_label(:windows), do: "Ctrl"
 
   defp toggle_selected_tag(socket, tag_id) do
     selected = socket.assigns.selected_tag_ids

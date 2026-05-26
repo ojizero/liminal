@@ -34,8 +34,18 @@ const usesModKey = (event) => {
   return event.metaKey
 }
 
+const detectShortcutPlatform = () => {
+  const platform = navigator.userAgentData?.platform || navigator.platform || ""
+
+  if (/mac/i.test(platform)) return "mac"
+  if (/win/i.test(platform)) return "windows"
+  return "linux"
+}
+
 const LinkShortcuts = {
   mounted() {
+    this.pushEvent("set_shortcut_platform", {platform: detectShortcutPlatform()})
+
     this.onKeyDown = (event) => {
       if (event.repeat) return
 
