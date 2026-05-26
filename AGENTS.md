@@ -508,3 +508,8 @@ And **never** do this:
 <!-- phoenix:liveview-end -->
 
 <!-- usage-rules-end -->
+
+## Development environment
+
+- **mise** manages Erlang/Elixir/Node versions (see `.mise.toml`). Run `mise install` after version bumps.
+- See the README for `mix setup`, `mix phx.server`, and `mix precommit` usage.
