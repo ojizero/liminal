@@ -34,28 +34,12 @@ const usesModKey = (event) => {
   return event.metaKey
 }
 
-const altDigitFallback = (event) => {
-  return !event.metaKey && !event.ctrlKey && !event.shiftKey
-}
-
 const detectShortcutPlatform = () => {
   const platform = navigator.userAgentData?.platform || navigator.platform || ""
 
   if (/mac/i.test(platform)) return "mac"
   if (/win/i.test(platform)) return "windows"
   return "linux"
-}
-
-const optionDigitMap = {
-  "¡": 1,
-  "™": 2,
-  "£": 3,
-  "¢": 4,
-  "∞": 5,
-  "§": 6,
-  "¶": 7,
-  "•": 8,
-  "ª": 9
 }
 
 const parseDigitShortcut = (event) => {
@@ -65,8 +49,6 @@ const parseDigitShortcut = (event) => {
   const key = event.key || ""
   const keyDigit = Number.parseInt(key, 10)
   if (!Number.isNaN(keyDigit) && keyDigit >= 1 && keyDigit <= 9) return keyDigit
-
-  if (Object.hasOwn(optionDigitMap, key)) return optionDigitMap[key]
 
   const keyCode = Number.parseInt(`${event.keyCode ?? ""}`, 10)
   if (!Number.isNaN(keyCode) && keyCode >= 49 && keyCode <= 57) return keyCode - 48
@@ -89,7 +71,7 @@ const LinkShortcuts = {
       }
 
       const digit = parseDigitShortcut(event)
-      if (digit && event.altKey && (usesModKey(event) || altDigitFallback(event))) {
+      if (digit && event.shiftKey && usesModKey(event) && !event.altKey) {
         event.preventDefault()
         this.pushEvent("shortcut_toggle_tag_by_index", {index: digit})
       }

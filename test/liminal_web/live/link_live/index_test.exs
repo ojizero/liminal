@@ -96,7 +96,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       html = render(view)
       assert html =~ "Super"
-      assert html =~ "Alt"
+      assert html =~ "Shift"
       assert has_element?(view, "#link-url-shortcut kbd", "K")
       refute html =~ "⌘"
 
@@ -106,7 +106,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       html = render(view)
       assert html =~ "Ctrl"
-      assert html =~ "Alt"
+      assert html =~ "Shift"
       assert has_element?(view, "#link-url-shortcut kbd", "K")
       refute html =~ "Super"
     end
@@ -121,7 +121,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert_push_event(view, "focus-new-link-url", %{})
     end
 
-    test "mod+alt+digit shortcut toggles new-link tag selection", %{conn: conn} do
+    test "mod+shift+digit shortcut toggles new-link tag selection", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
       view
@@ -131,8 +131,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
         "code" => "Digit1",
         "metaKey" => true,
         "ctrlKey" => false,
-        "shiftKey" => false,
-        "altKey" => true,
+        "shiftKey" => true,
+        "altKey" => false,
         "repeat" => false,
         "platform" => "MacIntel",
         "targetTagName" => "BODY",
@@ -157,8 +157,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
         "code" => "Numpad1",
         "metaKey" => true,
         "ctrlKey" => false,
-        "shiftKey" => false,
-        "altKey" => true,
+        "shiftKey" => true,
+        "altKey" => false,
         "repeat" => false,
         "platform" => "MacIntel",
         "targetTagName" => "BODY",
@@ -173,18 +173,18 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#links", "https://example.com/shortcut-numpad")
     end
 
-    test "shortcut parsing supports mac option-symbol digits", %{conn: conn} do
+    test "shortcut parsing supports shifted symbol digits", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
       view
       |> element("#masonry")
       |> render_hook("handle_shortcut_keydown", %{
-        "key" => "¡",
+        "key" => "!",
         "code" => "",
         "metaKey" => true,
         "ctrlKey" => false,
-        "shiftKey" => false,
-        "altKey" => true,
+        "shiftKey" => true,
+        "altKey" => false,
         "repeat" => false,
         "platform" => "MacIntel",
         "targetTagName" => "INPUT",
@@ -193,36 +193,10 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       })
 
       view
-      |> form("#link-form", link: %{url: "https://example.com/shortcut-option-symbol"})
+      |> form("#link-form", link: %{url: "https://example.com/shortcut-shift-symbol"})
       |> render_submit()
 
-      assert has_element?(view, "#links", "https://example.com/shortcut-option-symbol")
-    end
-
-    test "mac fallback toggles tag when alt+digit arrives without meta", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
-
-      view
-      |> element("#masonry")
-      |> render_hook("handle_shortcut_keydown", %{
-        "key" => "1",
-        "code" => "Digit1",
-        "metaKey" => false,
-        "ctrlKey" => false,
-        "shiftKey" => false,
-        "altKey" => true,
-        "repeat" => false,
-        "platform" => "MacIntel",
-        "targetTagName" => "INPUT",
-        "targetType" => "url",
-        "targetIsContentEditable" => false
-      })
-
-      view
-      |> form("#link-form", link: %{url: "https://example.com/shortcut-mac-fallback"})
-      |> render_submit()
-
-      assert has_element?(view, "#links", "https://example.com/shortcut-mac-fallback")
+      assert has_element?(view, "#links", "https://example.com/shortcut-shift-symbol")
     end
 
     test "hook event toggles tag by index for focused input scenario", %{conn: conn} do
