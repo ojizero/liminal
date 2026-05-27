@@ -27,11 +27,11 @@ import topbar from "../vendor/topbar"
 import Masonry from "./masonry_hook"
 
 const platform = navigator.userAgentData?.platform || navigator.platform || ""
-const isWindowsPlatform = /win/i.test(platform)
+const isMacPlatform = /mac/i.test(platform)
 
 const usesModKey = (event) => {
-  if (isWindowsPlatform) return event.ctrlKey
-  return event.metaKey
+  if (isMacPlatform) return event.metaKey
+  return event.ctrlKey
 }
 
 const detectShortcutPlatform = () => {
@@ -60,19 +60,25 @@ const LinkShortcuts = {
   mounted() {
     this.pushEvent("set_shortcut_platform", {platform: detectShortcutPlatform()})
 
+    const overrideBrowserShortcut = (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      event.stopImmediatePropagation()
+    }
+
     this.onKeyDown = (event) => {
       if (event.repeat) return
 
       const key = event.key?.toLowerCase()
       if (key === "k" && usesModKey(event)) {
-        event.preventDefault()
+        overrideBrowserShortcut(event)
         this.pushEvent("shortcut_focus_new_link", {})
         return
       }
 
       const digit = parseDigitShortcut(event)
-      if (digit && event.shiftKey && usesModKey(event) && !event.altKey) {
-        event.preventDefault()
+      if (digit && usesModKey(event) && event.altKey && !event.shiftKey) {
+        overrideBrowserShortcut(event)
         this.pushEvent("shortcut_toggle_tag_by_index", {index: digit})
       }
     }
