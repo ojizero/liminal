@@ -180,7 +180,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> element("#masonry")
       |> render_hook("handle_shortcut_keydown", %{
         "key" => "!",
-        "code" => "",
+        "code" => "Digit1",
         "metaKey" => true,
         "ctrlKey" => false,
         "shiftKey" => true,

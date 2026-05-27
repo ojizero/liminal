@@ -618,7 +618,8 @@ defmodule LiminalWeb.LinkLive.Index do
          %{
            "key" => key,
            "code" => code,
-           "altKey" => true,
+           "shiftKey" => true,
+           "altKey" => false,
            "repeat" => false
          } = params
        ) do
@@ -635,30 +636,20 @@ defmodule LiminalWeb.LinkLive.Index do
 
   defp mod_key_active?(params) do
     platform = String.downcase(params["platform"] || "")
-    ctrl_key = params["ctrlKey"]
-    meta_key = params["metaKey"]
+    ctrl_key = params["ctrlKey"] == true
+    meta_key = params["metaKey"] == true
 
     cond do
       String.contains?(platform, "win") ->
         ctrl_key
 
       String.contains?(platform, "mac") ->
-        meta_key or alt_digit_fallback?(params)
+        meta_key
 
       true ->
-        meta_key or alt_digit_fallback?(params)
+        meta_key or ctrl_key
     end
   end
-
-  defp alt_digit_fallback?(%{
-         "altKey" => true,
-         "metaKey" => false,
-         "ctrlKey" => false,
-         "shiftKey" => false
-       }),
-       do: true
-
-  defp alt_digit_fallback?(_params), do: false
 
   defp parse_digit_shortcut(_key, <<"Digit", digit::binary-size(1)>>)
        when digit in ["1", "2", "3", "4", "5", "6", "7", "8", "9"] do
@@ -671,30 +662,13 @@ defmodule LiminalWeb.LinkLive.Index do
   end
 
   defp parse_digit_shortcut(key, _code) when is_binary(key) do
-    case option_digit_to_index(key) do
-      {:ok, _digit} = result ->
-        result
-
-      :error ->
-        case Integer.parse(key) do
-          {digit, ""} when digit >= 1 and digit <= 9 -> {:ok, digit}
-          _ -> :error
-        end
+    case Integer.parse(key) do
+      {digit, ""} when digit >= 1 and digit <= 9 -> {:ok, digit}
+      _ -> :error
     end
   end
 
   defp parse_digit_shortcut(_key, _code), do: :error
-
-  defp option_digit_to_index("¡"), do: {:ok, 1}
-  defp option_digit_to_index("™"), do: {:ok, 2}
-  defp option_digit_to_index("£"), do: {:ok, 3}
-  defp option_digit_to_index("¢"), do: {:ok, 4}
-  defp option_digit_to_index("∞"), do: {:ok, 5}
-  defp option_digit_to_index("§"), do: {:ok, 6}
-  defp option_digit_to_index("¶"), do: {:ok, 7}
-  defp option_digit_to_index("•"), do: {:ok, 8}
-  defp option_digit_to_index("ª"), do: {:ok, 9}
-  defp option_digit_to_index(_key), do: :error
 
   defp index_to_tag(index, tags) when is_integer(index), do: Enum.at(tags, index - 1)
 
