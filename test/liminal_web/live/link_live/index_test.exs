@@ -147,6 +147,84 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#links", "https://example.com/shortcut-tag")
     end
 
+    test "shortcut parsing supports numpad digits", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#masonry")
+      |> render_hook("handle_shortcut_keydown", %{
+        "key" => "1",
+        "code" => "Numpad1",
+        "metaKey" => true,
+        "ctrlKey" => false,
+        "shiftKey" => false,
+        "altKey" => true,
+        "repeat" => false,
+        "platform" => "MacIntel",
+        "targetTagName" => "BODY",
+        "targetType" => nil,
+        "targetIsContentEditable" => false
+      })
+
+      view
+      |> form("#link-form", link: %{url: "https://example.com/shortcut-numpad"})
+      |> render_submit()
+
+      assert has_element?(view, "#links", "https://example.com/shortcut-numpad")
+    end
+
+    test "shortcut parsing supports mac option-symbol digits", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#masonry")
+      |> render_hook("handle_shortcut_keydown", %{
+        "key" => "¡",
+        "code" => "",
+        "metaKey" => true,
+        "ctrlKey" => false,
+        "shiftKey" => false,
+        "altKey" => true,
+        "repeat" => false,
+        "platform" => "MacIntel",
+        "targetTagName" => "INPUT",
+        "targetType" => "url",
+        "targetIsContentEditable" => false
+      })
+
+      view
+      |> form("#link-form", link: %{url: "https://example.com/shortcut-option-symbol"})
+      |> render_submit()
+
+      assert has_element?(view, "#links", "https://example.com/shortcut-option-symbol")
+    end
+
+    test "mac fallback toggles tag when alt+digit arrives without meta", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#masonry")
+      |> render_hook("handle_shortcut_keydown", %{
+        "key" => "1",
+        "code" => "Digit1",
+        "metaKey" => false,
+        "ctrlKey" => false,
+        "shiftKey" => false,
+        "altKey" => true,
+        "repeat" => false,
+        "platform" => "MacIntel",
+        "targetTagName" => "INPUT",
+        "targetType" => "url",
+        "targetIsContentEditable" => false
+      })
+
+      view
+      |> form("#link-form", link: %{url: "https://example.com/shortcut-mac-fallback"})
+      |> render_submit()
+
+      assert has_element?(view, "#links", "https://example.com/shortcut-mac-fallback")
+    end
+
     test "hook event toggles tag by index for focused input scenario", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 

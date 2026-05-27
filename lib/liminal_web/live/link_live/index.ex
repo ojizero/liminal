@@ -71,7 +71,6 @@ defmodule LiminalWeb.LinkLive.Index do
       <div
         id="masonry"
         phx-hook="Masonry"
-        phx-window-keydown="handle_shortcut_keydown"
         class="relative"
       >
         <%!-- New link card (always first in masonry) --%>
@@ -634,23 +633,68 @@ defmodule LiminalWeb.LinkLive.Index do
 
   defp maybe_handle_shortcut_keydown(socket, _params), do: {:noreply, socket}
 
-  defp mod_key_active?(%{"platform" => platform, "ctrlKey" => ctrl_key, "metaKey" => meta_key}) do
-    if String.contains?(String.downcase(platform || ""), "win"), do: ctrl_key, else: meta_key
+  defp mod_key_active?(params) do
+    platform = String.downcase(params["platform"] || "")
+    ctrl_key = params["ctrlKey"]
+    meta_key = params["metaKey"]
+
+    cond do
+      String.contains?(platform, "win") ->
+        ctrl_key
+
+      String.contains?(platform, "mac") ->
+        meta_key or alt_digit_fallback?(params)
+
+      true ->
+        meta_key or alt_digit_fallback?(params)
+    end
   end
+
+  defp alt_digit_fallback?(%{
+         "altKey" => true,
+         "metaKey" => false,
+         "ctrlKey" => false,
+         "shiftKey" => false
+       }),
+       do: true
+
+  defp alt_digit_fallback?(_params), do: false
 
   defp parse_digit_shortcut(_key, <<"Digit", digit::binary-size(1)>>)
        when digit in ["1", "2", "3", "4", "5", "6", "7", "8", "9"] do
     {:ok, String.to_integer(digit)}
   end
 
+  defp parse_digit_shortcut(_key, <<"Numpad", digit::binary-size(1)>>)
+       when digit in ["1", "2", "3", "4", "5", "6", "7", "8", "9"] do
+    {:ok, String.to_integer(digit)}
+  end
+
   defp parse_digit_shortcut(key, _code) when is_binary(key) do
-    case Integer.parse(key) do
-      {digit, ""} when digit >= 1 and digit <= 9 -> {:ok, digit}
-      _ -> :error
+    case option_digit_to_index(key) do
+      {:ok, _digit} = result ->
+        result
+
+      :error ->
+        case Integer.parse(key) do
+          {digit, ""} when digit >= 1 and digit <= 9 -> {:ok, digit}
+          _ -> :error
+        end
     end
   end
 
   defp parse_digit_shortcut(_key, _code), do: :error
+
+  defp option_digit_to_index("¡"), do: {:ok, 1}
+  defp option_digit_to_index("™"), do: {:ok, 2}
+  defp option_digit_to_index("£"), do: {:ok, 3}
+  defp option_digit_to_index("¢"), do: {:ok, 4}
+  defp option_digit_to_index("∞"), do: {:ok, 5}
+  defp option_digit_to_index("§"), do: {:ok, 6}
+  defp option_digit_to_index("¶"), do: {:ok, 7}
+  defp option_digit_to_index("•"), do: {:ok, 8}
+  defp option_digit_to_index("ª"), do: {:ok, 9}
+  defp option_digit_to_index(_key), do: :error
 
   defp index_to_tag(index, tags) when is_integer(index), do: Enum.at(tags, index - 1)
 
