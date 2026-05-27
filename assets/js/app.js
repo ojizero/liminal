@@ -58,7 +58,7 @@ const LinkShortcuts = {
 
       const digitMatch = /^Digit([1-9])$/.exec(event.code || "")
       const digit = digitMatch ? Number.parseInt(digitMatch[1], 10) : null
-      if (digit && usesModKey(event) && event.shiftKey) {
+      if (digit && usesModKey(event) && event.altKey) {
         event.preventDefault()
         this.pushEvent("shortcut_toggle_tag_by_index", {index: digit})
       }

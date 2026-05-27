@@ -120,7 +120,7 @@ defmodule LiminalWeb.LinkLive.Index do
                       {shortcut_mod_label(@shortcut_platform)}
                     </kbd>
                     <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                      Shift
+                      {shortcut_alt_label(@shortcut_platform)}
                     </kbd>
                     <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
                       1..9
@@ -619,7 +619,7 @@ defmodule LiminalWeb.LinkLive.Index do
          %{
            "key" => key,
            "code" => code,
-           "shiftKey" => true,
+           "altKey" => true,
            "repeat" => false
          } = params
        ) do
@@ -671,6 +671,10 @@ defmodule LiminalWeb.LinkLive.Index do
   defp shortcut_mod_label(:mac), do: "⌘"
   defp shortcut_mod_label(:linux), do: "Super"
   defp shortcut_mod_label(:windows), do: "Ctrl"
+
+  defp shortcut_alt_label(:mac), do: "Option"
+  defp shortcut_alt_label(:linux), do: "Alt"
+  defp shortcut_alt_label(:windows), do: "Alt"
 
   defp toggle_selected_tag(socket, tag_id) do
     selected = socket.assigns.selected_tag_ids

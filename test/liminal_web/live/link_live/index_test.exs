@@ -96,6 +96,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       html = render(view)
       assert html =~ "Super"
+      assert html =~ "Alt"
       assert has_element?(view, "#link-url-shortcut kbd", "K")
       refute html =~ "⌘"
 
@@ -105,6 +106,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       html = render(view)
       assert html =~ "Ctrl"
+      assert html =~ "Alt"
       assert has_element?(view, "#link-url-shortcut kbd", "K")
       refute html =~ "Super"
     end
@@ -119,7 +121,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert_push_event(view, "focus-new-link-url", %{})
     end
 
-    test "mod+shift+digit shortcut toggles new-link tag selection", %{conn: conn} do
+    test "mod+alt+digit shortcut toggles new-link tag selection", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
       view
@@ -129,7 +131,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
         "code" => "Digit1",
         "metaKey" => true,
         "ctrlKey" => false,
-        "shiftKey" => true,
+        "shiftKey" => false,
+        "altKey" => true,
         "repeat" => false,
         "platform" => "MacIntel",
         "targetTagName" => "BODY",
