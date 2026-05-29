@@ -75,6 +75,144 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       end
     end
 
+    test "renders platform-specific keyboard shortcut hints for link form", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      refute has_element?(view, "#link-url-shortcut")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("set_shortcut_platform", %{"platform" => "mac"})
+
+      assert has_element?(view, "#link-url-shortcut kbd", "⌘")
+      assert has_element?(view, "#link-url-shortcut kbd", "K")
+      refute render(view) =~ "Super"
+      refute render(view) =~ "Ctrl"
+      refute render(view) =~ "Mod"
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("set_shortcut_platform", %{"platform" => "linux"})
+
+      html = render(view)
+      assert html =~ "Super"
+      assert html =~ "Shift"
+      assert has_element?(view, "#link-url-shortcut kbd", "K")
+      refute html =~ "⌘"
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("set_shortcut_platform", %{"platform" => "windows"})
+
+      html = render(view)
+      assert html =~ "Ctrl"
+      assert html =~ "Shift"
+      assert has_element?(view, "#link-url-shortcut kbd", "K")
+      refute html =~ "Super"
+    end
+
+    test "shortcut focus event pushes client focus event", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_focus_new_link", %{})
+
+      assert_push_event(view, "focus-new-link-url", %{})
+    end
+
+    test "mod+shift+digit shortcut toggles new-link tag selection", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#masonry")
+      |> render_hook("handle_shortcut_keydown", %{
+        "key" => "1",
+        "code" => "Digit1",
+        "metaKey" => true,
+        "ctrlKey" => false,
+        "shiftKey" => true,
+        "altKey" => false,
+        "repeat" => false,
+        "platform" => "MacIntel",
+        "targetTagName" => "BODY",
+        "targetType" => nil,
+        "targetIsContentEditable" => false
+      })
+
+      view
+      |> form("#link-form", link: %{url: "https://example.com/shortcut-tag"})
+      |> render_submit()
+
+      assert has_element?(view, "#links", "https://example.com/shortcut-tag")
+    end
+
+    test "shortcut parsing supports numpad digits", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#masonry")
+      |> render_hook("handle_shortcut_keydown", %{
+        "key" => "1",
+        "code" => "Numpad1",
+        "metaKey" => true,
+        "ctrlKey" => false,
+        "shiftKey" => true,
+        "altKey" => false,
+        "repeat" => false,
+        "platform" => "MacIntel",
+        "targetTagName" => "BODY",
+        "targetType" => nil,
+        "targetIsContentEditable" => false
+      })
+
+      view
+      |> form("#link-form", link: %{url: "https://example.com/shortcut-numpad"})
+      |> render_submit()
+
+      assert has_element?(view, "#links", "https://example.com/shortcut-numpad")
+    end
+
+    test "shortcut parsing supports shifted symbol digits", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#masonry")
+      |> render_hook("handle_shortcut_keydown", %{
+        "key" => "!",
+        "code" => "Digit1",
+        "metaKey" => true,
+        "ctrlKey" => false,
+        "shiftKey" => true,
+        "altKey" => false,
+        "repeat" => false,
+        "platform" => "MacIntel",
+        "targetTagName" => "INPUT",
+        "targetType" => "url",
+        "targetIsContentEditable" => false
+      })
+
+      view
+      |> form("#link-form", link: %{url: "https://example.com/shortcut-shift-symbol"})
+      |> render_submit()
+
+      assert has_element?(view, "#links", "https://example.com/shortcut-shift-symbol")
+    end
+
+    test "hook event toggles tag by index for focused input scenario", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_toggle_tag_by_index", %{"index" => 1})
+
+      view
+      |> form("#link-form", link: %{url: "https://example.com/shortcut-hook"})
+      |> render_submit()
+
+      assert has_element?(view, "#links", "https://example.com/shortcut-hook")
+    end
+
     test "edit a link", %{conn: conn, scope: scope} do
       link = link_fixture(scope, %{url: "https://old.com", title: "Old Title"})
       {:ok, view, _html} = live(conn, ~p"/")

@@ -25,12 +25,29 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/liminal"
 import topbar from "../vendor/topbar"
 import Masonry from "./masonry_hook"
+import CopyToClipboard from "./copy_to_clipboard_hook"
+import LinkShortcuts, {platform} from "./link_shortcuts_hook"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, Masonry},
+  hooks: {...colocatedHooks, Masonry, LinkShortcuts, CopyToClipboard},
+  metadata: {
+    keydown: (event) => ({
+      key: event.key,
+      metaKey: event.metaKey,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      altKey: event.altKey,
+      repeat: event.repeat,
+      code: event.code,
+      platform,
+      targetTagName: event.target?.tagName,
+      targetType: event.target?.type,
+      targetIsContentEditable: event.target?.isContentEditable
+    })
+  }
 })
 
 // Show progress bar on live navigation and form submits

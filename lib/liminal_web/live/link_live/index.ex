@@ -65,8 +65,14 @@ defmodule LiminalWeb.LinkLive.Index do
         </button>
       </div>
 
+      <div id="link-shortcuts" phx-hook="LinkShortcuts" />
+
       <%!-- Links (masonry) --%>
-      <div id="masonry" phx-hook="Masonry" class="relative">
+      <div
+        id="masonry"
+        phx-hook="Masonry"
+        class="relative"
+      >
         <%!-- New link card (always first in masonry) --%>
         <div
           id="new-link-card"
@@ -75,16 +81,59 @@ defmodule LiminalWeb.LinkLive.Index do
         >
           <div class="card-body p-4">
             <.form for={@form} id="link-form" phx-change="validate" phx-submit="save">
-              <.input field={@form[:url]} type="url" placeholder="https://..." />
+              <div class="fieldset mb-2">
+                <div class="relative">
+                  <input
+                    type="url"
+                    name={@form[:url].name}
+                    id={@form[:url].id}
+                    value={Phoenix.HTML.Form.normalize_value("url", @form[:url].value)}
+                    placeholder="https://..."
+                    class={[
+                      "w-full input",
+                      @shortcut_platform && "pr-16",
+                      @form[:url].errors != [] && "input-error"
+                    ]}
+                    phx-debounce="300"
+                  />
+                  <div
+                    :if={@shortcut_platform}
+                    id="link-url-shortcut"
+                    class="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-0.5"
+                  >
+                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                      {shortcut_mod_label(@shortcut_platform)}
+                    </kbd>
+                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                      K
+                    </kbd>
+                  </div>
+                </div>
+              </div>
 
               <div :if={@tags != []} class="mt-3">
-                <span class="text-sm font-medium">Tags</span>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="text-sm font-medium">Tags</span>
+                  <span :if={@shortcut_platform} class="flex items-center gap-0.5">
+                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                      {shortcut_mod_label(@shortcut_platform)}
+                    </kbd>
+                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                      {shortcut_shift_label(@shortcut_platform)}
+                    </kbd>
+                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                      1..9
+                    </kbd>
+                  </span>
+                </div>
                 <div class="flex flex-wrap gap-2 mt-1">
                   <button
-                    :for={tag <- @tags}
+                    :for={{tag, idx} <- Enum.with_index(@tags, 1)}
                     type="button"
                     phx-click="toggle_tag"
                     phx-value-id={tag.id}
+                    id={"new-link-tag-#{idx}"}
+                    data-shortcut-index={idx}
                     title={"Expires in #{tag.expires_in_days} days"}
                     class={[
                       "badge badge-sm cursor-pointer select-none transition-colors",
@@ -335,6 +384,7 @@ defmodule LiminalWeb.LinkLive.Index do
       |> assign(:editing_link, nil)
       |> assign(:edit_form, nil)
       |> assign(:tag_id, nil)
+      |> assign(:shortcut_platform, nil)
       |> stream(:links, links)
 
     {:ok, socket}
@@ -433,16 +483,26 @@ defmodule LiminalWeb.LinkLive.Index do
   end
 
   def handle_event("toggle_tag", %{"id" => tag_id}, socket) do
-    selected = socket.assigns.selected_tag_ids
+    {:noreply, toggle_selected_tag(socket, tag_id)}
+  end
 
-    updated =
-      if tag_id in selected do
-        List.delete(selected, tag_id)
-      else
-        [tag_id | selected]
-      end
+  def handle_event("set_shortcut_platform", %{"platform" => platform}, socket) do
+    {:noreply, assign(socket, :shortcut_platform, parse_shortcut_platform(platform))}
+  end
 
-    {:noreply, assign(socket, :selected_tag_ids, updated)}
+  def handle_event("shortcut_focus_new_link", _params, socket) do
+    {:noreply, push_event(socket, "focus-new-link-url", %{})}
+  end
+
+  def handle_event("shortcut_toggle_tag_by_index", %{"index" => index}, socket) do
+    case index_to_tag(index, socket.assigns.tags) do
+      nil -> {:noreply, socket}
+      tag -> {:noreply, toggle_selected_tag(socket, tag.id)}
+    end
+  end
+
+  def handle_event("handle_shortcut_keydown", params, socket) do
+    maybe_handle_shortcut_keydown(socket, params)
   end
 
   def handle_event("save", %{"link" => link_params}, socket) do
@@ -551,6 +611,100 @@ defmodule LiminalWeb.LinkLive.Index do
     current = socket.assigns.filter_tag_ids
     updated = if tag_id in current, do: List.delete(current, tag_id), else: [tag_id | current]
     {:noreply, socket |> assign(:filter_tag_ids, updated) |> refetch_links()}
+  end
+
+  defp maybe_handle_shortcut_keydown(
+         socket,
+         %{
+           "key" => key,
+           "code" => code,
+           "shiftKey" => true,
+           "altKey" => false,
+           "repeat" => false
+         } = params
+       ) do
+    with true <- mod_key_active?(params),
+         {:ok, index} <- parse_digit_shortcut(key, code),
+         tag when not is_nil(tag) <- Enum.at(socket.assigns.tags, index - 1) do
+      {:noreply, toggle_selected_tag(socket, tag.id)}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  defp maybe_handle_shortcut_keydown(socket, _params), do: {:noreply, socket}
+
+  defp mod_key_active?(params) do
+    platform = String.downcase(params["platform"] || "")
+    ctrl_key = params["ctrlKey"] == true
+    meta_key = params["metaKey"] == true
+
+    cond do
+      String.contains?(platform, "win") ->
+        ctrl_key
+
+      String.contains?(platform, "mac") ->
+        meta_key
+
+      true ->
+        meta_key or ctrl_key
+    end
+  end
+
+  defp parse_digit_shortcut(_key, <<"Digit", digit::binary-size(1)>>)
+       when digit in ["1", "2", "3", "4", "5", "6", "7", "8", "9"] do
+    {:ok, String.to_integer(digit)}
+  end
+
+  defp parse_digit_shortcut(_key, <<"Numpad", digit::binary-size(1)>>)
+       when digit in ["1", "2", "3", "4", "5", "6", "7", "8", "9"] do
+    {:ok, String.to_integer(digit)}
+  end
+
+  defp parse_digit_shortcut(key, _code) when is_binary(key) do
+    case Integer.parse(key) do
+      {digit, ""} when digit >= 1 and digit <= 9 -> {:ok, digit}
+      _ -> :error
+    end
+  end
+
+  defp parse_digit_shortcut(_key, _code), do: :error
+
+  defp index_to_tag(index, tags) when is_integer(index), do: Enum.at(tags, index - 1)
+
+  defp index_to_tag(index, tags) when is_binary(index) do
+    case Integer.parse(index) do
+      {value, ""} -> index_to_tag(value, tags)
+      _ -> nil
+    end
+  end
+
+  defp index_to_tag(_index, _tags), do: nil
+
+  defp parse_shortcut_platform("mac"), do: :mac
+  defp parse_shortcut_platform("windows"), do: :windows
+  defp parse_shortcut_platform("linux"), do: :linux
+  defp parse_shortcut_platform(_platform), do: :linux
+
+  defp shortcut_mod_label(:mac), do: "⌘"
+  defp shortcut_mod_label(:linux), do: "Super"
+  defp shortcut_mod_label(:windows), do: "Ctrl"
+
+  defp shortcut_shift_label(:mac), do: "Shift"
+  defp shortcut_shift_label(:linux), do: "Shift"
+  defp shortcut_shift_label(:windows), do: "Shift"
+
+  defp toggle_selected_tag(socket, tag_id) do
+    selected = socket.assigns.selected_tag_ids
+
+    updated =
+      if tag_id in selected do
+        List.delete(selected, tag_id)
+      else
+        [tag_id | selected]
+      end
+
+    assign(socket, :selected_tag_ids, updated)
   end
 
   defp save_link(socket, :index, link_params) do
