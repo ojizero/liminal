@@ -217,6 +217,34 @@ defmodule Liminal.Accounts do
     |> update_user_and_delete_all_tokens()
   end
 
+  @doc """
+  Returns an `%Ecto.Changeset{}` for changing the user's preferences.
+
+  ## Examples
+
+      iex> change_user_settings(user)
+      %Ecto.Changeset{data: %User{}}
+
+  """
+  def change_user_settings(user, attrs \\ %{}) do
+    User.settings_changeset(user, attrs)
+  end
+
+  @doc """
+  Updates the user's preferences.
+
+  ## Examples
+
+      iex> update_user_settings(user, %{auto_mark_viewed_on_open: true})
+      {:ok, %User{}}
+
+  """
+  def update_user_settings(user, attrs) do
+    user
+    |> User.settings_changeset(attrs)
+    |> Repo.update()
+  end
+
   ## Session
 
   @doc """

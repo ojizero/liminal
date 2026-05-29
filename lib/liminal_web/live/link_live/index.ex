@@ -175,6 +175,8 @@ defmodule LiminalWeb.LinkLive.Index do
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
+              phx-click={@auto_mark_viewed && "open_link"}
+              phx-value-id={link.id}
               class="h-56 w-full shrink-0 overflow-hidden block"
             >
               <img
@@ -190,6 +192,8 @@ defmodule LiminalWeb.LinkLive.Index do
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
+                phx-click={@auto_mark_viewed && "open_link"}
+                phx-value-id={link.id}
                 class="font-bold line-clamp-2 hover:underline"
               >
                 {link.title || link.url}
@@ -278,6 +282,8 @@ defmodule LiminalWeb.LinkLive.Index do
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  phx-click={@auto_mark_viewed && "open_link"}
+                  phx-value-id={link.id}
                   class="truncate hover:underline hover:text-primary"
                 >
                   {URI.parse(link.url).host || link.url}
@@ -426,6 +432,7 @@ defmodule LiminalWeb.LinkLive.Index do
     socket =
       socket
       |> assign(:tags, tags)
+      |> assign(:auto_mark_viewed, scope.user.auto_mark_viewed_on_open)
       |> assign(:filter, :unviewed)
       |> assign(:sort, :time_added_desc)
       |> assign(:filter_tag_ids, [])
@@ -632,6 +639,24 @@ defmodule LiminalWeb.LinkLive.Index do
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, "Could not retry indexing")}
+    end
+  end
+
+  def handle_event("open_link", %{"id" => id}, socket) do
+    scope = socket.assigns.current_scope
+
+    if socket.assigns.auto_mark_viewed do
+      link = Links.get_link!(scope, id)
+
+      if is_nil(link.viewed_at) do
+        {:ok, _} = Links.mark_viewed(scope, link)
+        updated_link = Links.get_link!(scope, id)
+        {:noreply, stream_insert(socket, :links, updated_link)}
+      else
+        {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
     end
   end
 
