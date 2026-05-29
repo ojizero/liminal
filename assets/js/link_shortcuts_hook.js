@@ -1,4 +1,4 @@
-const platform = navigator.userAgentData?.platform || navigator.platform || ""
+export const platform = navigator.userAgentData?.platform || navigator.platform || ""
 const isWindowsPlatform = /win/i.test(platform)
 
 const usesModKey = (event) => {
@@ -7,8 +7,6 @@ const usesModKey = (event) => {
 }
 
 const detectShortcutPlatform = () => {
-  const platform = navigator.userAgentData?.platform || navigator.platform || ""
-
   if (/mac/i.test(platform)) return "mac"
   if (/win/i.test(platform)) return "windows"
   return "linux"

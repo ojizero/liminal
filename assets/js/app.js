@@ -26,9 +26,7 @@ import {hooks as colocatedHooks} from "phoenix-colocated/liminal"
 import topbar from "../vendor/topbar"
 import Masonry from "./masonry_hook"
 import CopyToClipboard from "./copy_to_clipboard_hook"
-import LinkShortcuts from "./link_shortcuts_hook"
-
-const platform = navigator.userAgentData?.platform || navigator.platform || ""
+import LinkShortcuts, {platform} from "./link_shortcuts_hook"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
