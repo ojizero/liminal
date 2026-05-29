@@ -243,13 +243,6 @@ defmodule LiminalWeb.LinkLive.Index do
                 {link.description}
               </p>
 
-              <p
-                :if={link.note && link.note != ""}
-                class="text-sm bg-base-300/60 rounded-md px-2.5 py-1.5 border-l-2 border-primary/60 whitespace-pre-line"
-              >
-                {link.note}
-              </p>
-
               <div class="flex flex-wrap gap-1.5 mt-1">
                 <span
                   :for={lt <- link.link_tags}
@@ -288,6 +281,13 @@ defmodule LiminalWeb.LinkLive.Index do
                   </ul>
                 </details>
               </div>
+
+              <p
+                :if={link.note && link.note != ""}
+                class="text-xs text-base-content/50 italic whitespace-pre-line"
+              >
+                {link.note}
+              </p>
 
               <div class="flex items-center gap-2 mt-auto pt-2 border-t border-base-300 text-xs text-base-content/50">
                 <%= if link.favicon_url do %>
