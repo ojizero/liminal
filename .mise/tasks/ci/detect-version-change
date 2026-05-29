@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+#MISE description="Detect if VERSION changed between two git refs"
+set -euo pipefail
+
+source "${MISE_PROJECT_ROOT}/scripts/release_scope.sh"
+
+: "${BEFORE:?BEFORE is required}"
+: "${AFTER:?AFTER is required}"
+
+if version_changed_in_range "$BEFORE" "$AFTER"; then
+  result=true
+else
+  result=false
+fi
+
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  echo "version=${result}" >> "$GITHUB_OUTPUT"
+else
+  echo "version=${result}"
+fi

@@ -6,20 +6,57 @@ on:
 
 env:
   MIX_ENV: test
-  ELIXIR_VERSION: "1.19.5"
-  OTP_VERSION: "28.5"
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.detect.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: jdx/mise-action@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Detect VERSION changes
+        id: detect
+        env:
+          BEFORE: ${{ github.event.pull_request.base.sha }}
+          AFTER: ${{ github.sha }}
+        run: mise run ci:detect-version-change
+
+  version-check:
+    name: Version Check
+    needs: changes
+    if: needs.changes.outputs.version == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: jdx/mise-action@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify VERSION matches latest release tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mise run ci:verify-version
+
   test:
     name: Test & Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: erlef/setup-beam@v1
+      - uses: jdx/mise-action@v4
         with:
-          elixir-version: ${{ env.ELIXIR_VERSION }}
-          otp-version: ${{ env.OTP_VERSION }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cache deps
         uses: actions/cache@v4
@@ -27,18 +64,9 @@ jobs:
           path: |
             deps
             _build
-          key: mix-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-${{ hashFiles('mix.lock') }}
+          key: mix-${{ hashFiles('.mise.toml', 'mix.lock') }}
           restore-keys: |
-            mix-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-
+            mix-
 
-      - name: Install dependencies
-        run: mix deps.get
-
-      - name: Check formatting
-        run: mix format --check-formatted
-
-      - name: Compile (warnings as errors)
-        run: mix compile --warnings-as-errors
-
-      - name: Run tests
-        run: mix test
+      - name: Run CI checks
+        run: mise run ci
