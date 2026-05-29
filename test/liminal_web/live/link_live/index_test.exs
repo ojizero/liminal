@@ -163,6 +163,19 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       end
     end
 
+    test "new link form includes clipboard paste affordance markup", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # URL input is wired to the ClipboardPaste hook
+      assert has_element?(view, "input#link_url[phx-hook='ClipboardPaste']")
+
+      # The paste control is server-rendered hidden and managed by the hook
+      # (phx-update="ignore" so LiveView patches don't clobber JS-applied state)
+      assert has_element?(view, "#link-url-clipboard[phx-update='ignore']")
+      assert has_element?(view, "#link-url-clipboard-action", "Paste link from clipboard")
+      assert has_element?(view, "#link-url-clipboard-dismiss")
+    end
+
     test "renders platform-specific keyboard shortcut hints for link form", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
