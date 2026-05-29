@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#MISE description="Verify VERSION is not behind the latest GitHub release"
+set -euo pipefail
+
+source "${MISE_PROJECT_ROOT}/scripts/release_scope.sh"
+
+current=$(current_version)
+latest_tag=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "")
+released=$(released_version "$latest_tag")
+
+echo "Current version:  $current"
+echo "Released version: ${released:-<none>}"
+
+assert_version_not_behind_release "$current" "$released"

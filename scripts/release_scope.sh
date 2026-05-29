@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Release and version validation helpers for GitHub Actions.
+# Release and version validation helpers for CI tasks.
 #
 # A release runs only when VERSION changes on push to main and the new value
 # exceeds the latest GitHub release tag. PRs validate VERSION only when the PR
