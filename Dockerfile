@@ -24,7 +24,7 @@ RUN mix local.hex --force && \
 ENV MIX_ENV="prod"
 
 # Install dependencies (cached layer)
-COPY mix.exs mix.lock ./
+COPY mix.exs mix.lock VERSION ./
 RUN mix deps.get --only prod
 RUN mkdir config
 

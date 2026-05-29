@@ -4,7 +4,7 @@ defmodule Liminal.MixProject do
   def project do
     [
       app: :liminal,
-      version: "1.3.1",
+      version: version(),
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -13,6 +13,12 @@ defmodule Liminal.MixProject do
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader]
     ]
+  end
+
+  defp version do
+    "VERSION"
+    |> File.read!()
+    |> String.trim()
   end
 
   # Configuration for the OTP application.

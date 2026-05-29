@@ -6,8 +6,6 @@ on:
 
 env:
   MIX_ENV: test
-  ELIXIR_VERSION: "1.19.5"
-  OTP_VERSION: "28.5"
   DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_USERNAME }}/liminal
   GHCR_IMAGE: ghcr.io/${{ github.repository }}
 
@@ -23,36 +21,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: jdx/mise-action@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Determine release requirements
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          source .github/scripts/release_scope.sh
-
-          current=$(current_version)
-          latest_tag=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "")
-          released=${latest_tag#v}
-          range=$(git_diff_range "$latest_tag")
-
-          echo "Current version:  $current"
-          echo "Released version: ${released:-<none>}"
-          echo "Diff range:       $range"
-
-          if has_releasable_changes "$range"; then
-            echo "Releasable changes detected since ${latest_tag:-initial commit}."
-            echo "needs_release=true" >> "$GITHUB_OUTPUT"
-            echo "version=$current" >> "$GITHUB_OUTPUT"
-
-            if [[ -n "$released" && "$current" = "$released" ]]; then
-              echo "::error::Version $current already released. Bump the version in mix.exs before merging releasable changes."
-              exit 1
-            fi
-          else
-            echo "Only non-releasable changes detected (CI, tests, docs, etc.). Skipping release."
-            echo "needs_release=false" >> "$GITHUB_OUTPUT"
-            echo "version=$current" >> "$GITHUB_OUTPUT"
-          fi
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+        run: mise run ci:determine-release
 
   test:
     name: Test & Lint
@@ -61,10 +40,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: erlef/setup-beam@v1
+      - uses: jdx/mise-action@v4
         with:
-          elixir-version: ${{ env.ELIXIR_VERSION }}
-          otp-version: ${{ env.OTP_VERSION }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cache deps
         uses: actions/cache@v4
@@ -72,21 +50,12 @@ jobs:
           path: |
             deps
             _build
-          key: mix-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-${{ hashFiles('mix.lock') }}
+          key: mix-${{ hashFiles('.mise.toml', 'mix.lock') }}
           restore-keys: |
-            mix-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-
+            mix-
 
-      - name: Install dependencies
-        run: mix deps.get
-
-      - name: Check formatting
-        run: mix format --check-formatted
-
-      - name: Compile (warnings as errors)
-        run: mix compile --warnings-as-errors
-
-      - name: Run tests
-        run: mix test
+      - name: Run CI checks
+        run: mise run ci
 
   docker:
     name: Build & Push Docker
@@ -148,11 +117,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: jdx/mise-action@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.version-check.outputs.version }}
-        run: |
-          gh release create "v${VERSION}" \
-            --title "v${VERSION}" \
-            --generate-notes
+        run: mise run ci:create-release
