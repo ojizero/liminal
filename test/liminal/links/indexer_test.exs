@@ -157,11 +157,11 @@ defmodule Liminal.Links.IndexerTest do
           "liminal_indexer_test_#{System.unique_integer([:positive])}"
         )
 
-      Application.put_env(:liminal, :upload_dir, tmp_dir)
+      Application.put_env(:liminal, :assets_dir, tmp_dir)
 
       on_exit(fn ->
         File.rm_rf(tmp_dir)
-        Application.delete_env(:liminal, :upload_dir)
+        Application.delete_env(:liminal, :assets_dir)
       end)
 
       html_with_image = """
@@ -190,7 +190,7 @@ defmodule Liminal.Links.IndexerTest do
 
       updated = Links.get_link!(scope, link.id)
       assert updated.image_path != nil
-      assert String.starts_with?(updated.image_path, "uploads/images/")
+      assert String.starts_with?(updated.image_path, "assets/")
       assert updated.title == "Image Page"
     end
 

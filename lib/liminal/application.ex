@@ -8,7 +8,7 @@ defmodule Liminal.Application do
   @impl true
   def start(_type, _args) do
     maybe_create_db()
-    Liminal.UploadPaths.ensure_upload_dir!()
+    Liminal.AssetPaths.ensure_assets_dir!()
 
     children =
       [

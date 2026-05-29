@@ -7,6 +7,16 @@ import Config
 # before starting your production server.
 config :liminal, LiminalWeb.Endpoint, cache_static_manifest: "priv/static/cache_manifest.json"
 
+# Directory for downloaded link preview images. This is compile-time config:
+# `LiminalWeb.Plugs.AssetStatic` initializes `Plug.Static` at compile time in
+# prod (`plug_init_mode` is not `:runtime`), so the serving path must be known
+# when the release is built. To override at build time, set the `ASSETS_DIR`
+# env var during `mix compile` (see the Dockerfile `ASSETS_DIR` build arg).
+# It is NOT a runtime variable and has no effect once the release is built.
+assets_dir = System.get_env("ASSETS_DIR") || "/data/assets"
+
+config :liminal, :assets_dir, assets_dir
+
 # Force using SSL in production. This also sets the "strict-security-transport" header,
 # known as HSTS. If you have a health check endpoint, you may want to exclude it below.
 # Note `:force_ssl` is required to be set at compile-time.

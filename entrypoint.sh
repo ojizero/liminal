@@ -7,7 +7,7 @@ PGID=${PGID:-911}
 groupmod -o -g "$PGID" liminal
 usermod -o -u "$PUID" liminal
 
-mkdir -p /data/uploads/images
+mkdir -p /data/assets
 chown -R "$PUID":"$PGID" /app /data
 
 exec gosu liminal "$@"

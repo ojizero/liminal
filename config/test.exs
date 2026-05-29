@@ -9,9 +9,11 @@ config :bcrypt_elixir, :log_rounds, 1
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
 config :liminal, Liminal.Repo,
-  database: Path.expand("../db/liminal_test.db", __DIR__),
+  database: Path.expand("../data.local/liminal_test.db", __DIR__),
   pool_size: 5,
   pool: Ecto.Adapters.SQL.Sandbox
+
+config :liminal, :assets_dir, Path.expand("../data.local/assets-test", __DIR__)
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.

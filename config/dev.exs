@@ -2,10 +2,12 @@ import Config
 
 # Configure your database
 config :liminal, Liminal.Repo,
-  database: Path.expand("../db/liminal_dev.db", __DIR__),
+  database: Path.expand("../data.local/liminal_dev.db", __DIR__),
   pool_size: 5,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true
+
+config :liminal, :assets_dir, Path.expand("../data.local/assets", __DIR__)
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
@@ -54,8 +56,10 @@ config :liminal, LiminalWeb.Endpoint,
   live_reload: [
     web_console_logger: true,
     patterns: [
-      # Static assets, except user uploads
-      ~r"priv/static/(?!uploads/).*\.(js|css|png|jpeg|jpg|gif|svg)$"E,
+      # Built JS/CSS assets
+      ~r"priv/static/.*\.(js|css)$"E,
+      # Static images under priv/static
+      ~r"priv/static/.*\.(png|jpeg|jpg|gif|svg)$"E,
       # Gettext translations
       ~r"priv/gettext/.*\.po$"E,
       # Router, Controllers, LiveViews and LiveComponents

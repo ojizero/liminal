@@ -32,6 +32,11 @@ mix setup          # Install deps, create DB, run migrations, build assets
 mix phx.server     # Start the server at localhost:4000
 ```
 
+Local development state is stored under `data.local/`:
+
+- `data.local/liminal_dev.db` - local development SQLite database
+- `data.local/assets/` - downloaded link preview images, served at `/assets/<file>`
+
 Or inside IEx:
 
 ```bash
@@ -48,11 +53,43 @@ When no admin account exists, the registration page is open — the first user t
 
 ```bash
 cp .env.example .env
-# Edit .env — at minimum set SECRET_KEY_BASE and DATABASE_PATH
+# Edit .env — at minimum set SECRET_KEY_BASE
 # Generate one with: mix phx.gen.secret
 
 docker compose up -d
 ```
+
+### Persistent data
+
+The container keeps all of its state under `/data`, which the Compose file mounts
+as the named volume `liminal_data`:
+
+| Path | Contents |
+|---|---|
+| `/data/liminal.db` | SQLite database (set via `DATABASE_PATH`) |
+| `/data/assets/` | Downloaded link preview images, served at `/assets/<file>` |
+
+Mounting `/data` is required: without it, the database and preview images are
+lost when the container is recreated. To use a host directory instead of the
+named volume, replace the volume entry in `docker-compose.yml`:
+
+```yaml
+volumes:
+  - ./data:/data
+```
+
+The preview image directory (`/data/assets`) is configured at **image build
+time**, not at runtime — `Plug.Static` freezes the serving path when the release
+is compiled, so it cannot be changed by an environment variable on a running
+container. The published image defaults to `/data/assets`. To build with a
+different path:
+
+```bash
+docker build --build-arg ASSETS_DIR=/custom/path .
+```
+
+The custom path must live under a writable mounted volume so images survive
+restarts.
 
 ### Environment variables
 
@@ -62,7 +99,6 @@ docker compose up -d
 | `PUID` | No | `911` | UID for the container process. Match your host user (`id -u`) to avoid permission issues with mounted volumes |
 | `PGID` | No | `911` | GID for the container process. Match your host group (`id -g`) |
 | `DATABASE_PATH` | Yes | — | Path to the SQLite database file |
-| `UPLOAD_DIR` | No | `priv/static/uploads/images` in release | Directory for downloaded link preview images. Docker Compose sets `/data/uploads/images` on the same persistent volume as the database |
 | `PHX_HOST` | No | `example.com` | Hostname for URL generation |
 | `PHX_CHECK_ORIGINS` | No | — | Comma-separated additional allowed origins for LiveView WebSocket connections (e.g. `//domain2.com,//domain3.com`). `PHX_HOST` is always included automatically |
 | `PORT` | No | `4000` | Server port |

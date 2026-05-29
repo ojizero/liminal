@@ -3,6 +3,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Compile-time directory for downloaded link preview images (see README).
+        ASSETS_DIR: /data/assets
     ports:
       - "${PORT:-4000}:${PORT:-4000}"
     volumes:
@@ -12,7 +15,6 @@ services:
       - PGID=${PGID:-911}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
       - DATABASE_PATH=/data/liminal.db
-      - UPLOAD_DIR=/data/uploads/images
       - PHX_SERVER=true
       - PHX_HOST=${PHX_HOST:-localhost}
       # - PHX_CHECK_ORIGINS=//domain2.com,//domain3.com

@@ -20,18 +20,18 @@ defmodule Liminal.Links.ImageDownloaderTest do
   end
 
   setup do
-    # Use a temp directory for uploads during tests
+    # Use a temp directory for downloaded assets during tests
     tmp_dir =
       Path.join(
         System.tmp_dir!(),
-        "liminal_test_uploads_#{System.unique_integer([:positive])}"
+        "liminal_test_assets_#{System.unique_integer([:positive])}"
       )
 
-    Application.put_env(:liminal, :upload_dir, tmp_dir)
+    Application.put_env(:liminal, :assets_dir, tmp_dir)
 
     on_exit(fn ->
       File.rm_rf(tmp_dir)
-      Application.delete_env(:liminal, :upload_dir)
+      Application.delete_env(:liminal, :assets_dir)
     end)
 
     %{tmp_dir: tmp_dir}
@@ -44,7 +44,7 @@ defmodule Liminal.Links.ImageDownloaderTest do
       assert {:ok, path} =
                ImageDownloader.download_and_store("http://example.com/image.png", opts)
 
-      assert String.starts_with?(path, "uploads/images/")
+      assert String.starts_with?(path, "assets/")
       assert String.ends_with?(path, ".png")
 
       # Verify file exists on disk
@@ -118,7 +118,7 @@ defmodule Liminal.Links.ImageDownloaderTest do
     end
 
     test "returns :ok for non-existent file" do
-      assert :ok = ImageDownloader.delete("uploads/images/nonexistent.jpg")
+      assert :ok = ImageDownloader.delete("assets/nonexistent.jpg")
     end
   end
 end

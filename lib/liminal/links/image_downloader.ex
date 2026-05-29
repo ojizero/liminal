@@ -20,10 +20,10 @@ defmodule Liminal.Links.ImageDownloader do
          :ok <- validate_size(body) do
       extension = extension_from_headers(headers) || extension_from_url(url) || ".jpg"
       filename = Base.url_encode64(:crypto.strong_rand_bytes(16), padding: false) <> extension
-      dest_dir = upload_dir()
+      dest_dir = assets_dir()
       File.mkdir_p!(dest_dir)
       File.write!(Path.join(dest_dir, filename), body)
-      {:ok, Liminal.UploadPaths.relative_path(filename)}
+      {:ok, Liminal.AssetPaths.relative_path(filename)}
     else
       {:ok, %{status: _}} -> {:error, :bad_status}
       {:error, _} = err -> err
@@ -33,7 +33,7 @@ defmodule Liminal.Links.ImageDownloader do
   def delete(nil), do: :ok
 
   def delete(image_path) do
-    full_path = Liminal.UploadPaths.file_path(image_path)
+    full_path = Liminal.AssetPaths.file_path(image_path)
 
     case File.rm(full_path) do
       :ok -> :ok
@@ -42,7 +42,7 @@ defmodule Liminal.Links.ImageDownloader do
     end
   end
 
-  defp upload_dir, do: Liminal.UploadPaths.upload_dir()
+  defp assets_dir, do: Liminal.AssetPaths.assets_dir()
 
   defp validate_content_type(headers) do
     content_type = get_content_type(headers)

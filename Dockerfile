@@ -35,10 +35,19 @@ RUN mix deps.compile
 # Install esbuild + tailwind binaries
 RUN mix assets.setup
 
+# Directory where downloaded link preview images are stored and served from.
+# This is a COMPILE-TIME setting: `LiminalWeb.Plugs.AssetStatic` freezes the
+# serving path during `mix compile`, and the value is baked into the release's
+# application env at `mix release`. It is NOT read at runtime. Override the
+# default with `--build-arg ASSETS_DIR=/custom/path` (must point at a writable
+# mounted volume). This ARG lives only in the builder stage and is absent from
+# the final runner image.
+ARG ASSETS_DIR=/data/assets
+
 # Copy application code and compile
 COPY priv priv
 COPY lib lib
-RUN mix compile
+RUN ASSETS_DIR="${ASSETS_DIR}" mix compile
 
 # Build assets
 COPY assets assets

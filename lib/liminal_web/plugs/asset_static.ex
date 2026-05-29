@@ -1,13 +1,12 @@
-defmodule LiminalWeb.Plugs.UploadStatic do
+defmodule LiminalWeb.Plugs.AssetStatic do
   @moduledoc false
   @behaviour Plug
 
   @impl Plug
   def init(_opts) do
     Plug.Static.init(
-      at: "/uploads",
-      from: Liminal.UploadPaths.upload_static_from(),
-      only: ~w(images),
+      at: "/assets",
+      from: Liminal.AssetPaths.assets_dir(),
       gzip: gzip_static?()
     )
   end
