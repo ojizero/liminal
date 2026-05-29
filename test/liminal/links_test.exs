@@ -188,6 +188,100 @@ defmodule Liminal.LinksTest do
     end
   end
 
+  describe "find_link_by_url/2" do
+    test "returns the link when URL matches for the user" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope, %{url: "https://example.org"})
+
+      assert %{} = found = Links.find_link_by_url(scope, "https://example.org")
+      assert found.id == link.id
+      assert Ecto.assoc_loaded?(found.link_tags)
+    end
+
+    test "returns nil when URL does not exist" do
+      scope = user_scope_fixture()
+
+      assert Links.find_link_by_url(scope, "https://missing.example") == nil
+    end
+
+    test "returns nil for another user's link with the same URL" do
+      scope_a = user_scope_fixture()
+      scope_b = user_scope_fixture()
+      _link = link_fixture(scope_a, %{url: "https://example.org"})
+
+      assert Links.find_link_by_url(scope_b, "https://example.org") == nil
+    end
+  end
+
+  describe "merge_link_tags/3" do
+    test "adds new tags, refreshes expiry on selected existing tags, and keeps others" do
+      scope = user_scope_fixture()
+      foo = tag_fixture(scope, %{name: "foo", expires_in_days: 30})
+      bar = tag_fixture(scope, %{name: "bar", expires_in_days: 30})
+      baz = tag_fixture(scope, %{name: "baz", expires_in_days: 14})
+
+      link =
+        link_fixture(scope, %{
+          url: "https://example.org",
+          tag_ids: [foo.id, bar.id]
+        })
+
+      refetched = Links.get_link!(scope, link.id)
+      foo_lt = Enum.find(refetched.link_tags, &(&1.tag_id == foo.id))
+      bar_lt = Enum.find(refetched.link_tags, &(&1.tag_id == bar.id))
+
+      stale_expires_at = DateTime.add(DateTime.utc_now(:second), -1, :day)
+
+      from(lt in Liminal.Links.LinkTag, where: lt.id == ^foo_lt.id)
+      |> Liminal.Repo.update_all(set: [expires_at: stale_expires_at])
+
+      assert {:ok, updated} = Links.merge_link_tags(scope, refetched, [foo.id, baz.id])
+
+      tag_ids = Enum.map(updated.link_tags, & &1.tag_id)
+      assert foo.id in tag_ids
+      assert bar.id in tag_ids
+      assert baz.id in tag_ids
+      assert length(updated.link_tags) == 3
+
+      refreshed_foo = Enum.find(updated.link_tags, &(&1.tag_id == foo.id))
+      unchanged_bar = Enum.find(updated.link_tags, &(&1.tag_id == bar.id))
+      added_baz = Enum.find(updated.link_tags, &(&1.tag_id == baz.id))
+
+      assert DateTime.compare(refreshed_foo.expires_at, stale_expires_at) == :gt
+      assert unchanged_bar.expires_at == bar_lt.expires_at
+      assert added_baz.expires_at != nil
+    end
+
+    test "returns {:error, :invalid_tags} for invalid tag IDs" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope, %{url: "https://example.org"})
+
+      assert {:error, :invalid_tags} =
+               Links.merge_link_tags(scope, link, [Ecto.UUID.generate()])
+    end
+
+    test "returns {:error, :no_tags} with empty tag list" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope, %{url: "https://example.org"})
+
+      assert {:error, :no_tags} = Links.merge_link_tags(scope, link, [])
+    end
+
+    test "broadcasts {:link_updated, link} on success" do
+      scope = user_scope_fixture()
+      foo = tag_fixture(scope, %{name: "foo"})
+      bar = tag_fixture(scope, %{name: "bar"})
+      link = link_fixture(scope, %{url: "https://example.org", tag_ids: [foo.id]})
+
+      Links.subscribe_links(scope)
+      refetched = Links.get_link!(scope, link.id)
+      assert {:ok, _} = Links.merge_link_tags(scope, refetched, [foo.id, bar.id])
+
+      assert_receive {:link_updated, broadcast_link}
+      assert Enum.count(broadcast_link.link_tags) == 2
+    end
+  end
+
   describe "update_link/3" do
     test "updates the title" do
       scope = user_scope_fixture()
