@@ -27,60 +27,72 @@ defmodule Liminal.Links.Indexer do
       (useful for test injection via `Req.Test`)
 
   """
-  def index(link_id, _user_id, opts \\ []) do
+  def index(link_id, user_id, opts \\ []) do
     case Liminal.Repo.get(Liminal.Links.Link, link_id) do
       nil ->
         :error
 
-      link ->
-        req_options =
-          Keyword.merge(@default_req_options, Keyword.get(opts, :req_options, []))
+      %{user_id: ^user_id} = link ->
+        index_link(link, opts)
 
-        case Req.get(link.url, req_options) do
-          {:ok, %{status: 200, body: body}} when is_binary(body) ->
-            metadata = Liminal.Links.MetadataParser.parse(body, link.url)
+      _link ->
+        Logger.warning("Indexer: user_id mismatch for link #{link_id}")
+        :error
+    end
+  end
 
-            # Clean up previously stored image (e.g., during re-indexing)
-            if link.image_path do
-              Liminal.Links.ImageDownloader.delete(link.image_path)
-            end
+  defp index_link(link, opts) do
+    req_options =
+      Keyword.merge(@default_req_options, Keyword.get(opts, :req_options, []))
 
-            image_path =
-              if metadata[:image_url] do
-                case Liminal.Links.ImageDownloader.download_and_store(metadata.image_url, opts) do
-                  {:ok, path} ->
-                    path
+    case Req.get(link.url, req_options) do
+      {:ok, %{status: 200, body: body}} when is_binary(body) ->
+        metadata = Liminal.Links.MetadataParser.parse(body, link.url)
 
-                  {:error, reason} ->
-                    Logger.warning(
-                      "Indexer: image download failed for #{link_id}: #{inspect(reason)}"
-                    )
-
-                    nil
-                end
-              end
-
-            metadata =
-              metadata
-              |> Map.delete(:image_url)
-              |> Map.put(:image_path, image_path)
-
-            Liminal.Links.update_link_metadata(link, metadata)
-            :ok
-
-          {:ok, %{status: status}} ->
-            Logger.warning("Indexer: non-200 status #{status} for link #{link_id} (#{link.url})")
-            Liminal.Links.record_index_failure(link)
-            :error
-
-          {:error, reason} ->
-            Logger.warning(
-              "Indexer: request failed for link #{link_id} (#{link.url}): #{inspect(reason)}"
-            )
-
-            Liminal.Links.record_index_failure(link)
-            :error
+        # Clean up previously stored image (e.g., during re-indexing)
+        if link.image_path do
+          Liminal.Links.ImageDownloader.delete(link.image_path)
         end
+
+        image_path =
+          if metadata[:image_url] do
+            case Liminal.Links.ImageDownloader.download_and_store(
+                   metadata.image_url,
+                   link.user_id,
+                   opts
+                 ) do
+              {:ok, path} ->
+                path
+
+              {:error, reason} ->
+                Logger.warning(
+                  "Indexer: image download failed for #{link.id}: #{inspect(reason)}"
+                )
+
+                nil
+            end
+          end
+
+        metadata =
+          metadata
+          |> Map.delete(:image_url)
+          |> Map.put(:image_path, image_path)
+
+        Liminal.Links.update_link_metadata(link, metadata)
+        :ok
+
+      {:ok, %{status: status}} ->
+        Logger.warning("Indexer: non-200 status #{status} for link #{link.id} (#{link.url})")
+        Liminal.Links.record_index_failure(link)
+        :error
+
+      {:error, reason} ->
+        Logger.warning(
+          "Indexer: request failed for link #{link.id} (#{link.url}): #{inspect(reason)}"
+        )
+
+        Liminal.Links.record_index_failure(link)
+        :error
     end
   end
 end
