@@ -26,13 +26,14 @@ import {hooks as colocatedHooks} from "phoenix-colocated/liminal"
 import topbar from "../vendor/topbar"
 import Masonry from "./masonry_hook"
 import CopyToClipboard from "./copy_to_clipboard_hook"
+import ClipboardPaste from "./clipboard_paste_hook"
 import LinkShortcuts, {platform} from "./link_shortcuts_hook"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, Masonry, LinkShortcuts, CopyToClipboard},
+  hooks: {...colocatedHooks, Masonry, LinkShortcuts, CopyToClipboard, ClipboardPaste},
   metadata: {
     keydown: (event) => ({
       key: event.key,

@@ -87,6 +87,7 @@ defmodule LiminalWeb.LinkLive.Index do
                     type="url"
                     name={@form[:url].name}
                     id={@form[:url].id}
+                    phx-hook="ClipboardPaste"
                     value={Phoenix.HTML.Form.normalize_value("url", @form[:url].value)}
                     placeholder="https://..."
                     class={[
@@ -108,6 +109,31 @@ defmodule LiminalWeb.LinkLive.Index do
                       K
                     </kbd>
                   </div>
+                </div>
+
+                <%!-- Clipboard paste affordance: revealed by the ClipboardPaste
+                hook only when the browser exposes clipboard read access. --%>
+                <div
+                  id="link-url-clipboard"
+                  phx-update="ignore"
+                  class="mt-1.5 hidden items-center gap-1"
+                >
+                  <button
+                    type="button"
+                    id="link-url-clipboard-action"
+                    class="btn btn-ghost btn-xs gap-1 px-2 font-normal normal-case text-base-content/60 hover:text-base-content"
+                  >
+                    <.icon name="hero-clipboard" class="size-3.5" />
+                    <span id="link-url-clipboard-label">Paste link from clipboard</span>
+                  </button>
+                  <button
+                    type="button"
+                    id="link-url-clipboard-dismiss"
+                    aria-label="Dismiss clipboard suggestion"
+                    class="btn btn-ghost btn-xs btn-circle hidden text-base-content/50 hover:text-base-content"
+                  >
+                    <.icon name="hero-x-mark" class="size-3.5" />
+                  </button>
                 </div>
               </div>
 
