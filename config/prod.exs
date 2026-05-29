@@ -7,11 +7,8 @@ import Config
 # before starting your production server.
 config :liminal, LiminalWeb.Endpoint, cache_static_manifest: "priv/static/cache_manifest.json"
 
-# Directory for downloaded link preview images. This is compile-time config:
-# `LiminalWeb.Plugs.AssetStatic` initializes `Plug.Static` at compile time in
-# prod (`plug_init_mode` is not `:runtime`), so the serving path must be known
-# when the release is built. To override at build time, set the `ASSETS_DIR`
-# env var during `mix compile` (see the Dockerfile `ASSETS_DIR` build arg).
+# Directory for downloaded link preview images. Override at build time with
+# the `ASSETS_DIR` env var during `mix compile` (see the Dockerfile build arg).
 # It is NOT a runtime variable and has no effect once the release is built.
 assets_dir = System.get_env("ASSETS_DIR") || "/data/assets"
 

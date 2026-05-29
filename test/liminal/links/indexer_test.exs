@@ -190,7 +190,7 @@ defmodule Liminal.Links.IndexerTest do
 
       updated = Links.get_link!(scope, link.id)
       assert updated.image_path != nil
-      assert String.starts_with?(updated.image_path, "assets/")
+      assert updated.image_path == "assets/#{scope.user.id}/" <> Path.basename(updated.image_path)
       assert updated.title == "Image Page"
     end
 

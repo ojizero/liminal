@@ -44,6 +44,8 @@ defmodule LiminalWeb.Router do
   scope "/", LiminalWeb do
     pipe_through [:browser, :require_authenticated_user]
 
+    get "/assets/:user_id/:filename", AssetController, :show
+
     live_session :require_authenticated_user,
       on_mount: [{LiminalWeb.UserAuth, :require_authenticated}] do
       live "/users/settings", UserLive.Settings, :edit

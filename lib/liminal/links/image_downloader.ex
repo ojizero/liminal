@@ -12,7 +12,7 @@ defmodule Liminal.Links.ImageDownloader do
     decode_body: false
   ]
 
-  def download_and_store(url, opts \\ []) do
+  def download_and_store(url, user_id, opts \\ []) when is_binary(user_id) do
     req_options = Keyword.merge(@req_options, Keyword.get(opts, :req_options, []))
 
     with {:ok, %{status: 200, headers: headers, body: body}} <- Req.get(url, req_options),
@@ -20,10 +20,10 @@ defmodule Liminal.Links.ImageDownloader do
          :ok <- validate_size(body) do
       extension = extension_from_headers(headers) || extension_from_url(url) || ".jpg"
       filename = Base.url_encode64(:crypto.strong_rand_bytes(16), padding: false) <> extension
-      dest_dir = assets_dir()
+      dest_dir = Liminal.AssetPaths.user_assets_dir(user_id)
       File.mkdir_p!(dest_dir)
       File.write!(Path.join(dest_dir, filename), body)
-      {:ok, Liminal.AssetPaths.relative_path(filename)}
+      {:ok, Liminal.AssetPaths.relative_path(user_id, filename)}
     else
       {:ok, %{status: _}} -> {:error, :bad_status}
       {:error, _} = err -> err
@@ -41,8 +41,6 @@ defmodule Liminal.Links.ImageDownloader do
       error -> error
     end
   end
-
-  defp assets_dir, do: Liminal.AssetPaths.assets_dir()
 
   defp validate_content_type(headers) do
     content_type = get_content_type(headers)
