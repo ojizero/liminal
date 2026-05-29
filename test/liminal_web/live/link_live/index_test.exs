@@ -52,6 +52,27 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#links", "https://example.com/test")
     end
 
+    test "add a link with an optional note", %{conn: conn, scope: scope} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      tag = hd(Liminal.Links.list_tags(scope))
+
+      view
+      |> element("button[phx-click='toggle_tag'][phx-value-id='#{tag.id}']")
+      |> render_click()
+
+      view
+      |> form("#link-form",
+        link: %{url: "https://example.com/with-note", note: "Remember why I saved this"}
+      )
+      |> render_submit()
+
+      assert has_element?(view, "#links", "Remember why I saved this")
+
+      saved = Liminal.Links.find_link_by_url(scope, "https://example.com/with-note")
+      assert saved.note == "Remember why I saved this"
+    end
+
     test "duplicate URL shows confirmation modal", %{conn: conn, scope: scope} do
       tag = tag_fixture(scope)
       existing = link_fixture(scope, %{url: "https://example.org", tag_ids: [tag.id]})
@@ -313,6 +334,21 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> render_submit()
 
       assert has_element?(view, "#links", "New Title")
+    end
+
+    test "edit a link to add a note", %{conn: conn, scope: scope} do
+      link = link_fixture(scope, %{url: "https://note-edit.com", title: "Note Edit"})
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view |> element("a[href='/links/#{link.id}/edit']") |> render_click()
+      assert has_element?(view, "#edit-link-form")
+
+      view
+      |> form("#edit-link-form", edit_link: %{note: "Added on edit"})
+      |> render_submit()
+
+      assert has_element?(view, "#links", "Added on edit")
+      assert Liminal.Links.get_link!(scope, link.id).note == "Added on edit"
     end
 
     test "delete a link", %{conn: conn, scope: scope} do
