@@ -52,6 +52,94 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#links", "https://example.com/test")
     end
 
+    test "duplicate URL shows confirmation modal", %{conn: conn, scope: scope} do
+      tag = tag_fixture(scope)
+      existing = link_fixture(scope, %{url: "https://example.org", tag_ids: [tag.id]})
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("button[phx-click='toggle_tag'][phx-value-id='#{tag.id}']")
+      |> render_click()
+
+      view
+      |> form("#link-form", link: %{url: "https://example.org"})
+      |> render_submit()
+
+      assert has_element?(view, "#duplicate-link-modal")
+      assert render(view) =~ "Link already exists"
+
+      links =
+        Liminal.Links.list_links(scope, filter: :all)
+        |> Enum.filter(&(&1.url == "https://example.org"))
+
+      assert length(links) == 1
+      assert hd(links).id == existing.id
+    end
+
+    test "confirming duplicate merge updates tags on existing link", %{conn: conn, scope: scope} do
+      foo = tag_fixture(scope, %{name: "foo"})
+      bar = tag_fixture(scope, %{name: "bar"})
+      baz = tag_fixture(scope, %{name: "baz"})
+
+      existing =
+        link_fixture(scope, %{
+          url: "https://example.org",
+          tag_ids: [foo.id, bar.id]
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("button[phx-click='toggle_tag'][phx-value-id='#{foo.id}']")
+      |> render_click()
+
+      view
+      |> element("button[phx-click='toggle_tag'][phx-value-id='#{baz.id}']")
+      |> render_click()
+
+      view
+      |> form("#link-form", link: %{url: "https://example.org"})
+      |> render_submit()
+
+      assert has_element?(view, "#duplicate-link-modal")
+
+      view
+      |> element("button[phx-click='confirm_duplicate_merge']")
+      |> render_click()
+
+      refetched = Liminal.Links.get_link!(scope, existing.id)
+      tag_names = Enum.map(refetched.link_tags, & &1.tag.name) |> Enum.sort()
+      assert tag_names == ["bar", "baz", "foo"]
+      assert render(view) =~ "Link updated"
+    end
+
+    test "discarding duplicate leaves existing link unchanged", %{conn: conn, scope: scope} do
+      tag = tag_fixture(scope)
+      existing = link_fixture(scope, %{url: "https://example.org", tag_ids: [tag.id]})
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("button[phx-click='toggle_tag'][phx-value-id='#{tag.id}']")
+      |> render_click()
+
+      view
+      |> form("#link-form", link: %{url: "https://example.org"})
+      |> render_submit()
+
+      assert has_element?(view, "#duplicate-link-modal")
+
+      view
+      |> element("button[phx-click='discard_duplicate']")
+      |> render_click()
+
+      refute has_element?(view, "#duplicate-link-modal")
+
+      refetched = Liminal.Links.get_link!(scope, existing.id)
+      assert length(refetched.link_tags) == 1
+    end
+
     test "add a link without selecting tags shows error", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 

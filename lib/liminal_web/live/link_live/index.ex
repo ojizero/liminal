@@ -319,6 +319,57 @@ defmodule LiminalWeb.LinkLive.Index do
       </div>
 
       <.modal
+        id="duplicate-link-modal"
+        show={@duplicate_link != nil}
+        on_cancel={JS.push("discard_duplicate")}
+        closeable={true}
+        show_close={false}
+        box_class="sm:max-w-lg"
+      >
+        <:title>Link already exists</:title>
+        <p class="text-sm text-base-content/70">
+          {@duplicate_link && @duplicate_link.url} is already in your links.
+        </p>
+
+        <div class="space-y-3 mt-4">
+          <div>
+            <span class="text-sm font-medium">Current tags</span>
+            <div class="flex flex-wrap gap-1.5 mt-1">
+              <span
+                :for={lt <- @duplicate_link.link_tags}
+                class="badge badge-sm badge-outline"
+              >
+                {lt.tag.name}
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <span class="text-sm font-medium">Tags to add or refresh</span>
+            <div class="flex flex-wrap gap-1.5 mt-1">
+              <span
+                :for={tag <- duplicate_pending_tags(@tags, @pending_tag_ids)}
+                class="badge badge-sm badge-primary"
+              >
+                {tag.name}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-sm text-base-content/60 mt-4">
+          Merging adds new tags, refreshes expiry on selected tags, and keeps other existing tags unchanged.
+        </p>
+
+        <div class="flex gap-2 mt-4">
+          <.button variant="primary" phx-click="confirm_duplicate_merge" phx-disable-with="Merging...">
+            Merge tags
+          </.button>
+          <.button phx-click="discard_duplicate">Discard</.button>
+        </div>
+      </.modal>
+
+      <.modal
         id="edit-link-modal"
         show={@live_action == :edit}
         on_cancel={JS.patch(~p"/")}
@@ -385,6 +436,9 @@ defmodule LiminalWeb.LinkLive.Index do
       |> assign(:edit_form, nil)
       |> assign(:tag_id, nil)
       |> assign(:shortcut_platform, nil)
+      |> assign(:duplicate_link, nil)
+      |> assign(:pending_link_params, nil)
+      |> assign(:pending_tag_ids, [])
       |> stream(:links, links)
 
     {:ok, socket}
@@ -507,6 +561,36 @@ defmodule LiminalWeb.LinkLive.Index do
 
   def handle_event("save", %{"link" => link_params}, socket) do
     save_link(socket, socket.assigns.live_action, link_params)
+  end
+
+  def handle_event("confirm_duplicate_merge", _params, socket) do
+    scope = socket.assigns.current_scope
+    link = socket.assigns.duplicate_link
+    tag_ids = socket.assigns.pending_tag_ids
+
+    case Links.merge_link_tags(scope, link, tag_ids) do
+      {:ok, updated_link} ->
+        new_link = %Liminal.Links.Link{}
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Link updated")
+         |> stream_insert(:links, updated_link)
+         |> clear_duplicate_state()
+         |> assign(:link, new_link)
+         |> assign(:selected_tag_ids, [])
+         |> assign(:form, to_form(Links.change_link(new_link)))}
+
+      {:error, :invalid_tags} ->
+        {:noreply, put_flash(socket, :error, "One or more selected tags are invalid")}
+
+      {:error, :no_tags} ->
+        {:noreply, put_flash(socket, :error, "Select at least one tag")}
+    end
+  end
+
+  def handle_event("discard_duplicate", _params, socket) do
+    {:noreply, clear_duplicate_state(socket)}
   end
 
   def handle_event("save_edit", %{"edit_link" => link_params}, socket) do
@@ -711,6 +795,41 @@ defmodule LiminalWeb.LinkLive.Index do
     scope = socket.assigns.current_scope
     tag_ids = socket.assigns.selected_tag_ids
 
+    changeset =
+      socket.assigns.link
+      |> Links.change_link(link_params)
+      |> Map.put(:action, :validate)
+
+    cond do
+      tag_ids == [] ->
+        {:noreply, put_flash(socket, :error, "Select at least one tag")}
+
+      not changeset.valid? ->
+        {:noreply, assign(socket, :form, to_form(changeset))}
+
+      true ->
+        url = Ecto.Changeset.get_field(changeset, :url)
+
+        case Links.find_link_by_url(scope, url) do
+          nil ->
+            create_new_link(socket, link_params, tag_ids)
+
+          existing ->
+            existing = Links.get_link!(scope, existing.id)
+
+            {:noreply,
+             socket
+             |> assign(:duplicate_link, existing)
+             |> assign(:pending_link_params, link_params)
+             |> assign(:pending_tag_ids, tag_ids)
+             |> assign(:form, to_form(changeset))}
+        end
+    end
+  end
+
+  defp create_new_link(socket, link_params, tag_ids) do
+    scope = socket.assigns.current_scope
+
     case Links.create_link(scope, link_params, tag_ids) do
       {:ok, link} ->
         link = Links.get_link!(scope, link.id)
@@ -733,6 +852,18 @@ defmodule LiminalWeb.LinkLive.Index do
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}
     end
+  end
+
+  defp clear_duplicate_state(socket) do
+    socket
+    |> assign(:duplicate_link, nil)
+    |> assign(:pending_link_params, nil)
+    |> assign(:pending_tag_ids, [])
+  end
+
+  defp duplicate_pending_tags(tags, pending_tag_ids) do
+    pending = MapSet.new(pending_tag_ids)
+    Enum.filter(tags, fn tag -> tag.id in pending end)
   end
 
   defp refetch_links(socket) do

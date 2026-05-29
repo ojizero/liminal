@@ -225,6 +225,17 @@ defmodule Liminal.Links do
   end
 
   @doc """
+  Finds a link by URL for the given user, or `nil` if not found.
+  """
+  def find_link_by_url(scope, url) when is_binary(url) do
+    from(l in Link,
+      where: l.user_id == ^scope.user.id and l.url == ^url,
+      preload: [link_tags: :tag]
+    )
+    |> Repo.one()
+  end
+
+  @doc """
   Updates a link. Verifies ownership via pattern match.
 
   When the URL changes, clears indexed metadata and re-queues indexing.
@@ -422,6 +433,64 @@ defmodule Liminal.Links do
   end
 
   ## Tagging
+
+  @doc """
+  Merges tags onto an existing link.
+
+  Tags included in `tag_ids` are added if new, or have their expiry refreshed
+  if already assigned. Tags on the link that are not in `tag_ids` are unchanged.
+  """
+  def merge_link_tags(scope, link, tag_ids) when is_list(tag_ids) and tag_ids != [] do
+    user_id = scope.user.id
+    ^user_id = link.user_id
+
+    tags =
+      from(t in Tag, where: t.id in ^tag_ids and t.user_id == ^user_id)
+      |> Repo.all()
+
+    if length(tags) != length(tag_ids) do
+      {:error, :invalid_tags}
+    else
+      now = DateTime.utc_now(:second)
+      existing_tag_ids = MapSet.new(Enum.map(link.link_tags, & &1.tag_id))
+
+      case Repo.transaction(fn ->
+             Enum.each(tags, fn tag ->
+               expires_at =
+                 if tag.expires_in_days do
+                   DateTime.add(now, tag.expires_in_days, :day)
+                 end
+
+               if MapSet.member?(existing_tag_ids, tag.id) do
+                 from(lt in LinkTag,
+                   where: lt.link_id == ^link.id and lt.tag_id == ^tag.id
+                 )
+                 |> Repo.update_all(set: [expires_at: expires_at])
+               else
+                 Repo.insert!(%LinkTag{
+                   link_id: link.id,
+                   tag_id: tag.id,
+                   expires_at: expires_at,
+                   inserted_at: now
+                 })
+               end
+             end)
+
+             get_link!(scope, link.id)
+           end) do
+        {:ok, updated_link} ->
+          broadcast(user_id, {:link_updated, updated_link})
+          {:ok, updated_link}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  def merge_link_tags(_scope, _link, _tag_ids) do
+    {:error, :no_tags}
+  end
 
   @doc """
   Tags a link with a tag. Computes `expires_at` from the tag's
