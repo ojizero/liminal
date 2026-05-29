@@ -10,6 +10,52 @@ env:
   OTP_VERSION: "28.5"
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.detect.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect VERSION changes
+        id: detect
+        run: |
+          source .github/scripts/release_scope.sh
+
+          if version_changed_in_range "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}"; then
+            echo "version=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  version-check:
+    name: Version Check
+    needs: changes
+    if: needs.changes.outputs.version == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify VERSION matches latest release tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          source .github/scripts/release_scope.sh
+
+          current=$(current_version)
+          latest_tag=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "")
+          released=$(released_version "$latest_tag")
+
+          echo "Current version:  $current"
+          echo "Released version: ${released:-<none>}"
+
+          assert_version_not_behind_release "$current" "$released"
+
   test:
     name: Test & Lint
     runs-on: ubuntu-latest

@@ -27,31 +27,35 @@ jobs:
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
         run: |
           source .github/scripts/release_scope.sh
 
           current=$(current_version)
-          latest_tag=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "")
-          released=${latest_tag#v}
-          range=$(git_diff_range "$latest_tag")
 
-          echo "Current version:  $current"
-          echo "Released version: ${released:-<none>}"
-          echo "Diff range:       $range"
+          echo "Current version: $current"
+          echo "version=$current" >> "$GITHUB_OUTPUT"
 
-          if has_releasable_changes "$range"; then
-            echo "Releasable changes detected since ${latest_tag:-initial commit}."
-            echo "needs_release=true" >> "$GITHUB_OUTPUT"
-            echo "version=$current" >> "$GITHUB_OUTPUT"
-
-            if [[ -n "$released" && "$current" = "$released" ]]; then
-              echo "::error::Version $current already released. Bump the version in mix.exs before merging releasable changes."
-              exit 1
-            fi
-          else
-            echo "Only non-releasable changes detected (CI, tests, docs, etc.). Skipping release."
+          if ! version_changed_in_range "$BEFORE" "$AFTER"; then
+            echo "VERSION unchanged in this push; skipping release."
             echo "needs_release=false" >> "$GITHUB_OUTPUT"
-            echo "version=$current" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          latest_tag=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "")
+          released=$(released_version "$latest_tag")
+
+          echo "Released version: ${released:-<none>}"
+
+          assert_version_not_behind_release "$current" "$released"
+
+          if version_bumped "$current" "$released"; then
+            echo "VERSION bumped; release required."
+            echo "needs_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "VERSION changed but matches latest release; skipping release."
+            echo "needs_release=false" >> "$GITHUB_OUTPUT"
           fi
 
   test:
