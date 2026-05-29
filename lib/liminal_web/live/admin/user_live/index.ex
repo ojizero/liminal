@@ -131,7 +131,7 @@ defmodule LiminalWeb.Admin.UserLive.Index do
               />
               <button
                 id={"copy-reset-url-#{user.id}"}
-                phx-hook=".CopyToClipboard"
+                phx-hook="CopyToClipboard"
                 data-clipboard-text={@reset_url}
                 class="btn btn-ghost btn-sm"
               >
@@ -147,17 +147,6 @@ defmodule LiminalWeb.Admin.UserLive.Index do
           <% end %>
         </div>
       </div>
-
-      <script :type={Phoenix.LiveView.ColocatedHook} name=".CopyToClipboard">
-        export default {
-          mounted() {
-            this.el.addEventListener("click", () => {
-              const text = this.el.dataset.clipboardText
-              navigator.clipboard.writeText(text)
-            })
-          }
-        }
-      </script>
     </Layouts.app>
     """
   end
