@@ -5,6 +5,7 @@ defmodule Liminal.Links.Link do
   schema "links" do
     field :url, :string
     field :title, :string
+    field :note, :string
     field :description, :string
     field :favicon_url, :string
     field :image_path, :string
@@ -24,10 +25,11 @@ defmodule Liminal.Links.Link do
 
   def changeset(link, attrs) do
     link
-    |> cast(attrs, [:url, :title])
+    |> cast(attrs, [:url, :title, :note])
     |> validate_required([:url])
     |> validate_length(:url, max: 2000)
     |> validate_length(:title, max: 255)
+    |> validate_length(:note, max: 500)
   end
 
   def metadata_changeset(link, attrs) do

@@ -186,6 +186,34 @@ defmodule Liminal.LinksTest do
       # Allow up to 5 seconds of clock drift
       assert diff < 5
     end
+
+    test "saves an optional note" do
+      scope = user_scope_fixture()
+      tag = tag_fixture(scope)
+
+      assert {:ok, link} =
+               Links.create_link(
+                 scope,
+                 %{url: "https://example.com", note: "Read this later"},
+                 [tag.id]
+               )
+
+      assert link.note == "Read this later"
+    end
+
+    test "returns error changeset when note exceeds 500 characters" do
+      scope = user_scope_fixture()
+      tag = tag_fixture(scope)
+
+      assert {:error, changeset} =
+               Links.create_link(
+                 scope,
+                 %{url: "https://example.com", note: String.duplicate("a", 501)},
+                 [tag.id]
+               )
+
+      assert %{note: ["should be at most 500 character(s)"]} = errors_on(changeset)
+    end
   end
 
   describe "find_link_by_url/2" do
@@ -289,6 +317,24 @@ defmodule Liminal.LinksTest do
 
       assert {:ok, updated} = Links.update_link(scope, link, %{title: "New Title"})
       assert updated.title == "New Title"
+    end
+
+    test "updates the note" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope)
+
+      assert {:ok, updated} = Links.update_link(scope, link, %{"note" => "A handy note"})
+      assert updated.note == "A handy note"
+    end
+
+    test "returns error changeset when note exceeds 500 characters" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope)
+
+      assert {:error, changeset} =
+               Links.update_link(scope, link, %{"note" => String.duplicate("a", 501)})
+
+      assert %{note: ["should be at most 500 character(s)"]} = errors_on(changeset)
     end
 
     test "broadcasts {:link_updated, link} on success" do

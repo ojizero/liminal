@@ -131,6 +131,18 @@ defmodule LiminalWeb.LinkLive.Index do
                 </div>
               </div>
 
+              <div class="fieldset mt-3">
+                <.input
+                  field={@form[:note]}
+                  type="textarea"
+                  label="Note (optional)"
+                  placeholder="Add a short note…"
+                  rows="2"
+                  maxlength="500"
+                  phx-debounce="300"
+                />
+              </div>
+
               <div :if={@tags != []} class="mt-3">
                 <div class="flex flex-wrap items-center gap-1.5">
                   <span class="text-sm font-medium">Tags</span>
@@ -291,6 +303,13 @@ defmodule LiminalWeb.LinkLive.Index do
                 </details>
               </div>
 
+              <blockquote
+                :if={link.note && link.note != ""}
+                class="border-l-3 border-info/60 pl-2.5 text-xs text-base-content/50 italic"
+              >
+                {link.note}
+              </blockquote>
+
               <div class="flex items-center gap-2 mt-auto pt-2 border-t border-base-300 text-xs text-base-content/50">
                 <%= if link.favicon_url do %>
                   <img src={link.favicon_url} class="size-4 rounded" alt="" />
@@ -409,6 +428,14 @@ defmodule LiminalWeb.LinkLive.Index do
         >
           <.input field={@edit_form[:url]} type="url" label="URL" placeholder="https://..." />
           <.input field={@edit_form[:title]} type="text" label="Title (optional)" />
+          <.input
+            field={@edit_form[:note]}
+            type="textarea"
+            label="Note (optional)"
+            placeholder="Add a short note…"
+            rows="3"
+            maxlength="500"
+          />
 
           <div class="flex gap-2 mt-4">
             <.button variant="primary" phx-disable-with="Saving...">Save</.button>
