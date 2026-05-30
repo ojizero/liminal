@@ -174,6 +174,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       assert has_element?(view, "#link-url-shortcut kbd", "⌘")
       assert has_element?(view, "#link-url-shortcut kbd", "K")
+      assert has_element?(view, "#link-url-shortcut kbd", "V")
       refute render(view) =~ "Super"
       refute render(view) =~ "Ctrl"
       refute render(view) =~ "Mod"
@@ -196,6 +197,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert html =~ "Ctrl"
       assert html =~ "Shift"
       assert has_element?(view, "#link-url-shortcut kbd", "K")
+      assert has_element?(view, "#link-url-shortcut kbd", "V")
       refute html =~ "Super"
     end
 
@@ -206,7 +208,38 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> element("#link-shortcuts")
       |> render_hook("shortcut_focus_new_link", %{})
 
-      assert_push_event(view, "focus-new-link-url", %{})
+      assert_push_event(view, "focus-new-link-url", %{scroll: true})
+    end
+
+    test "paste shortcut fills new link form and focuses it", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_paste_link", %{"url" => "https://example.com/pasted"})
+
+      assert has_element?(view, "#link_url[value='https://example.com/pasted']")
+      assert_push_event(view, "focus-new-link-url", %{scroll: true})
+    end
+
+    test "paste shortcut normalizes urls without a scheme", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_paste_link", %{"url" => "example.com/no-scheme"})
+
+      assert has_element?(view, "#link_url[value='https://example.com/no-scheme']")
+    end
+
+    test "paste shortcut without a link shows an error flash", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_paste_no_link", %{})
+
+      assert render(view) =~ "Clipboard does not contain a link"
     end
 
     test "mod+shift+digit shortcut toggles new-link tag selection", %{conn: conn} do

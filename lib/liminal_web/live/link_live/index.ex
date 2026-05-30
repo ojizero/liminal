@@ -91,7 +91,7 @@ defmodule LiminalWeb.LinkLive.Index do
                     placeholder="https://..."
                     class={[
                       "w-full input",
-                      @shortcut_platform && "pr-16",
+                      @shortcut_platform && "pr-36",
                       @form[:url].errors != [] && "input-error"
                     ]}
                     phx-debounce="300"
@@ -101,6 +101,13 @@ defmodule LiminalWeb.LinkLive.Index do
                     id="link-url-shortcut"
                     class="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-0.5"
                   >
+                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                      {shortcut_mod_label(@shortcut_platform)}
+                    </kbd>
+                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                      V
+                    </kbd>
+                    <span class="text-base-content/25 text-xs">/</span>
                     <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
                       {shortcut_mod_label(@shortcut_platform)}
                     </kbd>
@@ -545,7 +552,25 @@ defmodule LiminalWeb.LinkLive.Index do
   end
 
   def handle_event("shortcut_focus_new_link", _params, socket) do
-    {:noreply, push_event(socket, "focus-new-link-url", %{})}
+    {:noreply, push_event(socket, "focus-new-link-url", %{scroll: true})}
+  end
+
+  def handle_event("shortcut_paste_link", %{"url" => url}, socket) do
+    url = normalize_pasted_url(url)
+
+    changeset =
+      socket.assigns.link
+      |> Links.change_link(%{"url" => url})
+      |> Map.put(:action, :validate)
+
+    {:noreply,
+     socket
+     |> assign(:form, to_form(changeset))
+     |> push_event("focus-new-link-url", %{scroll: true})}
+  end
+
+  def handle_event("shortcut_paste_no_link", _params, socket) do
+    {:noreply, put_flash(socket, :error, "Clipboard does not contain a link")}
   end
 
   def handle_event("shortcut_toggle_tag_by_index", %{"index" => index}, socket) do
@@ -777,6 +802,16 @@ defmodule LiminalWeb.LinkLive.Index do
   defp shortcut_shift_label(:mac), do: "Shift"
   defp shortcut_shift_label(:linux), do: "Shift"
   defp shortcut_shift_label(:windows), do: "Shift"
+
+  defp normalize_pasted_url(url) when is_binary(url) do
+    trimmed = String.trim(url)
+
+    if String.match?(trimmed, ~r/^https?:\/\//i) do
+      trimmed
+    else
+      "https://" <> trimmed
+    end
+  end
 
   defp toggle_selected_tag(socket, tag_id) do
     selected = socket.assigns.selected_tag_ids

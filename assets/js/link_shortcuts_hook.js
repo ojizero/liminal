@@ -26,6 +26,30 @@ const parseDigitShortcut = (event) => {
   return null
 }
 
+const isEditableTarget = (target) => {
+  if (!target?.closest) return false
+
+  return !!target.closest("input, textarea, select, [contenteditable=true]")
+}
+
+const looksLikeUrl = (text) => {
+  const trimmed = text.trim()
+  if (!trimmed || /\s/.test(trimmed)) return false
+
+  try {
+    const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+    const url = new URL(withScheme)
+    return url.hostname.includes(".")
+  } catch {
+    return false
+  }
+}
+
+const normalizePastedUrl = (text) => {
+  const trimmed = text.trim()
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+}
+
 const LinkShortcuts = {
   mounted() {
     this.pushEvent("set_shortcut_platform", {platform: detectShortcutPlatform()})
@@ -47,16 +71,40 @@ const LinkShortcuts = {
       }
     }
 
-    window.addEventListener("keydown", this.onKeyDown, true)
+    this.onPaste = (event) => {
+      if (isEditableTarget(event.target)) return
 
-    this.handleEvent("focus-new-link-url", () => {
+      event.preventDefault()
+
+      const text = event.clipboardData?.getData("text") ?? ""
+
+      if (looksLikeUrl(text)) {
+        this.pushEvent("shortcut_paste_link", {url: normalizePastedUrl(text)})
+      } else {
+        this.pushEvent("shortcut_paste_no_link", {})
+      }
+    }
+
+    window.addEventListener("keydown", this.onKeyDown, true)
+    window.addEventListener("paste", this.onPaste, true)
+
+    this.handleEvent("focus-new-link-url", ({scroll} = {}) => {
+      const card = document.querySelector("#new-link-card")
+      if (scroll && card) {
+        card.scrollIntoView({behavior: "smooth", block: "nearest"})
+      }
+
       const input = document.querySelector("#link_url")
-      if (input) input.focus()
+      if (input) {
+        input.focus()
+        input.setSelectionRange(input.value.length, input.value.length)
+      }
     })
   },
 
   destroyed() {
     window.removeEventListener("keydown", this.onKeyDown, true)
+    window.removeEventListener("paste", this.onPaste, true)
   }
 }
 
