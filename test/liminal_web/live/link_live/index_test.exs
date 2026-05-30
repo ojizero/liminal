@@ -194,7 +194,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> element("#link-shortcuts")
       |> render_hook("set_shortcut_platform", %{
         "platform" => "mac",
-        "show_paste_shortcut_hint" => true
+        "show_keyboard_shortcut_hints" => true
       })
 
       assert has_element?(view, "#link-url-paste-shortcut kbd", "⌘")
@@ -209,7 +209,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> element("#link-shortcuts")
       |> render_hook("set_shortcut_platform", %{
         "platform" => "linux",
-        "show_paste_shortcut_hint" => true
+        "show_keyboard_shortcut_hints" => true
       })
 
       html = render(view)
@@ -222,7 +222,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> element("#link-shortcuts")
       |> render_hook("set_shortcut_platform", %{
         "platform" => "windows",
-        "show_paste_shortcut_hint" => true
+        "show_keyboard_shortcut_hints" => true
       })
 
       html = render(view)
@@ -233,7 +233,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       refute html =~ "Super"
     end
 
-    test "hides paste shortcut hint on touch-first devices without a hardware keyboard", %{
+    test "hides keyboard shortcut hints on touch-first devices without a hardware keyboard", %{
       conn: conn
     } do
       {:ok, view, _html} = live(conn, ~p"/")
@@ -242,12 +242,12 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> element("#link-shortcuts")
       |> render_hook("set_shortcut_platform", %{
         "platform" => "mac",
-        "show_paste_shortcut_hint" => false
+        "show_keyboard_shortcut_hints" => false
       })
 
       refute has_element?(view, "#link-url-paste-shortcut")
-      assert has_element?(view, "#link-url-focus-shortcut kbd", "⌘")
-      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
+      refute has_element?(view, "#link-url-focus-shortcut")
+      refute render(view) =~ "1..9"
     end
 
     test "shortcut focus event pushes client focus event", %{conn: conn} do

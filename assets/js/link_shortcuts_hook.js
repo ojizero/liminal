@@ -12,7 +12,7 @@ const detectShortcutPlatform = () => {
   return "linux"
 }
 
-// Touch-first phones/tablets rarely expose Cmd/Ctrl+V; hide the paste hint only.
+// Touch-first phones/tablets rarely expose keyboard shortcuts; hide shortcut hints.
 export const hasLikelyHardwareKeyboard = () => {
   if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
     return true
@@ -67,7 +67,7 @@ const LinkShortcuts = {
   mounted() {
     this.pushEvent("set_shortcut_platform", {
       platform: detectShortcutPlatform(),
-      show_paste_shortcut_hint: hasLikelyHardwareKeyboard()
+      show_keyboard_shortcut_hints: hasLikelyHardwareKeyboard()
     })
 
     this.onKeyDown = (event) => {

@@ -91,13 +91,13 @@ defmodule LiminalWeb.LinkLive.Index do
                     placeholder="https://..."
                     class={[
                       "w-full input",
-                      @shortcut_platform && "pr-20",
+                      @shortcut_platform && @show_keyboard_shortcut_hints && "pr-20",
                       @form[:url].errors != [] && "input-error"
                     ]}
                     phx-debounce="300"
                   />
                   <div
-                    :if={@shortcut_platform}
+                    :if={@shortcut_platform && @show_keyboard_shortcut_hints}
                     id="link-url-focus-shortcut"
                     class="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-0.5"
                   >
@@ -110,7 +110,7 @@ defmodule LiminalWeb.LinkLive.Index do
                   </div>
                 </div>
                 <div
-                  :if={@shortcut_platform && @show_paste_shortcut_hint}
+                  :if={@shortcut_platform && @show_keyboard_shortcut_hints}
                   class="mt-1 flex justify-end"
                 >
                   <.with_tooltip
@@ -146,7 +146,10 @@ defmodule LiminalWeb.LinkLive.Index do
               <div :if={@tags != []} class="mt-3">
                 <div class="flex flex-wrap items-center gap-1.5">
                   <span class="text-sm font-medium">Tags</span>
-                  <span :if={@shortcut_platform} class="flex items-center gap-0.5">
+                  <span
+                    :if={@shortcut_platform && @show_keyboard_shortcut_hints}
+                    class="flex items-center gap-0.5"
+                  >
                     <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
                       {shortcut_mod_label(@shortcut_platform)}
                     </kbd>
@@ -487,7 +490,7 @@ defmodule LiminalWeb.LinkLive.Index do
       |> assign(:edit_form, nil)
       |> assign(:tag_id, nil)
       |> assign(:shortcut_platform, nil)
-      |> assign(:show_paste_shortcut_hint, false)
+      |> assign(:show_keyboard_shortcut_hints, false)
       |> assign(:duplicate_link, nil)
       |> assign(:pending_link_params, nil)
       |> assign(:pending_tag_ids, [])
@@ -596,7 +599,7 @@ defmodule LiminalWeb.LinkLive.Index do
     {:noreply,
      socket
      |> assign(:shortcut_platform, parse_shortcut_platform(params["platform"]))
-     |> assign(:show_paste_shortcut_hint, show_paste_shortcut_hint?(params))}
+     |> assign(:show_keyboard_shortcut_hints, show_keyboard_shortcut_hints?(params))}
   end
 
   def handle_event("shortcut_focus_new_link", _params, socket) do
@@ -861,9 +864,9 @@ defmodule LiminalWeb.LinkLive.Index do
   defp parse_shortcut_platform("linux"), do: :linux
   defp parse_shortcut_platform(_platform), do: :linux
 
-  defp show_paste_shortcut_hint?(%{"show_paste_shortcut_hint" => false}), do: false
-  defp show_paste_shortcut_hint?(%{"show_paste_shortcut_hint" => "false"}), do: false
-  defp show_paste_shortcut_hint?(_params), do: true
+  defp show_keyboard_shortcut_hints?(%{"show_keyboard_shortcut_hints" => false}), do: false
+  defp show_keyboard_shortcut_hints?(%{"show_keyboard_shortcut_hints" => "false"}), do: false
+  defp show_keyboard_shortcut_hints?(_params), do: true
 
   defp shortcut_mod_label(:mac), do: "⌘"
   defp shortcut_mod_label(:linux), do: "Super"
