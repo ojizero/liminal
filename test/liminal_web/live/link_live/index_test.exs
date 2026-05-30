@@ -166,37 +166,67 @@ defmodule LiminalWeb.LinkLive.IndexTest do
     test "renders platform-specific keyboard shortcut hints for link form", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
-      refute has_element?(view, "#link-url-shortcut")
+      refute has_element?(view, "#link-url-paste-shortcut")
+      refute has_element?(view, "#link-url-focus-shortcut")
 
       view
       |> element("#link-shortcuts")
-      |> render_hook("set_shortcut_platform", %{"platform" => "mac"})
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "mac",
+        "show_paste_shortcut_hint" => true
+      })
 
-      assert has_element?(view, "#link-url-shortcut kbd", "⌘")
-      assert has_element?(view, "#link-url-shortcut kbd", "K")
+      assert has_element?(view, "#link-url-paste-shortcut kbd", "⌘")
+      assert has_element?(view, "#link-url-paste-shortcut kbd", "V")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "⌘")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
       refute render(view) =~ "Super"
       refute render(view) =~ "Ctrl"
       refute render(view) =~ "Mod"
 
       view
       |> element("#link-shortcuts")
-      |> render_hook("set_shortcut_platform", %{"platform" => "linux"})
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "linux",
+        "show_paste_shortcut_hint" => true
+      })
 
       html = render(view)
       assert html =~ "Super"
       assert html =~ "Shift"
-      assert has_element?(view, "#link-url-shortcut kbd", "K")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
       refute html =~ "⌘"
 
       view
       |> element("#link-shortcuts")
-      |> render_hook("set_shortcut_platform", %{"platform" => "windows"})
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "windows",
+        "show_paste_shortcut_hint" => true
+      })
 
       html = render(view)
       assert html =~ "Ctrl"
       assert html =~ "Shift"
-      assert has_element?(view, "#link-url-shortcut kbd", "K")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
+      assert has_element?(view, "#link-url-paste-shortcut kbd", "V")
       refute html =~ "Super"
+    end
+
+    test "hides paste shortcut hint on touch-first devices without a hardware keyboard", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "mac",
+        "show_paste_shortcut_hint" => false
+      })
+
+      refute has_element?(view, "#link-url-paste-shortcut")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "⌘")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
     end
 
     test "shortcut focus event pushes client focus event", %{conn: conn} do
@@ -206,7 +236,38 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> element("#link-shortcuts")
       |> render_hook("shortcut_focus_new_link", %{})
 
-      assert_push_event(view, "focus-new-link-url", %{})
+      assert_push_event(view, "focus-new-link-url", %{scroll: true})
+    end
+
+    test "paste shortcut fills new link form and focuses it", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_paste_link", %{"url" => "https://example.com/pasted"})
+
+      assert has_element?(view, "#link_url[value='https://example.com/pasted']")
+      assert_push_event(view, "focus-new-link-url", %{scroll: true})
+    end
+
+    test "paste shortcut normalizes urls without a scheme", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_paste_link", %{"url" => "example.com/no-scheme"})
+
+      assert has_element?(view, "#link_url[value='https://example.com/no-scheme']")
+    end
+
+    test "paste shortcut without a link shows an error flash", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_paste_no_link", %{})
+
+      assert render(view) =~ "Clipboard does not contain a link"
     end
 
     test "mod+shift+digit shortcut toggles new-link tag selection", %{conn: conn} do
@@ -381,7 +442,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       )
       |> render_click()
 
-      refute has_element?(view, "#links span", tag2.name)
+      refute has_element?(view, "#links .badge", tag2.name)
       # Link should still exist
       assert has_element?(view, "#links", "Tag Me")
     end
