@@ -527,3 +527,8 @@ And **never** do this:
 
 - **mise** manages Erlang/Elixir/Node versions (see `.mise.toml`). Run `mise install` after version bumps.
 - See the README for `mix setup`, `mix phx.server`, and `mix precommit` usage.
+
+## Conventions and practices
+
+- All commit messages must follow conventional commits structure.
+- Commit messages should be concise, direct, and descriptive.
