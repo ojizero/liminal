@@ -227,6 +227,44 @@ defmodule LiminalWeb.UserLive.SettingsTest do
     end
   end
 
+  describe "preferences form" do
+    setup %{conn: conn} do
+      user = user_fixture()
+      %{conn: log_in_user(conn, user), user: user}
+    end
+
+    test "renders the auto-mark-viewed toggle", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      assert has_element?(view, "#settings_form")
+
+      assert has_element?(
+               view,
+               "#settings_form input[type=checkbox][name='user[auto_mark_viewed_on_open]']"
+             )
+    end
+
+    test "toggling the preference persists it", %{conn: conn, user: user} do
+      refute user.auto_mark_viewed_on_open
+
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      result =
+        view
+        |> form("#settings_form", user: %{auto_mark_viewed_on_open: "true"})
+        |> render_change()
+
+      assert result =~ "Preferences updated."
+      assert Accounts.get_user!(user.id).auto_mark_viewed_on_open == true
+
+      view
+      |> form("#settings_form", user: %{auto_mark_viewed_on_open: "false"})
+      |> render_change()
+
+      assert Accounts.get_user!(user.id).auto_mark_viewed_on_open == false
+    end
+  end
+
   describe "update username form" do
     setup %{conn: conn} do
       user = user_fixture()
