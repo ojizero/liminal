@@ -110,10 +110,10 @@ defmodule LiminalWeb.LinkLive.Index do
                   </div>
                 </div>
                 <div :if={@shortcut_platform} class="mt-1 flex justify-end">
-                  <span
+                  <.with_tooltip
                     id="link-url-paste-shortcut"
-                    class="tooltip tooltip-top cursor-default inline-flex items-center gap-1.5"
-                    data-tip="Paste a copied URL from your clipboard into the link field. This action works anywhere as long as you're not focusing an input field."
+                    tip="Paste a copied URL from your clipboard into the link field. This action works anywhere as long as you're not focusing an input field."
+                    class="cursor-default inline-flex items-center gap-1.5"
                   >
                     <span class="text-xs text-base-content/45">Paste anywhere</span>
                     <span class="inline-flex items-center gap-0.5">
@@ -124,7 +124,7 @@ defmodule LiminalWeb.LinkLive.Index do
                         V
                       </kbd>
                     </span>
-                  </span>
+                  </.with_tooltip>
                 </div>
               </div>
 
@@ -144,24 +144,27 @@ defmodule LiminalWeb.LinkLive.Index do
                   </span>
                 </div>
                 <div class="flex flex-wrap gap-2 mt-1">
-                  <button
+                  <.with_tooltip
                     :for={{tag, idx} <- Enum.with_index(@tags, 1)}
-                    type="button"
-                    phx-click="toggle_tag"
-                    phx-value-id={tag.id}
-                    id={"new-link-tag-#{idx}"}
-                    data-shortcut-index={idx}
-                    title={"Expires in #{tag.expires_in_days} days"}
-                    class={[
-                      "badge badge-sm cursor-pointer select-none transition-colors",
-                      if(tag.id in @selected_tag_ids,
-                        do: "badge-primary",
-                        else: "badge-outline badge-ghost"
-                      )
-                    ]}
+                    tip={"Expires in #{tag.expires_in_days} days"}
                   >
-                    {tag.name}
-                  </button>
+                    <button
+                      type="button"
+                      phx-click="toggle_tag"
+                      phx-value-id={tag.id}
+                      id={"new-link-tag-#{idx}"}
+                      data-shortcut-index={idx}
+                      class={[
+                        "badge badge-sm cursor-pointer select-none transition-colors",
+                        if(tag.id in @selected_tag_ids,
+                          do: "badge-primary",
+                          else: "badge-outline badge-ghost"
+                        )
+                      ]}
+                    >
+                      {tag.name}
+                    </button>
+                  </.with_tooltip>
                 </div>
               </div>
 
@@ -218,20 +221,18 @@ defmodule LiminalWeb.LinkLive.Index do
                     <.icon name="hero-arrow-path" class="size-3 animate-spin" /> Fetching metadata…
                   </span>
                 <% :scheduled -> %>
-                  <span
-                    class="badge badge-sm badge-ghost w-fit"
-                    title={"Next attempt #{format_datetime(link.index_next_attempt_at)}"}
-                  >
-                    Retry scheduled · {time_until(link.index_next_attempt_at)}
-                  </span>
+                  <.with_tooltip tip={"Next attempt #{format_datetime(link.index_next_attempt_at)}"}>
+                    <span class="badge badge-sm badge-ghost w-fit">
+                      Retry scheduled · {time_until(link.index_next_attempt_at)}
+                    </span>
+                  </.with_tooltip>
                 <% :gave_up -> %>
                   <div class="flex flex-wrap items-center gap-2">
-                    <span
-                      class="badge badge-sm badge-warning w-fit"
-                      title={"Gave up #{format_datetime(link.index_gave_up_at)} after #{link.index_attempt_count} attempts"}
-                    >
-                      Indexing failed
-                    </span>
+                    <.with_tooltip tip={"Gave up #{format_datetime(link.index_gave_up_at)} after #{link.index_attempt_count} attempts"}>
+                      <span class="badge badge-sm badge-warning w-fit">
+                        Indexing failed
+                      </span>
+                    </.with_tooltip>
                     <button
                       phx-click="retry_indexing"
                       phx-value-id={link.id}
@@ -249,22 +250,21 @@ defmodule LiminalWeb.LinkLive.Index do
               </p>
 
               <div class="flex flex-wrap gap-1.5 mt-1">
-                <span
-                  :for={lt <- link.link_tags}
-                  class="badge badge-sm badge-outline gap-1"
-                  title={time_remaining(lt.expires_at)}
-                >
-                  {lt.tag.name}
-                  <button
-                    phx-click="untag"
-                    phx-value-link-id={link.id}
-                    phx-value-tag-id={lt.tag_id}
-                    class="hover:text-error"
-                    title={"Remove #{lt.tag.name}"}
-                  >
-                    <.icon name="hero-x-mark" class="size-3" />
-                  </button>
-                </span>
+                <.with_tooltip :for={lt <- link.link_tags} tip={time_remaining(lt.expires_at)}>
+                  <span class="badge badge-sm badge-outline gap-1">
+                    {lt.tag.name}
+                    <.with_tooltip tip={"Remove #{lt.tag.name}"}>
+                      <button
+                        phx-click="untag"
+                        phx-value-link-id={link.id}
+                        phx-value-tag-id={lt.tag_id}
+                        class="hover:text-error"
+                      >
+                        <.icon name="hero-x-mark" class="size-3" />
+                      </button>
+                    </.with_tooltip>
+                  </span>
+                </.with_tooltip>
 
                 <% assigned_ids = Enum.map(link.link_tags, & &1.tag_id) %>
                 <% available = Enum.reject(@tags, fn t -> t.id in assigned_ids end) %>
@@ -274,14 +274,11 @@ defmodule LiminalWeb.LinkLive.Index do
                   </summary>
                   <ul class="dropdown-content menu bg-base-200 rounded-box z-10 p-2 shadow mt-1">
                     <li :for={tag <- available}>
-                      <button
-                        phx-click="tag"
-                        phx-value-link-id={link.id}
-                        phx-value-tag-id={tag.id}
-                        title={"Expires in #{tag.expires_in_days} days"}
-                      >
-                        {tag.name}
-                      </button>
+                      <.with_tooltip tip={"Expires in #{tag.expires_in_days} days"}>
+                        <button phx-click="tag" phx-value-link-id={link.id} phx-value-tag-id={tag.id}>
+                          {tag.name}
+                        </button>
+                      </.with_tooltip>
                     </li>
                   </ul>
                 </details>
@@ -301,33 +298,33 @@ defmodule LiminalWeb.LinkLive.Index do
                 </a>
 
                 <div class="flex gap-1 ml-auto shrink-0">
-                  <button
-                    phx-click={if(link.viewed_at, do: "mark_unviewed", else: "mark_viewed")}
-                    phx-value-id={link.id}
-                    class="btn btn-ghost btn-xs btn-circle"
-                    title={if(link.viewed_at, do: "Mark unviewed", else: "Mark viewed")}
-                  >
-                    <.icon
-                      name={if(link.viewed_at, do: "hero-eye-slash", else: "hero-eye")}
-                      class="size-3.5"
-                    />
-                  </button>
-                  <.link
-                    patch={~p"/links/#{link.id}/edit"}
-                    class="btn btn-ghost btn-xs btn-circle"
-                    title="Edit"
-                  >
-                    <.icon name="hero-pencil-square" class="size-3.5" />
-                  </.link>
-                  <button
-                    phx-click="delete"
-                    phx-value-id={link.id}
-                    data-confirm="Are you sure?"
-                    class="btn btn-ghost btn-xs btn-circle hover:text-error"
-                    title="Delete"
-                  >
-                    <.icon name="hero-trash" class="size-3.5" />
-                  </button>
+                  <.with_tooltip tip={if(link.viewed_at, do: "Mark unviewed", else: "Mark viewed")}>
+                    <button
+                      phx-click={if(link.viewed_at, do: "mark_unviewed", else: "mark_viewed")}
+                      phx-value-id={link.id}
+                      class="btn btn-ghost btn-xs btn-circle"
+                    >
+                      <.icon
+                        name={if(link.viewed_at, do: "hero-eye-slash", else: "hero-eye")}
+                        class="size-3.5"
+                      />
+                    </button>
+                  </.with_tooltip>
+                  <.with_tooltip tip="Edit">
+                    <.link patch={~p"/links/#{link.id}/edit"} class="btn btn-ghost btn-xs btn-circle">
+                      <.icon name="hero-pencil-square" class="size-3.5" />
+                    </.link>
+                  </.with_tooltip>
+                  <.with_tooltip tip="Delete">
+                    <button
+                      phx-click="delete"
+                      phx-value-id={link.id}
+                      data-confirm="Are you sure?"
+                      class="btn btn-ghost btn-xs btn-circle hover:text-error"
+                    >
+                      <.icon name="hero-trash" class="size-3.5" />
+                    </button>
+                  </.with_tooltip>
                 </div>
               </div>
             </div>

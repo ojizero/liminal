@@ -438,6 +438,56 @@ defmodule LiminalWeb.CoreComponents do
   end
 
   @doc """
+  Wraps content in a [daisyUI tooltip](https://daisyui.com/components/tooltip/) trigger.
+
+  ## Examples
+
+      <.with_tooltip tip="Edit">
+        <button class="btn btn-ghost btn-xs btn-circle">
+          <.icon name="hero-pencil-square" />
+        </button>
+      </.with_tooltip>
+
+      <.with_tooltip
+        id="paste-hint"
+        tip="Paste a copied URL from your clipboard."
+        placement={:top}
+        class="cursor-default inline-flex items-center gap-1.5"
+      >
+        <span class="text-xs text-base-content/45">Paste anywhere</span>
+      </.with_tooltip>
+  """
+  attr :tip, :string, required: true, doc: "tooltip text shown on hover (data-tip)"
+  attr :placement, :atom, default: :top, values: [:top, :bottom, :left, :right]
+  attr :id, :string, default: nil
+  attr :class, :any, default: nil, doc: "extra classes on the tooltip wrapper"
+  attr :rest, :global, doc: "additional HTML attributes on the tooltip wrapper"
+  slot :inner_block, required: true
+
+  @tooltip_placements %{
+    top: "tooltip-top",
+    bottom: "tooltip-bottom",
+    left: "tooltip-left",
+    right: "tooltip-right"
+  }
+
+  def with_tooltip(assigns) do
+    assigns =
+      assign(assigns, :placement_class, Map.fetch!(@tooltip_placements, assigns.placement))
+
+    ~H"""
+    <span
+      id={@id}
+      class={["tooltip", @placement_class, @class]}
+      data-tip={@tip}
+      {@rest}
+    >
+      {render_slot(@inner_block)}
+    </span>
+    """
+  end
+
+  @doc """
   Renders a [Heroicon](https://heroicons.com).
 
   Heroicons come in three styles – outline, solid, and mini.

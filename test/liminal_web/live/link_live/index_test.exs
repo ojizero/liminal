@@ -416,7 +416,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       )
       |> render_click()
 
-      refute has_element?(view, "#links span", tag2.name)
+      refute has_element?(view, "#links .badge", tag2.name)
       # Link should still exist
       assert has_element?(view, "#links", "Tag Me")
     end
