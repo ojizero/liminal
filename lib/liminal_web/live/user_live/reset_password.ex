@@ -7,7 +7,7 @@ defmodule LiminalWeb.UserLive.ResetPassword do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="mx-auto max-w-sm">
+      <Layouts.narrow_page>
         <div class="text-center">
           <.header>
             Reset Password
@@ -19,22 +19,22 @@ defmodule LiminalWeb.UserLive.ResetPassword do
           <.input
             field={@form[:password]}
             type="password"
-            label="New Password"
+            label="New password"
             autocomplete="new-password"
             required
           />
           <.input
             field={@form[:password_confirmation]}
             type="password"
-            label="Confirm New Password"
+            label="Confirm new password"
             autocomplete="new-password"
             required
           />
-          <.button phx-disable-with="Resetting..." class="btn btn-primary w-full">
+          <.button variant="primary" class="w-full" phx-disable-with="Resetting…">
             Reset Password
           </.button>
         </.form>
-      </div>
+      </Layouts.narrow_page>
     </Layouts.app>
     """
   end

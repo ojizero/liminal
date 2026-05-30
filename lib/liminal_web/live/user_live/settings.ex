@@ -9,117 +9,121 @@ defmodule LiminalWeb.UserLive.Settings do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="text-center">
-        <.header>
-          Account Settings
-          <:subtitle>Manage your account username and password settings</:subtitle>
-        </.header>
-      </div>
+      <Layouts.narrow_page>
+        <div class="text-center">
+          <.header>
+            Account Settings
+            <:subtitle>Manage your account username and password settings</:subtitle>
+          </.header>
+        </div>
 
-      <.form
-        for={@username_form}
-        id="username_form"
-        phx-submit="update_username"
-        phx-change="validate_username"
-      >
-        <.input
-          field={@username_form[:username]}
-          type="text"
-          label="Username"
-          autocomplete="username"
-          spellcheck="false"
-          required
-        />
-        <.button variant="primary" phx-disable-with="Changing...">Change Username</.button>
-      </.form>
+        <.form
+          for={@username_form}
+          id="username_form"
+          phx-submit="update_username"
+          phx-change="validate_username"
+        >
+          <.input
+            field={@username_form[:username]}
+            type="text"
+            label="Username"
+            autocomplete="username"
+            spellcheck="false"
+            required
+          />
+          <.button variant="primary" phx-disable-with="Changing…">Change Username</.button>
+        </.form>
 
-      <div class="divider" />
+        <div class="divider" />
 
-      <.form
-        for={@password_form}
-        id="password_form"
-        action={~p"/users/update-password"}
-        method="post"
-        phx-change="validate_password"
-        phx-submit="update_password"
-        phx-trigger-action={@trigger_submit}
-      >
-        <input
-          name={@password_form[:username].name}
-          type="hidden"
-          id="hidden_user_username"
-          spellcheck="false"
-          value={@current_username}
-        />
-        <.input
-          field={@password_form[:password]}
-          type="password"
-          label="New password"
-          autocomplete="new-password"
-          spellcheck="false"
-          required
-        />
-        <.input
-          field={@password_form[:password_confirmation]}
-          type="password"
-          label="Confirm new password"
-          autocomplete="new-password"
-          spellcheck="false"
-        />
-        <.button variant="primary" phx-disable-with="Saving...">
-          Save Password
-        </.button>
-      </.form>
+        <.form
+          for={@password_form}
+          id="password_form"
+          action={~p"/users/update-password"}
+          method="post"
+          phx-change="validate_password"
+          phx-submit="update_password"
+          phx-trigger-action={@trigger_submit}
+        >
+          <input
+            name={@password_form[:username].name}
+            type="hidden"
+            id="hidden_user_username"
+            spellcheck="false"
+            value={@current_username}
+          />
+          <.input
+            field={@password_form[:password]}
+            type="password"
+            label="New password"
+            autocomplete="new-password"
+            spellcheck="false"
+            required
+          />
+          <.input
+            field={@password_form[:password_confirmation]}
+            type="password"
+            label="Confirm new password"
+            autocomplete="new-password"
+            spellcheck="false"
+          />
+          <.button variant="primary" phx-disable-with="Saving…">
+            Save Password
+          </.button>
+        </.form>
 
-      <div class="divider" />
-      <.header>
-        Preferences
-        <:subtitle>Tweak how Liminal behaves for you.</:subtitle>
-      </.header>
-
-      <.form for={@settings_form} id="settings_form" phx-change="update_settings">
-        <.input
-          field={@settings_form[:auto_mark_viewed_on_open]}
-          type="checkbox"
-          label="Mark links as viewed when opened"
-          class="toggle toggle-primary"
-        />
-        <p class="text-sm text-base-content/60 -mt-1">
-          When enabled, opening a link automatically marks it as viewed.
-        </p>
-      </.form>
-
-      <%= if @current_scope.user.role == "admin" do %>
         <div class="divider" />
         <.header>
-          Admin Role
-          <:subtitle>
-            You are currently an admin. You can step down to become a normal user.
-          </:subtitle>
+          Preferences
+          <:subtitle>Tweak how Liminal behaves for you.</:subtitle>
         </.header>
-        <button
-          id="become-normal-user-btn"
-          phx-click="become_normal_user"
-          data-confirm="Are you sure? You will need another admin to restore your privileges."
-          class="btn btn-ghost btn-sm hover:text-warning"
-        >
-          Become normal user
-        </button>
-      <% end %>
 
-      <div class="divider" />
-      <.header>
-        Danger Zone
-        <:subtitle>Permanently delete your account and all associated data.</:subtitle>
-      </.header>
-      <button
-        id="delete-account-btn"
-        phx-click="delete_account"
-        data-confirm="Are you absolutely sure? This will permanently delete your account and all your data."
-        class="btn btn-ghost btn-sm hover:text-error"
-      >
-        Delete my account
-      </button>
+        <.form for={@settings_form} id="settings_form" phx-change="update_settings">
+          <.input
+            field={@settings_form[:auto_mark_viewed_on_open]}
+            type="checkbox"
+            label="Mark links as viewed when opened"
+            class="toggle toggle-primary"
+          />
+          <p class="text-sm text-base-content/60 -mt-1">
+            When enabled, opening a link automatically marks it as viewed.
+          </p>
+        </.form>
+
+        <%= if @current_scope.user.role == "admin" do %>
+          <div class="divider" />
+          <.header>
+            Admin Role
+            <:subtitle>
+              You are currently an admin. You can step down to become a normal user.
+            </:subtitle>
+          </.header>
+          <.button
+            id="become-normal-user-btn"
+            variant="ghost"
+            class="btn-sm hover:text-warning"
+            phx-click="become_normal_user"
+            data-confirm="Are you sure? You will need another admin to restore your privileges."
+          >
+            Become normal user
+          </.button>
+        <% end %>
+
+        <div class="divider" />
+        <.header>
+          Danger Zone
+          <:subtitle>Permanently delete your account and all associated data.</:subtitle>
+        </.header>
+        <.button
+          id="delete-account-btn"
+          variant="ghost"
+          class="btn-sm hover:text-error"
+          phx-click="delete_account"
+          data-confirm="Are you absolutely sure? This will permanently delete your account and all your data."
+        >
+          Delete my account
+        </.button>
+      </Layouts.narrow_page>
     </Layouts.app>
     """
   end

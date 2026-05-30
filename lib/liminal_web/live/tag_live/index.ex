@@ -13,7 +13,7 @@ defmodule LiminalWeb.TagLive.Index do
           <.input field={@form[:name]} type="text" label="Name" />
           <.input field={@form[:expires_in_days]} type="number" label="Expires in (days)" />
           <div class="flex gap-2 mt-3">
-            <.button variant="primary" phx-disable-with="Saving...">Save</.button>
+            <.button variant="primary" phx-disable-with="Saving…">Save</.button>
             <.button patch={~p"/tags"}>Cancel</.button>
           </div>
         </.form>
@@ -42,21 +42,19 @@ defmodule LiminalWeb.TagLive.Index do
             </span>
           </div>
           <div class="flex gap-1">
-            <.link
-              patch={~p"/tags/#{tag.id}/edit"}
-              class="btn btn-ghost btn-sm btn-circle"
-            >
+            <.button patch={~p"/tags/#{tag.id}/edit"} variant="ghost" class="btn-sm btn-circle">
               <.icon name="hero-pencil-square" class="size-4" />
-            </.link>
-            <button
+            </.button>
+            <.button
+              variant="ghost"
+              class="btn-sm btn-circle hover:text-error cursor-pointer"
               phx-click="delete"
               phx-target={@myself}
               phx-value-id={tag.id}
               data-confirm="Are you sure? Links tagged with this tag will lose the tag."
-              class="btn btn-ghost btn-sm btn-circle hover:text-error cursor-pointer"
             >
               <.icon name="hero-trash" class="size-4" />
-            </button>
+            </.button>
           </div>
         </li>
       </ul>

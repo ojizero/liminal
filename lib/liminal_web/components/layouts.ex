@@ -33,6 +33,10 @@ defmodule LiminalWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
 
+  attr :active_nav, :atom,
+    default: nil,
+    doc: "highlights the matching navbar item (:links or :admin)"
+
   slot :inner_block, required: true
 
   def app(assigns) do
@@ -44,9 +48,21 @@ defmodule LiminalWeb.Layouts do
         </.link>
         <%= if @current_scope do %>
           <nav class="flex gap-1">
-            <.link navigate={~p"/"} class="btn btn-ghost btn-sm">Links</.link>
+            <.link
+              navigate={~p"/"}
+              class={["btn btn-ghost btn-sm", @active_nav == :links && "btn-active"]}
+              aria-current={@active_nav == :links && "page"}
+            >
+              Links
+            </.link>
             <%= if Scope.admin?(@current_scope) do %>
-              <.link navigate={~p"/admin/users"} class="btn btn-ghost btn-sm">Admin</.link>
+              <.link
+                navigate={~p"/admin/users"}
+                class={["btn btn-ghost btn-sm", @active_nav == :admin && "btn-active"]}
+                aria-current={@active_nav == :admin && "page"}
+              >
+                Admin
+              </.link>
             <% end %>
           </nav>
         <% end %>
@@ -80,13 +96,26 @@ defmodule LiminalWeb.Layouts do
       </div>
     </header>
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
+    <main class="px-4 py-8 sm:px-6 lg:px-8">
       <div class="mx-auto max-w-6xl space-y-4">
         {render_slot(@inner_block)}
       </div>
     </main>
 
     <.flash_group flash={@flash} />
+    """
+  end
+
+  @doc """
+  Narrow centered column for auth flows and account settings forms.
+  """
+  slot :inner_block, required: true
+
+  def narrow_page(assigns) do
+    ~H"""
+    <div class="mx-auto max-w-sm w-full space-y-4">
+      {render_slot(@inner_block)}
+    </div>
     """
   end
 

@@ -6,7 +6,7 @@ defmodule LiminalWeb.Admin.UserLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.app flash={@flash} current_scope={@current_scope} active_nav={:admin}>
       <.header>
         Users
         <:actions>
@@ -27,7 +27,7 @@ defmodule LiminalWeb.Admin.UserLive.Index do
             options={[{"User", "user"}, {"Admin", "admin"}]}
           />
           <div class="flex gap-2 mt-2">
-            <.button variant="primary" phx-disable-with="Inviting...">Invite User</.button>
+            <.button variant="primary" phx-disable-with="Inviting…">Invite User</.button>
             <.button patch={~p"/admin/users"}>Cancel</.button>
           </div>
         </.form>
@@ -64,58 +64,54 @@ defmodule LiminalWeb.Admin.UserLive.Index do
           <%= cond do %>
             <% user.role == "admin" and user.id == @current_scope.user.id -> %>
               <div class="flex gap-1 items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
+                <.button
+                  variant="ghost"
+                  class="btn-sm"
                   phx-click="step_down"
                   data-confirm="Are you sure? You will need another admin to restore your privileges."
-                  class="btn btn-ghost btn-sm"
                 >
                   Become normal user
-                </button>
+                </.button>
               </div>
             <% user.role == "admin" -> %>
               <%!-- Other admin users — no actions --%>
             <% true -> %>
               <div class="flex gap-1 items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
+                <.button
+                  variant="ghost"
+                  class="btn-sm"
                   phx-click="make_admin"
                   phx-value-id={user.id}
                   data-confirm="Make this user an admin?"
-                  class="btn btn-ghost btn-sm"
                 >
                   Make admin
-                </button>
+                </.button>
                 <%= if user.disabled_at do %>
-                  <button
-                    phx-click="enable"
-                    phx-value-id={user.id}
-                    class="btn btn-ghost btn-sm"
-                  >
+                  <.button variant="ghost" class="btn-sm" phx-click="enable" phx-value-id={user.id}>
                     Enable
-                  </button>
+                  </.button>
                 <% else %>
-                  <button
-                    phx-click="disable"
-                    phx-value-id={user.id}
-                    class="btn btn-ghost btn-sm"
-                  >
+                  <.button variant="ghost" class="btn-sm" phx-click="disable" phx-value-id={user.id}>
                     Disable
-                  </button>
+                  </.button>
                 <% end %>
-                <button
+                <.button
+                  variant="ghost"
+                  class="btn-sm"
                   phx-click="generate_reset_link"
                   phx-value-id={user.id}
-                  class="btn btn-ghost btn-sm"
                 >
                   Reset Password
-                </button>
-                <button
+                </.button>
+                <.button
+                  variant="ghost"
+                  class="btn-sm hover:text-error"
                   phx-click="delete"
                   phx-value-id={user.id}
                   data-confirm="Are you sure you want to delete this user?"
-                  class="btn btn-ghost btn-sm hover:text-error"
                 >
                   Delete
-                </button>
+                </.button>
               </div>
           <% end %>
 
@@ -129,20 +125,18 @@ defmodule LiminalWeb.Admin.UserLive.Index do
                 id={"reset-url-#{user.id}"}
                 class="input input-sm input-bordered flex-1 font-mono text-xs"
               />
-              <button
+              <.button
                 id={"copy-reset-url-#{user.id}"}
+                variant="ghost"
+                class="btn-sm"
                 phx-hook="CopyToClipboard"
                 data-clipboard-text={@reset_url}
-                class="btn btn-ghost btn-sm"
               >
                 Copy
-              </button>
-              <button
-                phx-click="dismiss_reset_link"
-                class="btn btn-ghost btn-sm"
-              >
+              </.button>
+              <.button variant="ghost" class="btn-sm" phx-click="dismiss_reset_link">
                 Dismiss
-              </button>
+              </.button>
             </div>
           <% end %>
         </div>

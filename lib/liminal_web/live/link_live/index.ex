@@ -6,7 +6,7 @@ defmodule LiminalWeb.LinkLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.app flash={@flash} current_scope={@current_scope} active_nav={:links}>
       <.header>
         My Links
         <:actions>
@@ -82,33 +82,28 @@ defmodule LiminalWeb.LinkLive.Index do
           <div class="card-body p-4">
             <.form for={@form} id="link-form" phx-change="validate" phx-submit="save">
               <div class="fieldset mb-2">
-                <div class="relative">
-                  <input
-                    type="url"
-                    name={@form[:url].name}
-                    id={@form[:url].id}
-                    value={Phoenix.HTML.Form.normalize_value("url", @form[:url].value)}
-                    placeholder="https://..."
-                    class={[
-                      "w-full input",
-                      @shortcut_platform && @show_keyboard_shortcut_hints && "pr-20",
-                      @form[:url].errors != [] && "input-error"
-                    ]}
-                    phx-debounce="300"
-                  />
-                  <div
-                    :if={@shortcut_platform && @show_keyboard_shortcut_hints}
-                    id="link-url-focus-shortcut"
-                    class="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-0.5"
-                  >
-                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                      {shortcut_mod_label(@shortcut_platform)}
-                    </kbd>
-                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                      K
-                    </kbd>
-                  </div>
-                </div>
+                <.input
+                  field={@form[:url]}
+                  type="url"
+                  placeholder="https://…"
+                  phx-debounce="300"
+                  fieldset_class="mb-0"
+                  class={@shortcut_platform && @show_keyboard_shortcut_hints && "pr-20"}
+                >
+                  <:suffix :if={@shortcut_platform && @show_keyboard_shortcut_hints}>
+                    <div
+                      id="link-url-focus-shortcut"
+                      class="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-0.5"
+                    >
+                      <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                        {shortcut_mod_label(@shortcut_platform)}
+                      </kbd>
+                      <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                        K
+                      </kbd>
+                    </div>
+                  </:suffix>
+                </.input>
                 <div
                   :if={@shortcut_platform && @show_keyboard_shortcut_hints}
                   class="mt-1 flex justify-end"
@@ -118,7 +113,7 @@ defmodule LiminalWeb.LinkLive.Index do
                     tip="Paste a copied URL from your clipboard into the link field. This action works anywhere as long as you're not focusing an input field."
                     class="cursor-default inline-flex items-center gap-1.5"
                   >
-                    <span class="text-xs text-base-content/45">Paste anywhere</span>
+                    <span class="text-xs text-base-content/45">Paste from anywhere</span>
                     <span class="inline-flex items-center gap-0.5">
                       <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
                         {shortcut_mod_label(@shortcut_platform)}
@@ -187,7 +182,7 @@ defmodule LiminalWeb.LinkLive.Index do
               </div>
 
               <div class="flex justify-end mt-3">
-                <.button variant="primary" phx-disable-with="Saving...">
+                <.button variant="primary" phx-disable-with="Saving…">
                   <.icon name="hero-plus" class="size-4" /> Save
                 </.button>
               </div>
@@ -419,7 +414,7 @@ defmodule LiminalWeb.LinkLive.Index do
         </p>
 
         <div class="flex gap-2 mt-4">
-          <.button variant="primary" phx-click="confirm_duplicate_merge" phx-disable-with="Merging...">
+          <.button variant="primary" phx-click="confirm_duplicate_merge" phx-disable-with="Merging…">
             Merge tags
           </.button>
           <.button phx-click="discard_duplicate">Discard</.button>
@@ -441,7 +436,7 @@ defmodule LiminalWeb.LinkLive.Index do
           phx-change="validate_edit"
           phx-submit="save_edit"
         >
-          <.input field={@edit_form[:url]} type="url" label="URL" placeholder="https://..." />
+          <.input field={@edit_form[:url]} type="url" label="URL" placeholder="https://…" />
           <.input field={@edit_form[:title]} type="text" label="Title (optional)" />
           <.input
             field={@edit_form[:note]}
@@ -453,7 +448,7 @@ defmodule LiminalWeb.LinkLive.Index do
           />
 
           <div class="flex gap-2 mt-4">
-            <.button variant="primary" phx-disable-with="Saving...">Save</.button>
+            <.button variant="primary" phx-disable-with="Saving…">Save</.button>
             <.button patch={~p"/"}>Cancel</.button>
           </div>
         </.form>

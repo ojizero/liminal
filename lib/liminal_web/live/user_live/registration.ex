@@ -8,7 +8,7 @@ defmodule LiminalWeb.UserLive.Registration do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="mx-auto max-w-sm">
+      <Layouts.narrow_page>
         <div class="text-center">
           <%= if @admin_setup do %>
             <.header>
@@ -22,7 +22,7 @@ defmodule LiminalWeb.UserLive.Registration do
               Register for an account
               <:subtitle>
                 Already registered?
-                <.link navigate={~p"/users/log-in"} class="font-semibold text-brand hover:underline">
+                <.link navigate={~p"/users/log-in"} class="link link-primary font-semibold">
                   Log in
                 </.link>
                 to your account now.
@@ -58,16 +58,16 @@ defmodule LiminalWeb.UserLive.Registration do
           />
 
           <%= if @admin_setup do %>
-            <.button phx-disable-with="Creating admin account..." class="btn btn-primary w-full">
+            <.button variant="primary" class="w-full" phx-disable-with="Creating admin account…">
               Create Admin Account
             </.button>
           <% else %>
-            <.button phx-disable-with="Creating account..." class="btn btn-primary w-full">
+            <.button variant="primary" class="w-full" phx-disable-with="Creating account…">
               Create an account
             </.button>
           <% end %>
         </.form>
-      </div>
+      </Layouts.narrow_page>
     </Layouts.app>
     """
   end

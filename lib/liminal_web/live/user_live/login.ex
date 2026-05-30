@@ -7,7 +7,7 @@ defmodule LiminalWeb.UserLive.Login do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="mx-auto max-w-sm space-y-4">
+      <Layouts.narrow_page>
         <div class="text-center">
           <.header>
             <p>Log in</p>
@@ -18,7 +18,7 @@ defmodule LiminalWeb.UserLive.Login do
                 <% @show_signup_link -> %>
                   Don't have an account? <.link
                     navigate={~p"/users/register"}
-                    class="font-semibold text-brand hover:underline"
+                    class="link link-primary font-semibold"
                     phx-no-format
                   >Sign up</.link> for an account now.
                 <% true -> %>
@@ -50,14 +50,14 @@ defmodule LiminalWeb.UserLive.Login do
             autocomplete="current-password"
             spellcheck="false"
           />
-          <.button class="btn btn-primary w-full" name={@form[:remember_me].name} value="true">
+          <.button variant="primary" class="w-full" name={@form[:remember_me].name} value="true">
             Log in and stay logged in <span aria-hidden="true">→</span>
           </.button>
-          <.button class="btn btn-primary btn-soft w-full mt-2">
+          <.button variant="soft" class="w-full mt-2">
             Log in only this time
           </.button>
         </.form>
-      </div>
+      </Layouts.narrow_page>
     </Layouts.app>
     """
   end
