@@ -166,15 +166,17 @@ defmodule LiminalWeb.LinkLive.IndexTest do
     test "renders platform-specific keyboard shortcut hints for link form", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
-      refute has_element?(view, "#link-url-shortcut")
+      refute has_element?(view, "#link-url-paste-shortcut")
+      refute has_element?(view, "#link-url-focus-shortcut")
 
       view
       |> element("#link-shortcuts")
       |> render_hook("set_shortcut_platform", %{"platform" => "mac"})
 
-      assert has_element?(view, "#link-url-shortcut kbd", "⌘")
-      assert has_element?(view, "#link-url-shortcut kbd", "K")
-      assert has_element?(view, "#link-url-shortcut kbd", "V")
+      assert has_element?(view, "#link-url-paste-shortcut kbd", "⌘")
+      assert has_element?(view, "#link-url-paste-shortcut kbd", "V")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "⌘")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
       refute render(view) =~ "Super"
       refute render(view) =~ "Ctrl"
       refute render(view) =~ "Mod"
@@ -186,7 +188,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       html = render(view)
       assert html =~ "Super"
       assert html =~ "Shift"
-      assert has_element?(view, "#link-url-shortcut kbd", "K")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
       refute html =~ "⌘"
 
       view
@@ -196,8 +198,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       html = render(view)
       assert html =~ "Ctrl"
       assert html =~ "Shift"
-      assert has_element?(view, "#link-url-shortcut kbd", "K")
-      assert has_element?(view, "#link-url-shortcut kbd", "V")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
+      assert has_element?(view, "#link-url-paste-shortcut kbd", "V")
       refute html =~ "Super"
     end
 

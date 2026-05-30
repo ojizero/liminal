@@ -91,23 +91,16 @@ defmodule LiminalWeb.LinkLive.Index do
                     placeholder="https://..."
                     class={[
                       "w-full input",
-                      @shortcut_platform && "pr-36",
+                      @shortcut_platform && "pr-20",
                       @form[:url].errors != [] && "input-error"
                     ]}
                     phx-debounce="300"
                   />
                   <div
                     :if={@shortcut_platform}
-                    id="link-url-shortcut"
+                    id="link-url-focus-shortcut"
                     class="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-0.5"
                   >
-                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                      {shortcut_mod_label(@shortcut_platform)}
-                    </kbd>
-                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                      V
-                    </kbd>
-                    <span class="text-base-content/25 text-xs">/</span>
                     <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
                       {shortcut_mod_label(@shortcut_platform)}
                     </kbd>
@@ -115,6 +108,23 @@ defmodule LiminalWeb.LinkLive.Index do
                       K
                     </kbd>
                   </div>
+                </div>
+                <div :if={@shortcut_platform} class="mt-1 flex justify-end">
+                  <span
+                    id="link-url-paste-shortcut"
+                    class="tooltip tooltip-top cursor-default inline-flex items-center gap-1.5"
+                    data-tip="Paste a copied URL from your clipboard into the link field. This action works anywhere as long as you're not focusing an input field."
+                  >
+                    <span class="text-xs text-base-content/45">Paste anywhere</span>
+                    <span class="inline-flex items-center gap-0.5">
+                      <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                        {shortcut_mod_label(@shortcut_platform)}
+                      </kbd>
+                      <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                        V
+                      </kbd>
+                    </span>
+                  </span>
                 </div>
               </div>
 
