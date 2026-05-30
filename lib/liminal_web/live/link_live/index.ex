@@ -303,12 +303,12 @@ defmodule LiminalWeb.LinkLive.Index do
                 </details>
               </div>
 
-              <p
+              <blockquote
                 :if={link.note && link.note != ""}
-                class="text-xs text-base-content/50 italic whitespace-pre-line"
+                class="border-l-3 border-info/60 pl-2.5 text-xs text-base-content/50 italic"
               >
                 {link.note}
-              </p>
+              </blockquote>
 
               <div class="flex items-center gap-2 mt-auto pt-2 border-t border-base-300 text-xs text-base-content/50">
                 <%= if link.favicon_url do %>
