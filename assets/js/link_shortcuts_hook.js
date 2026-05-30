@@ -12,6 +12,19 @@ const detectShortcutPlatform = () => {
   return "linux"
 }
 
+// Touch-first phones/tablets rarely expose Cmd/Ctrl+V; hide the paste hint only.
+export const hasLikelyHardwareKeyboard = () => {
+  if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    return true
+  }
+
+  if (navigator.maxTouchPoints === 0) {
+    return true
+  }
+
+  return false
+}
+
 const parseDigitShortcut = (event) => {
   const codeMatch = /^(?:Digit|Numpad)([1-9])$/.exec(event.code || "")
   if (codeMatch) return Number.parseInt(codeMatch[1], 10)
@@ -52,7 +65,10 @@ const normalizePastedUrl = (text) => {
 
 const LinkShortcuts = {
   mounted() {
-    this.pushEvent("set_shortcut_platform", {platform: detectShortcutPlatform()})
+    this.pushEvent("set_shortcut_platform", {
+      platform: detectShortcutPlatform(),
+      show_paste_shortcut_hint: hasLikelyHardwareKeyboard()
+    })
 
     this.onKeyDown = (event) => {
       if (event.repeat) return

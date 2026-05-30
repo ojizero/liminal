@@ -171,7 +171,10 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       view
       |> element("#link-shortcuts")
-      |> render_hook("set_shortcut_platform", %{"platform" => "mac"})
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "mac",
+        "show_paste_shortcut_hint" => true
+      })
 
       assert has_element?(view, "#link-url-paste-shortcut kbd", "⌘")
       assert has_element?(view, "#link-url-paste-shortcut kbd", "V")
@@ -183,7 +186,10 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       view
       |> element("#link-shortcuts")
-      |> render_hook("set_shortcut_platform", %{"platform" => "linux"})
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "linux",
+        "show_paste_shortcut_hint" => true
+      })
 
       html = render(view)
       assert html =~ "Super"
@@ -193,7 +199,10 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       view
       |> element("#link-shortcuts")
-      |> render_hook("set_shortcut_platform", %{"platform" => "windows"})
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "windows",
+        "show_paste_shortcut_hint" => true
+      })
 
       html = render(view)
       assert html =~ "Ctrl"
@@ -201,6 +210,23 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
       assert has_element?(view, "#link-url-paste-shortcut kbd", "V")
       refute html =~ "Super"
+    end
+
+    test "hides paste shortcut hint on touch-first devices without a hardware keyboard", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "mac",
+        "show_paste_shortcut_hint" => false
+      })
+
+      refute has_element?(view, "#link-url-paste-shortcut")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "⌘")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
     end
 
     test "shortcut focus event pushes client focus event", %{conn: conn} do

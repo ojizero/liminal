@@ -109,7 +109,10 @@ defmodule LiminalWeb.LinkLive.Index do
                     </kbd>
                   </div>
                 </div>
-                <div :if={@shortcut_platform} class="mt-1 flex justify-end">
+                <div
+                  :if={@shortcut_platform && @show_paste_shortcut_hint}
+                  class="mt-1 flex justify-end"
+                >
                   <.with_tooltip
                     id="link-url-paste-shortcut"
                     tip="Paste a copied URL from your clipboard into the link field. This action works anywhere as long as you're not focusing an input field."
@@ -450,6 +453,7 @@ defmodule LiminalWeb.LinkLive.Index do
       |> assign(:edit_form, nil)
       |> assign(:tag_id, nil)
       |> assign(:shortcut_platform, nil)
+      |> assign(:show_paste_shortcut_hint, false)
       |> assign(:duplicate_link, nil)
       |> assign(:pending_link_params, nil)
       |> assign(:pending_tag_ids, [])
@@ -554,8 +558,11 @@ defmodule LiminalWeb.LinkLive.Index do
     {:noreply, toggle_selected_tag(socket, tag_id)}
   end
 
-  def handle_event("set_shortcut_platform", %{"platform" => platform}, socket) do
-    {:noreply, assign(socket, :shortcut_platform, parse_shortcut_platform(platform))}
+  def handle_event("set_shortcut_platform", params, socket) do
+    {:noreply,
+     socket
+     |> assign(:shortcut_platform, parse_shortcut_platform(params["platform"]))
+     |> assign(:show_paste_shortcut_hint, show_paste_shortcut_hint?(params))}
   end
 
   def handle_event("shortcut_focus_new_link", _params, socket) do
@@ -801,6 +808,10 @@ defmodule LiminalWeb.LinkLive.Index do
   defp parse_shortcut_platform("windows"), do: :windows
   defp parse_shortcut_platform("linux"), do: :linux
   defp parse_shortcut_platform(_platform), do: :linux
+
+  defp show_paste_shortcut_hint?(%{"show_paste_shortcut_hint" => false}), do: false
+  defp show_paste_shortcut_hint?(%{"show_paste_shortcut_hint" => "false"}), do: false
+  defp show_paste_shortcut_hint?(_params), do: true
 
   defp shortcut_mod_label(:mac), do: "⌘"
   defp shortcut_mod_label(:linux), do: "Super"
