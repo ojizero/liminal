@@ -932,4 +932,72 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "button[phx-click='retry_indexing'][phx-value-id='#{link.id}']")
     end
   end
+
+  describe "auto mark viewed on open" do
+    test "anchors do NOT carry open_link when preference disabled", %{conn: conn} do
+      user = Liminal.AccountsFixtures.user_fixture()
+      scope = Liminal.Accounts.Scope.for_user(user)
+      link = link_fixture(scope, %{url: "https://open-disabled.com", title: "Open Disabled"})
+
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/")
+
+      assert has_element?(view, "#links", "Open Disabled")
+      refute has_element?(view, "a[phx-click='open_link'][phx-value-id='#{link.id}']")
+    end
+
+    test "anchors carry open_link when preference enabled", %{conn: conn} do
+      user = Liminal.AccountsFixtures.user_fixture()
+      {:ok, user} = Liminal.Accounts.update_user_settings(user, %{auto_mark_viewed_on_open: true})
+      scope = Liminal.Accounts.Scope.for_user(user)
+      link = link_fixture(scope, %{url: "https://open-enabled.com", title: "Open Enabled"})
+
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/")
+
+      assert has_element?(view, "a[phx-click='open_link'][phx-value-id='#{link.id}']")
+    end
+
+    test "opening a link marks it viewed when preference enabled", %{conn: conn} do
+      user = Liminal.AccountsFixtures.user_fixture()
+      {:ok, user} = Liminal.Accounts.update_user_settings(user, %{auto_mark_viewed_on_open: true})
+      scope = Liminal.Accounts.Scope.for_user(user)
+      link = link_fixture(scope, %{url: "https://open-mark.com", title: "Open Mark"})
+
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/")
+
+      # Visible in default unviewed filter
+      assert has_element?(view, "#links", "Open Mark")
+
+      # Open the link (clicking the title anchor) auto-marks it viewed
+      view
+      |> element("a[phx-click='open_link'][phx-value-id='#{link.id}']", "Open Mark")
+      |> render_click()
+
+      # It leaves the unviewed filter
+      refute has_element?(view, "#links", "Open Mark")
+      assert Liminal.Links.get_link!(scope, link.id).viewed_at
+
+      # And appears under the viewed filter
+      view |> element("button[phx-click='filter'][phx-value-filter='viewed']") |> render_click()
+      assert has_element?(view, "#links", "Open Mark")
+    end
+
+    test "opening an already-viewed link is a no-op", %{conn: conn} do
+      user = Liminal.AccountsFixtures.user_fixture()
+      {:ok, user} = Liminal.Accounts.update_user_settings(user, %{auto_mark_viewed_on_open: true})
+      scope = Liminal.Accounts.Scope.for_user(user)
+      link = link_fixture(scope, %{url: "https://already-viewed.com", title: "Already Viewed"})
+      {:ok, _} = Liminal.Links.mark_viewed(scope, link)
+      viewed_at = Liminal.Links.get_link!(scope, link.id).viewed_at
+
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/")
+
+      view |> element("button[phx-click='filter'][phx-value-filter='viewed']") |> render_click()
+
+      view
+      |> element("a[phx-click='open_link'][phx-value-id='#{link.id}']", "Already Viewed")
+      |> render_click()
+
+      assert Liminal.Links.get_link!(scope, link.id).viewed_at == viewed_at
+    end
+  end
 end

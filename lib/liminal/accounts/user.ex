@@ -9,6 +9,7 @@ defmodule Liminal.Accounts.User do
     field :role, :string, default: "user"
     field :disabled_at, :utc_datetime
     field :confirmed_at, :utc_datetime
+    field :auto_mark_viewed_on_open, :boolean, default: false
     field :authenticated_at, :utc_datetime, virtual: true
 
     timestamps(type: :utc_datetime)
@@ -156,6 +157,13 @@ defmodule Liminal.Accounts.User do
     |> cast(attrs, [:role])
     |> validate_inclusion(:role, ~w(admin user))
     |> confirm_changeset()
+  end
+
+  @doc """
+  A user changeset for changing user-controlled preferences.
+  """
+  def settings_changeset(user, attrs) do
+    cast(user, attrs, [:auto_mark_viewed_on_open])
   end
 
   @doc """
