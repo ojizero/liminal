@@ -328,6 +328,18 @@ defmodule LiminalWeb.LinkLive.Index do
                   {URI.parse(link.url).host || link.url}
                 </a>
 
+                <%= if expiry = Links.link_expires_at(link) do %>
+                  <.with_tooltip tip={format_datetime(expiry)}>
+                    <span
+                      id={"link-expiry-#{link.id}"}
+                      class="flex items-center gap-1 shrink-0 text-base-content/45"
+                    >
+                      <.icon name="hero-clock" class="size-3.5" />
+                      {time_remaining(expiry)}
+                    </span>
+                  </.with_tooltip>
+                <% end %>
+
                 <div class="flex gap-1 ml-auto shrink-0">
                   <.with_tooltip tip={if(link.viewed_at, do: "Mark unviewed", else: "Mark viewed")}>
                     <button

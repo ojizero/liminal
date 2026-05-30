@@ -395,6 +395,45 @@ defmodule Liminal.LinksTest do
     end
   end
 
+  describe "link_expires_at/1" do
+    test "returns latest tag expires_at for unviewed links" do
+      scope = user_scope_fixture()
+      tag_soon = tag_fixture(scope, %{expires_in_days: 7})
+      tag_later = tag_fixture(scope, %{expires_in_days: 30})
+      link = link_fixture(scope, %{tag_ids: [tag_soon.id, tag_later.id]})
+      link = Links.get_link!(scope, link.id)
+
+      expected =
+        link.link_tags
+        |> Enum.map(& &1.expires_at)
+        |> Enum.max(DateTime)
+
+      assert Links.link_expires_at(link) == expected
+    end
+
+    test "returns viewed_at plus grace period for viewed links" do
+      scope = user_scope_fixture()
+      tag = tag_fixture(scope, %{expires_in_days: 365})
+      link = link_fixture(scope, %{tag_ids: [tag.id]})
+      {:ok, viewed_link} = Links.mark_viewed(scope, link)
+
+      grace_seconds = Application.get_env(:liminal, :viewed_grace_seconds, 86_400)
+      expected = DateTime.add(viewed_link.viewed_at, grace_seconds, :second)
+
+      assert Links.link_expires_at(viewed_link) == expected
+    end
+
+    test "viewed expiry ignores tag expires_at even when tags expire later" do
+      scope = user_scope_fixture()
+      tag = tag_fixture(scope, %{expires_in_days: 365})
+      link = link_fixture(scope, %{tag_ids: [tag.id]})
+      {:ok, viewed_link} = Links.mark_viewed(scope, link)
+
+      [lt] = viewed_link.link_tags
+      assert DateTime.compare(Links.link_expires_at(viewed_link), lt.expires_at) == :lt
+    end
+  end
+
   describe "mark_unviewed/2" do
     test "clears viewed_at to nil" do
       scope = user_scope_fixture()

@@ -451,6 +451,26 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#links", "View Me")
     end
 
+    test "displays link expiry on cards", %{conn: conn, scope: scope} do
+      link = link_fixture(scope, %{url: "https://expiry.com", title: "Expiry Link"})
+      link = Liminal.Links.get_link!(scope, link.id)
+      expiry_label = link_expiry_label(link)
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      assert has_element?(view, "#link-expiry-#{link.id}", expiry_label)
+
+      {:ok, viewed_link} = Liminal.Links.mark_viewed(scope, link)
+      viewed_label = link_expiry_label(viewed_link)
+
+      view
+      |> element("button[phx-click='filter'][phx-value-filter='viewed']")
+      |> render_click()
+
+      assert has_element?(view, "#link-expiry-#{link.id}", viewed_label)
+      refute viewed_label == expiry_label
+    end
+
     test "tag and untag a link (with remaining tags)", %{conn: conn, scope: scope} do
       # Create link with a tag so it has at least one
       tags = Liminal.Links.list_tags(scope)
@@ -1095,6 +1115,26 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> render_click()
 
       assert Liminal.Links.get_link!(scope, link.id).viewed_at == viewed_at
+    end
+  end
+
+  defp link_expiry_label(link) do
+    case Liminal.Links.link_expires_at(link) do
+      nil ->
+        nil
+
+      expires_at ->
+        now = DateTime.utc_now()
+        diff_seconds = DateTime.diff(expires_at, now)
+
+        cond do
+          diff_seconds <= 0 -> "Expired"
+          diff_seconds < 3600 -> "Expires in #{div(diff_seconds, 60)} min"
+          diff_seconds < 86_400 -> "Expires in #{div(diff_seconds, 3600)} hours"
+          diff_seconds < 86_400 * 30 -> "Expires in #{div(diff_seconds, 86_400)} days"
+          diff_seconds < 86_400 * 365 -> "Expires in #{div(diff_seconds, 86_400 * 30)} months"
+          true -> "Expires in #{div(diff_seconds, 86_400 * 365)} years"
+        end
     end
   end
 end

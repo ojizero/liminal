@@ -596,6 +596,30 @@ defmodule Liminal.Links do
   @default_viewed_grace_seconds 86_400
 
   @doc """
+  Returns when a link expires.
+
+  For unviewed links, this is the latest tag `expires_at`. For viewed links,
+  this is `viewed_at` plus the configured grace period (`:viewed_grace_seconds`,
+  default 1 day).
+  """
+  def link_expires_at(%Link{viewed_at: viewed_at}) when not is_nil(viewed_at) do
+    grace_seconds =
+      Application.get_env(:liminal, :viewed_grace_seconds, @default_viewed_grace_seconds)
+
+    DateTime.add(viewed_at, grace_seconds, :second)
+  end
+
+  def link_expires_at(%Link{} = link) do
+    link.link_tags
+    |> Enum.map(& &1.expires_at)
+    |> Enum.reject(&is_nil/1)
+    |> case do
+      [] -> nil
+      expiries -> Enum.max(expiries, DateTime)
+    end
+  end
+
+  @doc """
   Deletes links viewed longer than the configured grace period (default 1 day;
   see `:viewed_grace_seconds` application env) with all their tags, then removes
   expired link_tags and deletes orphaned links. Used by the Janitor's periodic sweep.
