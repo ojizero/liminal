@@ -2,7 +2,7 @@
 #MISE description="Determine if a release is required for this push"
 set -euo pipefail
 
-source "${MISE_PROJECT_ROOT}/scripts/release_scope.sh"
+source "${MISE_PROJECT_ROOT}/.mise/lib/release-scope.sh"
 
 : "${BEFORE:?BEFORE is required}"
 : "${AFTER:?AFTER is required}"

@@ -71,6 +71,24 @@ defmodule LiminalWeb.UserLive.Settings do
         </.button>
       </.form>
 
+      <div class="divider" />
+      <.header>
+        Preferences
+        <:subtitle>Tweak how Liminal behaves for you.</:subtitle>
+      </.header>
+
+      <.form for={@settings_form} id="settings_form" phx-change="update_settings">
+        <.input
+          field={@settings_form[:auto_mark_viewed_on_open]}
+          type="checkbox"
+          label="Mark links as viewed when opened"
+          class="toggle toggle-primary"
+        />
+        <p class="text-sm text-base-content/60 -mt-1">
+          When enabled, opening a link automatically marks it as viewed.
+        </p>
+      </.form>
+
       <%= if @current_scope.user.role == "admin" do %>
         <div class="divider" />
         <.header>
@@ -117,6 +135,7 @@ defmodule LiminalWeb.UserLive.Settings do
       |> assign(:current_username, user.username)
       |> assign(:username_form, to_form(username_changeset))
       |> assign(:password_form, to_form(password_changeset))
+      |> assign(:settings_form, to_form(Accounts.change_user_settings(user)))
       |> assign(:trigger_submit, false)
 
     {:ok, socket}
@@ -175,6 +194,26 @@ defmodule LiminalWeb.UserLive.Settings do
 
       changeset ->
         {:noreply, assign(socket, password_form: to_form(changeset, action: :insert))}
+    end
+  end
+
+  def handle_event("update_settings", %{"user" => user_params}, socket) do
+    user = socket.assigns.current_scope.user
+
+    case Accounts.update_user_settings(user, user_params) do
+      {:ok, updated_user} ->
+        # Preserve virtual fields (e.g. authenticated_at) carried on the scope user.
+        scope_user = %{user | auto_mark_viewed_on_open: updated_user.auto_mark_viewed_on_open}
+        scope = %{socket.assigns.current_scope | user: scope_user}
+
+        {:noreply,
+         socket
+         |> assign(:current_scope, scope)
+         |> assign(:settings_form, to_form(Accounts.change_user_settings(scope_user)))
+         |> put_flash(:info, "Preferences updated.")}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :settings_form, to_form(changeset))}
     end
   end
 

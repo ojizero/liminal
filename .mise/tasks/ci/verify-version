@@ -2,7 +2,7 @@
 #MISE description="Verify VERSION is not behind the latest GitHub release"
 set -euo pipefail
 
-source "${MISE_PROJECT_ROOT}/scripts/release_scope.sh"
+source "${MISE_PROJECT_ROOT}/.mise/lib/release-scope.sh"
 
 current=$(current_version)
 latest_tag=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "")
