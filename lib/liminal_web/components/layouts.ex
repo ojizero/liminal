@@ -35,49 +35,66 @@ defmodule LiminalWeb.Layouts do
 
   attr :active_nav, :atom,
     default: nil,
-    doc: "highlights the matching navbar item (:links or :admin)"
+    doc: "highlights the matching item in the user menu (:links or :admin)"
 
   slot :inner_block, required: true
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
-      <div class="flex-1 flex items-center gap-4">
-        <.link navigate={~p"/"} class="flex items-center gap-2 text-lg font-bold tracking-tight">
-          <img src={~p"/liminal.svg"} class="size-6" alt="" /> liminal
+    <header class="navbar min-h-14 gap-2 px-3 sm:px-6 lg:px-8">
+      <div class="flex-1 min-w-0">
+        <.link
+          navigate={~p"/"}
+          class="flex w-fit max-w-full items-center gap-2 text-base font-bold tracking-tight sm:text-lg"
+        >
+          <img src={~p"/liminal.svg"} class="size-6 shrink-0" alt="" />
+          <span class="truncate">liminal</span>
         </.link>
-        <%= if @current_scope do %>
-          <nav class="flex gap-1">
-            <.link
-              navigate={~p"/"}
-              class={["btn btn-ghost btn-sm", @active_nav == :links && "btn-active"]}
-              aria-current={@active_nav == :links && "page"}
-            >
-              Links
-            </.link>
-            <%= if Scope.admin?(@current_scope) do %>
-              <.link
-                navigate={~p"/admin/users"}
-                class={["btn btn-ghost btn-sm", @active_nav == :admin && "btn-active"]}
-                aria-current={@active_nav == :admin && "page"}
-              >
-                Admin
-              </.link>
-            <% end %>
-          </nav>
-        <% end %>
       </div>
-      <div class="flex-none flex items-center gap-3">
-        <.theme_toggle />
+      <div class="flex shrink-0 items-center gap-1.5 sm:gap-3">
+        <div class="origin-right scale-90 sm:scale-100">
+          <.theme_toggle />
+        </div>
         <%= if @current_scope do %>
           <details class="dropdown dropdown-end">
-            <summary class="btn btn-ghost btn-sm flex items-center gap-2">
-              <.icon name="hero-user-circle" class="size-5" />
-              <span class="text-sm">{@current_scope.user.username}</span>
+            <summary
+              class="btn btn-ghost btn-sm flex max-w-[2.75rem] items-center gap-1.5 px-2 sm:max-w-none sm:px-3"
+              aria-label={"Account menu for #{@current_scope.user.username}"}
+            >
+              <.icon name="hero-user-circle" class="size-5 shrink-0" />
+              <span class="hidden truncate text-sm sm:inline max-w-[8rem]">
+                {@current_scope.user.username}
+              </span>
             </summary>
-            <ul class="dropdown-content menu bg-base-200 rounded-box z-10 w-48 p-2 shadow mt-2">
+            <ul
+              id="user-menu"
+              class="dropdown-content menu bg-base-200 rounded-box z-10 mt-2 w-52 p-2 shadow"
+            >
               <li>
-                <.link navigate={~p"/users/settings"} class="flex items-center gap-2">
+                <.link
+                  navigate={~p"/"}
+                  class={[@active_nav == :links && "menu-active"]}
+                  aria-current={@active_nav == :links && "page"}
+                >
+                  <.icon name="hero-link" class="size-4" /> Links
+                </.link>
+              </li>
+              <%= if Scope.admin?(@current_scope) do %>
+                <li>
+                  <.link
+                    navigate={~p"/admin/users"}
+                    class={[@active_nav == :admin && "menu-active"]}
+                    aria-current={@active_nav == :admin && "page"}
+                  >
+                    <.icon name="hero-shield-check" class="size-4" /> Admin
+                  </.link>
+                </li>
+              <% end %>
+              <li class="pointer-events-none my-1">
+                <hr class="border-base-content/10" />
+              </li>
+              <li>
+                <.link navigate={~p"/users/settings"}>
                   <.icon name="hero-cog-6-tooth" class="size-4" /> Settings
                 </.link>
               </li>
@@ -85,7 +102,7 @@ defmodule LiminalWeb.Layouts do
                 <.link
                   href={~p"/users/log-out"}
                   method="delete"
-                  class="flex items-center gap-2 text-error hover:text-error"
+                  class="text-error hover:text-error"
                 >
                   <.icon name="hero-arrow-right-start-on-rectangle" class="size-4" /> Log out
                 </.link>

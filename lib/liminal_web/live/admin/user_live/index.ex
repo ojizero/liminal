@@ -41,102 +41,104 @@ defmodule LiminalWeb.Admin.UserLive.Index do
         <div
           :for={{id, user} <- @streams.users}
           id={id}
-          class="p-4 bg-base-200 rounded-lg flex items-center justify-between group"
+          class="group flex flex-col gap-3 rounded-lg bg-base-200 p-4"
         >
-          <div class="flex items-center gap-3">
-            <div>
-              <span class="font-medium">{user.username}</span>
-              <span class={[
-                "badge badge-sm ml-2",
-                if(user.role == "admin", do: "badge-primary", else: "badge-ghost")
-              ]}>
-                {user.role}
-              </span>
-              <%= if user.disabled_at do %>
-                <span class="badge badge-sm badge-error ml-1">disabled</span>
-              <% else %>
-                <span class="badge badge-sm badge-success ml-1">active</span>
-              <% end %>
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span class="font-medium">{user.username}</span>
+                <span class={[
+                  "badge badge-sm",
+                  if(user.role == "admin", do: "badge-primary", else: "badge-ghost")
+                ]}>
+                  {user.role}
+                </span>
+                <%= if user.disabled_at do %>
+                  <span class="badge badge-sm badge-error">disabled</span>
+                <% else %>
+                  <span class="badge badge-sm badge-success">active</span>
+                <% end %>
+              </div>
             </div>
+
+            <%= cond do %>
+              <% user.role == "admin" and user.id == @current_scope.user.id -> %>
+                <div class="flex flex-wrap gap-1 items-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  <.button
+                    variant="ghost"
+                    class="btn-sm"
+                    phx-click="step_down"
+                    data-confirm="Are you sure? You will need another admin to restore your privileges."
+                  >
+                    Become normal user
+                  </.button>
+                </div>
+              <% user.role == "admin" -> %>
+                <%!-- Other admin users — no actions --%>
+              <% true -> %>
+                <div class="flex flex-wrap gap-1 items-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  <.button
+                    variant="ghost"
+                    class="btn-sm"
+                    phx-click="make_admin"
+                    phx-value-id={user.id}
+                    data-confirm="Make this user an admin?"
+                  >
+                    Make admin
+                  </.button>
+                  <%= if user.disabled_at do %>
+                    <.button variant="ghost" class="btn-sm" phx-click="enable" phx-value-id={user.id}>
+                      Enable
+                    </.button>
+                  <% else %>
+                    <.button variant="ghost" class="btn-sm" phx-click="disable" phx-value-id={user.id}>
+                      Disable
+                    </.button>
+                  <% end %>
+                  <.button
+                    variant="ghost"
+                    class="btn-sm"
+                    phx-click="generate_reset_link"
+                    phx-value-id={user.id}
+                  >
+                    Reset Password
+                  </.button>
+                  <.button
+                    variant="ghost"
+                    class="btn-sm hover:text-error"
+                    phx-click="delete"
+                    phx-value-id={user.id}
+                    data-confirm="Are you sure you want to delete this user?"
+                  >
+                    Delete
+                  </.button>
+                </div>
+            <% end %>
           </div>
 
-          <%!-- Actions --%>
-          <%= cond do %>
-            <% user.role == "admin" and user.id == @current_scope.user.id -> %>
-              <div class="flex gap-1 items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <.button
-                  variant="ghost"
-                  class="btn-sm"
-                  phx-click="step_down"
-                  data-confirm="Are you sure? You will need another admin to restore your privileges."
-                >
-                  Become normal user
-                </.button>
-              </div>
-            <% user.role == "admin" -> %>
-              <%!-- Other admin users — no actions --%>
-            <% true -> %>
-              <div class="flex gap-1 items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <.button
-                  variant="ghost"
-                  class="btn-sm"
-                  phx-click="make_admin"
-                  phx-value-id={user.id}
-                  data-confirm="Make this user an admin?"
-                >
-                  Make admin
-                </.button>
-                <%= if user.disabled_at do %>
-                  <.button variant="ghost" class="btn-sm" phx-click="enable" phx-value-id={user.id}>
-                    Enable
-                  </.button>
-                <% else %>
-                  <.button variant="ghost" class="btn-sm" phx-click="disable" phx-value-id={user.id}>
-                    Disable
-                  </.button>
-                <% end %>
-                <.button
-                  variant="ghost"
-                  class="btn-sm"
-                  phx-click="generate_reset_link"
-                  phx-value-id={user.id}
-                >
-                  Reset Password
-                </.button>
-                <.button
-                  variant="ghost"
-                  class="btn-sm hover:text-error"
-                  phx-click="delete"
-                  phx-value-id={user.id}
-                  data-confirm="Are you sure you want to delete this user?"
-                >
-                  Delete
-                </.button>
-              </div>
-          <% end %>
-
-          <%!-- Reset link display --%>
           <%= if @reset_url && @reset_user_id == user.id do %>
-            <div class="flex items-center gap-2 mt-2 w-full">
+            <div class="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
               <input
                 type="text"
                 readonly
                 value={@reset_url}
                 id={"reset-url-#{user.id}"}
-                class="input input-sm input-bordered flex-1 font-mono text-xs"
+                class="input input-sm input-bordered min-w-0 flex-1 font-mono text-xs"
               />
-              <.button
-                id={"copy-reset-url-#{user.id}"}
-                variant="ghost"
-                class="btn-sm"
-                phx-hook="CopyToClipboard"
-                data-clipboard-text={@reset_url}
-              >
-                Copy
-              </.button>
-              <.button variant="ghost" class="btn-sm" phx-click="dismiss_reset_link">
-                Dismiss
-              </.button>
+              <div class="flex shrink-0 gap-1">
+                <.button
+                  id={"copy-reset-url-#{user.id}"}
+                  variant="ghost"
+                  class="btn-sm"
+                  phx-hook="CopyToClipboard"
+                  data-clipboard-text={@reset_url}
+                >
+                  Copy
+                </.button>
+                <.button variant="ghost" class="btn-sm" phx-click="dismiss_reset_link">
+                  Dismiss
+                </.button>
+              </div>
             </div>
           <% end %>
         </div>

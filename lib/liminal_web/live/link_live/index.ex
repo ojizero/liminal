@@ -10,13 +10,13 @@ defmodule LiminalWeb.LinkLive.Index do
       <.header>
         My Links
         <:actions>
-          <.button patch={~p"/tags"}>Manage Tags</.button>
+          <.button patch={~p"/tags"} variant="primary">Manage Tags</.button>
         </:actions>
       </.header>
 
       <%!-- Filter buttons and sort control --%>
-      <div class="flex items-center gap-2 mb-4">
-        <div class="flex gap-2">
+      <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
+        <div class="flex flex-wrap gap-2">
           <button
             :for={filter <- [:unviewed, :all, :viewed]}
             phx-click="filter"
@@ -30,14 +30,12 @@ defmodule LiminalWeb.LinkLive.Index do
           </button>
         </div>
 
-        <div class="flex-1" />
-
-        <div class="flex items-center gap-2">
-          <span class="text-sm text-base-content/60">Sort:</span>
-          <form phx-change="sort" id="sort-form">
+        <div class="flex items-center gap-2 sm:ml-auto">
+          <span class="text-sm text-base-content/60 shrink-0">Sort:</span>
+          <form phx-change="sort" id="sort-form" class="min-w-0 flex-1 sm:flex-none">
             <select
               name="sort"
-              class="select select-sm select-bordered"
+              class="select select-sm select-bordered w-full min-w-0 sm:w-auto"
             >
               <option value="time_added_desc" selected={@sort == :time_added_desc}>
                 Newest first
