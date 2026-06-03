@@ -109,12 +109,14 @@ defmodule LiminalWeb.CoreComponents do
   """
   attr :rest, :global, include: ~w(href navigate patch method download name value disabled)
   attr :class, :any, default: nil
-  attr :variant, :string, values: ~w(primary soft ghost), default: "ghost"
+  attr :variant, :string, values: ~w(primary soft surface ghost), default: "ghost"
   slot :inner_block, required: true
 
   @button_variants %{
     "primary" => "btn-primary",
     "soft" => "btn-primary btn-soft",
+    "surface" =>
+      "bg-base-200 text-primary border border-base-300 hover:bg-base-300 hover:border-base-content/10 transition-colors duration-200",
     "ghost" => "btn-ghost"
   }
 
