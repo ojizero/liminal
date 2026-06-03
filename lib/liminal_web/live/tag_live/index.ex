@@ -33,7 +33,7 @@ defmodule LiminalWeb.TagLive.Index do
         <li
           :for={{id, tag} <- @streams.tags}
           id={id}
-          class="p-4 bg-base-200 rounded-lg flex items-center justify-between"
+          class="flex flex-col gap-3 rounded-lg bg-base-200 p-4 sm:flex-row sm:items-center sm:justify-between"
         >
           <div>
             <span class="font-medium">{tag.name}</span>
