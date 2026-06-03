@@ -349,8 +349,7 @@ defmodule LiminalWeb.CoreComponents do
   def header(assigns) do
     ~H"""
     <header class={[
-      @actions != [] &&
-        "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6",
+      @actions != [] && "flex items-center justify-between gap-3 sm:gap-6",
       "pb-4"
     ]}>
       <div class="min-w-0">
@@ -361,7 +360,7 @@ defmodule LiminalWeb.CoreComponents do
           {render_slot(@subtitle)}
         </p>
       </div>
-      <div :if={@actions != []} class="flex shrink-0 flex-wrap gap-2">
+      <div :if={@actions != []} class="flex shrink-0 flex-wrap justify-end gap-2">
         {render_slot(@actions)}
       </div>
     </header>
