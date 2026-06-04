@@ -10,7 +10,7 @@ defmodule LiminalWeb.LinkLive.Index do
       <.header>
         My Links
         <:actions>
-          <.button patch={~p"/tags"} variant="primary">Manage Tags</.button>
+          <.button patch={~p"/tags"} variant="soft">Manage Tags</.button>
         </:actions>
       </.header>
 
