@@ -122,6 +122,18 @@ defmodule LiminalWeb.LinkLive.Index do
                     </span>
                   </.with_tooltip>
                 </div>
+                <div :if={@shortcut_platform && !@show_keyboard_shortcut_hints} class="mt-2">
+                  <.button
+                    type="button"
+                    id="link-url-paste-from-clipboard"
+                    variant="soft"
+                    class="btn-sm w-full"
+                    disabled={!@clipboard_has_link}
+                  >
+                    <.icon name="hero-clipboard-document" class="size-4" />
+                    Paste from clipboard
+                  </.button>
+                </div>
               </div>
 
               <div class="fieldset mt-3">
@@ -496,6 +508,7 @@ defmodule LiminalWeb.LinkLive.Index do
       |> assign(:tag_id, nil)
       |> assign(:shortcut_platform, nil)
       |> assign(:show_keyboard_shortcut_hints, false)
+      |> assign(:clipboard_has_link, false)
       |> assign(:duplicate_link, nil)
       |> assign(:pending_link_params, nil)
       |> assign(:pending_tag_ids, [])
@@ -604,7 +617,12 @@ defmodule LiminalWeb.LinkLive.Index do
     {:noreply,
      socket
      |> assign(:shortcut_platform, parse_shortcut_platform(params["platform"]))
-     |> assign(:show_keyboard_shortcut_hints, show_keyboard_shortcut_hints?(params))}
+     |> assign(:show_keyboard_shortcut_hints, show_keyboard_shortcut_hints?(params))
+     |> assign(:clipboard_has_link, false)}
+  end
+
+  def handle_event("set_clipboard_has_link", params, socket) do
+    {:noreply, assign(socket, :clipboard_has_link, clipboard_has_link?(params))}
   end
 
   def handle_event("shortcut_focus_new_link", _params, socket) do
@@ -872,6 +890,10 @@ defmodule LiminalWeb.LinkLive.Index do
   defp show_keyboard_shortcut_hints?(%{"show_keyboard_shortcut_hints" => false}), do: false
   defp show_keyboard_shortcut_hints?(%{"show_keyboard_shortcut_hints" => "false"}), do: false
   defp show_keyboard_shortcut_hints?(_params), do: true
+
+  defp clipboard_has_link?(%{"has_link" => true}), do: true
+  defp clipboard_has_link?(%{"has_link" => "true"}), do: true
+  defp clipboard_has_link?(_params), do: false
 
   defp shortcut_mod_label(:mac), do: "⌘"
   defp shortcut_mod_label(:linux), do: "Super"
