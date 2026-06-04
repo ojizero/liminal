@@ -45,7 +45,7 @@ const isEditableTarget = (target) => {
   return !!target.closest("input, textarea, select, [contenteditable=true]")
 }
 
-const looksLikeUrl = (text) => {
+export const looksLikeUrl = (text) => {
   const trimmed = text.trim()
   if (!trimmed || /\s/.test(trimmed)) return false
 
@@ -58,16 +58,18 @@ const looksLikeUrl = (text) => {
   }
 }
 
-const normalizePastedUrl = (text) => {
+export const normalizePastedUrl = (text) => {
   const trimmed = text.trim()
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
 }
 
 const LinkShortcuts = {
   mounted() {
+    const showKeyboardShortcutHints = hasLikelyHardwareKeyboard()
+
     this.pushEvent("set_shortcut_platform", {
       platform: detectShortcutPlatform(),
-      show_keyboard_shortcut_hints: hasLikelyHardwareKeyboard()
+      show_keyboard_shortcut_hints: showKeyboardShortcutHints
     })
 
     this.onKeyDown = (event) => {
@@ -104,6 +106,72 @@ const LinkShortcuts = {
     window.addEventListener("keydown", this.onKeyDown, true)
     window.addEventListener("paste", this.onPaste, true)
 
+    if (!showKeyboardShortcutHints) {
+      this.lastClipboardHasLink = null
+
+      this.refreshClipboardLinkState = async () => {
+        if (!navigator.clipboard?.readText) return
+
+        try {
+          const text = await navigator.clipboard.readText()
+          const hasLink = looksLikeUrl(text)
+
+          if (hasLink !== this.lastClipboardHasLink) {
+            this.lastClipboardHasLink = hasLink
+            this.pushEvent("set_clipboard_has_link", {has_link: hasLink})
+          }
+        } catch {
+          // Clipboard may be unreadable until the user interacts with the page.
+        }
+      }
+
+      this.pasteFromClipboard = async () => {
+        if (!navigator.clipboard?.readText) {
+          this.pushEvent("shortcut_paste_no_link", {})
+          return
+        }
+
+        try {
+          const text = await navigator.clipboard.readText()
+
+          if (looksLikeUrl(text)) {
+            this.pushEvent("shortcut_paste_link", {url: normalizePastedUrl(text)})
+          } else {
+            this.pushEvent("shortcut_paste_no_link", {})
+          }
+        } catch {
+          this.pushEvent("shortcut_paste_no_link", {})
+        }
+      }
+
+      this.onVisibilityChange = () => {
+        if (document.visibilityState === "visible") {
+          this.refreshClipboardLinkState()
+        }
+      }
+
+      this.onPasteButtonClick = (event) => {
+        const button = event.target.closest("#link-url-paste-from-clipboard")
+        if (!button || button.disabled) return
+
+        event.preventDefault()
+        this.pasteFromClipboard()
+      }
+
+      document.addEventListener("visibilitychange", this.onVisibilityChange)
+      window.addEventListener("focus", this.refreshClipboardLinkState)
+      window.addEventListener("pageshow", this.refreshClipboardLinkState)
+      document.addEventListener("click", this.onPasteButtonClick, true)
+
+      this.clipboardPollInterval = window.setInterval(() => {
+        if (document.visibilityState === "visible") {
+          this.refreshClipboardLinkState()
+        }
+      }, 1500)
+
+      this.refreshClipboardLinkState()
+    }
+
     this.handleEvent("focus-new-link-url", ({scroll} = {}) => {
       const card = document.querySelector("#new-link-card")
       if (scroll && card) {
@@ -121,6 +189,14 @@ const LinkShortcuts = {
   destroyed() {
     window.removeEventListener("keydown", this.onKeyDown, true)
     window.removeEventListener("paste", this.onPaste, true)
+
+    if (this.refreshClipboardLinkState) {
+      document.removeEventListener("visibilitychange", this.onVisibilityChange)
+      window.removeEventListener("focus", this.refreshClipboardLinkState)
+      window.removeEventListener("pageshow", this.refreshClipboardLinkState)
+      document.removeEventListener("click", this.onPasteButtonClick, true)
+      window.clearInterval(this.clipboardPollInterval)
+    }
   }
 }
 

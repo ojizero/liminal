@@ -201,6 +201,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#link-url-paste-shortcut kbd", "V")
       assert has_element?(view, "#link-url-focus-shortcut kbd", "⌘")
       assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
+      refute has_element?(view, "#link-url-paste-from-clipboard")
       refute render(view) =~ "Super"
       refute render(view) =~ "Ctrl"
       refute render(view) =~ "Mod"
@@ -248,6 +249,36 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       refute has_element?(view, "#link-url-paste-shortcut")
       refute has_element?(view, "#link-url-focus-shortcut")
       refute render(view) =~ "1..9"
+      assert has_element?(view, "#link-url-paste-from-clipboard[disabled]")
+      refute has_element?(view, "#link-url-paste-from-clipboard:not([disabled])")
+    end
+
+    test "touch-first paste button enables when clipboard contains a link", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "mac",
+        "show_keyboard_shortcut_hints" => false
+      })
+
+      assert has_element?(view, "#link-url-paste-from-clipboard[disabled]")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("set_clipboard_has_link", %{"has_link" => true})
+
+      assert has_element?(view, "#link-url-paste-from-clipboard:not([disabled])")
+      refute has_element?(view, "#link-url-paste-from-clipboard[disabled]")
+    end
+
+    test "touch-first devices do not show clipboard paste button before platform is detected", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      refute has_element?(view, "#link-url-paste-from-clipboard")
     end
 
     test "shortcut focus event pushes client focus event", %{conn: conn} do
