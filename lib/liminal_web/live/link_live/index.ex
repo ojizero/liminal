@@ -130,8 +130,7 @@ defmodule LiminalWeb.LinkLive.Index do
                     class="btn-sm w-full"
                     disabled={!@clipboard_has_link}
                   >
-                    <.icon name="hero-clipboard-document" class="size-4" />
-                    Paste from clipboard
+                    <.icon name="hero-clipboard-document" class="size-4" /> Paste from clipboard
                   </.button>
                 </div>
               </div>
