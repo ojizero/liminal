@@ -32,6 +32,40 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "button.btn-primary", "Unviewed")
     end
 
+    test "exposes ARIA semantics on filters, sort, and landmarks", %{conn: conn, scope: scope} do
+      {:ok, view, _html} = live(conn, ~p"/")
+      html = render(view)
+
+      assert html =~ ~s/role="group"/
+      assert html =~ ~s/aria-label="Filter links by view status"/
+      assert has_element?(view, "button[phx-value-filter='unviewed'][aria-pressed]")
+      assert has_element?(view, "label[for='sort-select']", "Sort:")
+      assert has_element?(view, "#sort-select")
+      assert has_element?(view, "a[href='#main-content']", "Skip to main content")
+      assert has_element?(view, "#main-content")
+
+      tag = hd(Liminal.Links.list_tags(scope))
+
+      view
+      |> element("button[phx-click='toggle_filter_tag'][phx-value-id='#{tag.id}']")
+      |> render_click()
+
+      assert has_element?(view, "button[phx-value-id='#{tag.id}'][aria-pressed]")
+      assert render(view) =~ ~s/aria-label="Filter by #{tag.name}"/
+    end
+
+    test "icon actions on link cards have aria-label", %{conn: conn, scope: scope} do
+      _link = link_fixture(scope, %{url: "https://example.com/a11y", title: "A11y Link"})
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      assert has_element?(view, "button[aria-label='Delete A11y Link']")
+      assert has_element?(view, "a[aria-label='Edit A11y Link']")
+      assert has_element?(view, "a[aria-label='Open A11y Link (opens in new tab)']")
+      refute has_element?(view, "img[alt='A11y Link']")
+    end
+
     test "add a link via form with tag selection", %{conn: conn, scope: scope} do
       {:ok, view, _html} = live(conn, ~p"/")
 
@@ -201,6 +235,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#link-url-paste-shortcut kbd", "V")
       assert has_element?(view, "#link-url-focus-shortcut kbd", "⌘")
       assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
+      assert has_element?(view, "#keyboard-shortcuts-help")
       refute has_element?(view, "#link-url-paste-from-clipboard")
       refute render(view) =~ "Super"
       refute render(view) =~ "Ctrl"

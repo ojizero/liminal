@@ -35,7 +35,11 @@ defmodule LiminalWeb.Admin.UserLive.Index do
 
       <%!-- Users stream --%>
       <div id="users" phx-update="stream" class="space-y-3">
-        <div id="users-empty" class="hidden only:block text-center py-8 text-base-content/50">
+        <div
+          id="users-empty"
+          role="status"
+          class="hidden only:block text-center py-8 text-base-content/50"
+        >
           No users found.
         </div>
         <div
@@ -63,7 +67,7 @@ defmodule LiminalWeb.Admin.UserLive.Index do
 
             <%= cond do %>
               <% user.role == "admin" and user.id == @current_scope.user.id -> %>
-                <div class="flex flex-wrap gap-1 items-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                <div class="flex flex-wrap gap-1 items-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
                   <.button
                     variant="ghost"
                     class="btn-sm"
@@ -76,7 +80,7 @@ defmodule LiminalWeb.Admin.UserLive.Index do
               <% user.role == "admin" -> %>
                 <%!-- Other admin users — no actions --%>
               <% true -> %>
-                <div class="flex flex-wrap gap-1 items-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                <div class="flex flex-wrap gap-1 items-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
                   <.button
                     variant="ghost"
                     class="btn-sm"
@@ -118,6 +122,9 @@ defmodule LiminalWeb.Admin.UserLive.Index do
 
           <%= if @reset_url && @reset_user_id == user.id do %>
             <div class="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+              <label for={"reset-url-#{user.id}"} class="sr-only">
+                Password reset link for {user.username}
+              </label>
               <input
                 type="text"
                 readonly
@@ -132,6 +139,7 @@ defmodule LiminalWeb.Admin.UserLive.Index do
                   class="btn-sm"
                   phx-hook="CopyToClipboard"
                   data-clipboard-text={@reset_url}
+                  aria-label={"Copy password reset link for #{user.username}"}
                 >
                   Copy
                 </.button>
@@ -310,5 +318,9 @@ defmodule LiminalWeb.Admin.UserLive.Index do
      socket
      |> assign(:reset_url, nil)
      |> assign(:reset_user_id, nil)}
+  end
+
+  def handle_event("copied_to_clipboard", _params, socket) do
+    {:noreply, put_flash(socket, :info, "Copied to clipboard")}
   end
 end

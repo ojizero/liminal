@@ -45,14 +45,16 @@ defmodule LiminalWeb.Components.Modal do
       :if={@show}
       id={@id}
       open
+      aria-modal="true"
+      aria-labelledby={@title != [] && "#{@id}-title"}
       class="modal modal-bottom sm:modal-middle"
       phx-window-keydown={@closeable && @on_cancel}
       phx-key="Escape"
     >
       <div class={@box_class}>
-        <h3 :if={@title != []} class="text-lg font-bold">
+        <h2 :if={@title != []} id={"#{@id}-title"} class="text-lg font-bold">
           {render_slot(@title)}
-        </h3>
+        </h2>
 
         <div class={@title != [] && "py-4"}>
           {render_slot(@inner_block)}

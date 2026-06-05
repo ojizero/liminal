@@ -10,7 +10,7 @@ defmodule LiminalWeb.UserLive.Login do
       <Layouts.narrow_page>
         <div class="text-center">
           <.header>
-            <p>Log in</p>
+            Log in
             <:subtitle>
               <%= cond do %>
                 <% !!@current_scope -> %>
@@ -77,7 +77,10 @@ defmodule LiminalWeb.UserLive.Login do
       form = to_form(%{"username" => username}, as: "user")
       show_signup_link = signups_enabled or not has_admins
 
-      {:ok, assign(socket, form: form, trigger_submit: false, show_signup_link: show_signup_link)}
+      {:ok,
+       socket
+       |> assign(:page_title, "Log in")
+       |> assign(form: form, trigger_submit: false, show_signup_link: show_signup_link)}
     end
   end
 

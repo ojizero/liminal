@@ -73,7 +73,7 @@ defmodule LiminalWeb.UserLive.Settings do
         </.form>
 
         <div class="divider" />
-        <.header>
+        <.header level={2}>
           Preferences
           <:subtitle>Tweak how Liminal behaves for you.</:subtitle>
         </.header>
@@ -92,7 +92,7 @@ defmodule LiminalWeb.UserLive.Settings do
 
         <%= if @current_scope.user.role == "admin" do %>
           <div class="divider" />
-          <.header>
+          <.header level={2}>
             Admin Role
             <:subtitle>
               You are currently an admin. You can step down to become a normal user.
@@ -110,7 +110,7 @@ defmodule LiminalWeb.UserLive.Settings do
         <% end %>
 
         <div class="divider" />
-        <.header>
+        <.header level={2}>
           Danger Zone
           <:subtitle>Permanently delete your account and all associated data.</:subtitle>
         </.header>
@@ -136,6 +136,7 @@ defmodule LiminalWeb.UserLive.Settings do
 
     socket =
       socket
+      |> assign(:page_title, "Account Settings")
       |> assign(:current_username, user.username)
       |> assign(:username_form, to_form(username_changeset))
       |> assign(:password_form, to_form(password_changeset))

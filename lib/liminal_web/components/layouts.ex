@@ -41,6 +41,13 @@ defmodule LiminalWeb.Layouts do
 
   def app(assigns) do
     ~H"""
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 btn btn-sm btn-primary"
+    >
+      Skip to main content
+    </a>
+
     <header class="navbar min-h-14 gap-2 px-3 sm:px-6 lg:px-8">
       <div class="flex-1 min-w-0">
         <.link
@@ -66,54 +73,56 @@ defmodule LiminalWeb.Layouts do
                 {@current_scope.user.username}
               </span>
             </summary>
-            <ul
-              id="user-menu"
-              class="dropdown-content menu bg-base-200 rounded-box z-10 mt-2 w-52 p-2 shadow"
-            >
-              <li>
-                <.link
-                  navigate={~p"/"}
-                  class={[@active_nav == :links && "menu-active"]}
-                  aria-current={@active_nav == :links && "page"}
-                >
-                  <.icon name="hero-link" class="size-4" /> Links
-                </.link>
-              </li>
-              <%= if Scope.admin?(@current_scope) do %>
+            <nav aria-label="Account">
+              <ul
+                id="user-menu"
+                class="dropdown-content menu bg-base-200 rounded-box z-10 mt-2 w-52 p-2 shadow"
+              >
                 <li>
                   <.link
-                    navigate={~p"/admin/users"}
-                    class={[@active_nav == :admin && "menu-active"]}
-                    aria-current={@active_nav == :admin && "page"}
+                    navigate={~p"/"}
+                    class={[@active_nav == :links && "menu-active"]}
+                    aria-current={@active_nav == :links && "page"}
                   >
-                    <.icon name="hero-shield-check" class="size-4" /> Admin
+                    <.icon name="hero-link" class="size-4" /> Links
                   </.link>
                 </li>
-              <% end %>
-              <li class="pointer-events-none my-1">
-                <hr class="border-base-content/10" />
-              </li>
-              <li>
-                <.link navigate={~p"/users/settings"}>
-                  <.icon name="hero-cog-6-tooth" class="size-4" /> Settings
-                </.link>
-              </li>
-              <li>
-                <.link
-                  href={~p"/users/log-out"}
-                  method="delete"
-                  class="text-error hover:text-error"
-                >
-                  <.icon name="hero-arrow-right-start-on-rectangle" class="size-4" /> Log out
-                </.link>
-              </li>
-            </ul>
+                <%= if Scope.admin?(@current_scope) do %>
+                  <li>
+                    <.link
+                      navigate={~p"/admin/users"}
+                      class={[@active_nav == :admin && "menu-active"]}
+                      aria-current={@active_nav == :admin && "page"}
+                    >
+                      <.icon name="hero-shield-check" class="size-4" /> Admin
+                    </.link>
+                  </li>
+                <% end %>
+                <li class="pointer-events-none my-1">
+                  <hr class="border-base-content/10" />
+                </li>
+                <li>
+                  <.link navigate={~p"/users/settings"}>
+                    <.icon name="hero-cog-6-tooth" class="size-4" /> Settings
+                  </.link>
+                </li>
+                <li>
+                  <.link
+                    href={~p"/users/log-out"}
+                    method="delete"
+                    class="text-error hover:text-error"
+                  >
+                    <.icon name="hero-arrow-right-start-on-rectangle" class="size-4" /> Log out
+                  </.link>
+                </li>
+              </ul>
+            </nav>
           </details>
         <% end %>
       </div>
     </header>
 
-    <main class="px-4 py-8 sm:px-6 lg:px-8">
+    <main id="main-content" class="px-4 py-8 sm:px-6 lg:px-8">
       <div class="mx-auto max-w-6xl space-y-4">
         {render_slot(@inner_block)}
       </div>
@@ -188,33 +197,70 @@ defmodule LiminalWeb.Layouts do
   """
   def theme_toggle(assigns) do
     ~H"""
-    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
+    <div
+      id="theme-toggle"
+      phx-hook=".ThemeToggle"
+      role="group"
+      aria-label="Color theme"
+      class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full"
+    >
       <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=latte]_&]:left-1/3 [[data-theme=mocha]_&]:left-2/3 transition-[left]" />
 
       <button
+        type="button"
         class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="system"
+        aria-label="System theme"
+        aria-pressed="false"
       >
         <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>
 
       <button
+        type="button"
         class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="latte"
+        aria-label="Light theme"
+        aria-pressed="false"
       >
         <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>
 
       <button
+        type="button"
         class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="mocha"
+        aria-label="Dark theme"
+        aria-pressed="false"
       >
         <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>
     </div>
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".ThemeToggle">
+      export default {
+        mounted() {
+          this.syncPressed()
+          this.onTheme = () => this.syncPressed()
+          window.addEventListener("phx:set-theme", this.onTheme)
+        },
+        destroyed() {
+          window.removeEventListener("phx:set-theme", this.onTheme)
+        },
+        syncPressed() {
+          const stored = localStorage.getItem("phx:theme")
+          const attr = document.documentElement.getAttribute("data-theme")
+          const active = stored || (attr ? attr : "system")
+
+          this.el.querySelectorAll("button[data-phx-theme]").forEach((button) => {
+            const pressed = button.dataset.phxTheme === active
+            button.setAttribute("aria-pressed", pressed ? "true" : "false")
+          })
+        }
+      }
+    </script>
     """
   end
 end
