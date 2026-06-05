@@ -96,6 +96,9 @@ defmodule LiminalWeb.LinkLive.Index do
                   phx-debounce="300"
                   fieldset_class="mb-0"
                   class={@shortcut_platform && @show_keyboard_shortcut_hints && "pr-20"}
+                  aria-keyshortcuts={
+                    @shortcut_platform && focus_url_aria_keyshortcuts(@shortcut_platform)
+                  }
                 >
                   <:suffix :if={@shortcut_platform && @show_keyboard_shortcut_hints}>
                     <div
@@ -123,6 +126,9 @@ defmodule LiminalWeb.LinkLive.Index do
                     <span
                       class="text-xs text-base-content/45"
                       aria-label="Paste a copied URL from clipboard. Works when not focused in an input."
+                      aria-keyshortcuts={
+                        @shortcut_platform && paste_aria_keyshortcuts(@shortcut_platform)
+                      }
                     >
                       Paste from anywhere
                     </span>
@@ -198,6 +204,9 @@ defmodule LiminalWeb.LinkLive.Index do
                       data-shortcut-index={idx}
                       aria-pressed={tag.id in @selected_tag_ids}
                       aria-label={"#{tag.name}, expires in #{tag.expires_in_days} days"}
+                      aria-keyshortcuts={
+                        @shortcut_platform && tag_toggle_aria_keyshortcuts(@shortcut_platform, idx)
+                      }
                       class={[
                         "badge badge-sm cursor-pointer select-none transition-colors",
                         if(tag.id in @selected_tag_ids,
@@ -948,6 +957,20 @@ defmodule LiminalWeb.LinkLive.Index do
   defp shortcut_shift_label(:mac), do: "Shift"
   defp shortcut_shift_label(:linux), do: "Shift"
   defp shortcut_shift_label(:windows), do: "Shift"
+
+  defp shortcut_mod_aria(:mac), do: "Meta"
+  defp shortcut_mod_aria(:linux), do: "Meta"
+  defp shortcut_mod_aria(:windows), do: "Control"
+
+  defp focus_url_aria_keyshortcuts(platform) do
+    mod = shortcut_mod_aria(platform)
+    "#{mod}+K #{mod}+V"
+  end
+
+  defp paste_aria_keyshortcuts(platform), do: "#{shortcut_mod_aria(platform)}+V"
+
+  defp tag_toggle_aria_keyshortcuts(platform, index),
+    do: "#{shortcut_mod_aria(platform)}+Shift+#{index}"
 
   defp normalize_pasted_url(url) when is_binary(url) do
     trimmed = String.trim(url)

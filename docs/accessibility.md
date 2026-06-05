@@ -52,7 +52,7 @@ daisyUI `data-tip` tooltips are not exposed on keyboard focus. Essential informa
 
 ### Keyboard shortcuts
 
-Global shortcuts (e.g. focus URL, paste link, toggle tags by number) are hinted inline via `<kbd>` badges on the new-link form for sighted keyboard users. There is no separate shortcuts help panel — adding one would compromise the links page layout. Screen reader coverage for shortcut discovery is intentionally limited; the paste hint uses `aria-label` where it does not affect visual design.
+Global shortcuts (focus URL, paste link, toggle tags by number) are hinted inline via existing `<kbd>` badges. Bound controls also expose `aria-keyshortcuts` on the URL field, paste hint, and tag toggle buttons — values use `Meta`/`Control` + key names per platform, matching `link_shortcuts_hook.js`. No separate shortcuts help panel; visual kbd markup is unchanged.
 
 ## Testing
 

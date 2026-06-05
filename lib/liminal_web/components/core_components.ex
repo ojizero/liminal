@@ -208,7 +208,7 @@ defmodule LiminalWeb.CoreComponents do
   attr :rest, :global,
     include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
                 multiple pattern placeholder readonly required rows size step aria-describedby
-                aria-invalid)
+                aria-invalid aria-keyshortcuts)
 
   slot :suffix, doc: "optional content overlaid on the input (e.g. keyboard shortcut hints)"
 
