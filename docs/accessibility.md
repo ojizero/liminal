@@ -50,6 +50,10 @@ Latte/Mocha tokens and muted text (`text-base-content/45`–`/70`, viewed-link o
 
 daisyUI `data-tip` tooltips are not exposed on keyboard focus. Essential information must be in `aria-label` or visible text.
 
+### Keyboard shortcuts
+
+Global shortcuts (e.g. focus URL, paste link, toggle tags by number) are hinted inline via `<kbd>` badges on the new-link form for sighted keyboard users. There is no separate shortcuts help panel — adding one would compromise the links page layout. Screen reader coverage for shortcut discovery is intentionally limited; the paste hint uses `aria-label` where it does not affect visual design.
+
 ## Testing
 
 ### Automated

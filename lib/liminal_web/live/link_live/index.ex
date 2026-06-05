@@ -74,46 +74,6 @@ defmodule LiminalWeb.LinkLive.Index do
 
       <div id="link-shortcuts" phx-hook="LinkShortcuts" />
 
-      <div
-        :if={@shortcut_platform}
-        id="keyboard-shortcuts-help"
-        class="collapse collapse-arrow bg-base-200 rounded-lg mb-4"
-      >
-        <input type="checkbox" aria-label="Toggle keyboard shortcuts help" />
-        <div class="collapse-title min-h-0 py-3 text-sm font-medium">
-          Keyboard shortcuts
-        </div>
-        <div class="collapse-content text-sm text-base-content/70">
-          <dl class="space-y-2">
-            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <dt class="sr-only">Focus new link field</dt>
-              <dd class="flex items-center gap-1">
-                <kbd class="kbd kbd-xs">{shortcut_mod_label(@shortcut_platform)}</kbd>
-                <kbd class="kbd kbd-xs">K</kbd>
-                <span>Focus the new link URL field</span>
-              </dd>
-            </div>
-            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <dt class="sr-only">Paste URL from clipboard</dt>
-              <dd class="flex items-center gap-1">
-                <kbd class="kbd kbd-xs">{shortcut_mod_label(@shortcut_platform)}</kbd>
-                <kbd class="kbd kbd-xs">V</kbd>
-                <span>Paste a URL from clipboard when not focused in an input</span>
-              </dd>
-            </div>
-            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <dt class="sr-only">Toggle tag by number</dt>
-              <dd class="flex items-center gap-1">
-                <kbd class="kbd kbd-xs">{shortcut_mod_label(@shortcut_platform)}</kbd>
-                <kbd class="kbd kbd-xs">{shortcut_shift_label(@shortcut_platform)}</kbd>
-                <kbd class="kbd kbd-xs">1–9</kbd>
-                <span>Toggle tags on the new link form by position</span>
-              </dd>
-            </div>
-          </dl>
-        </div>
-      </div>
-
       <%!-- Links (masonry) --%>
       <div
         id="masonry"

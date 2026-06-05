@@ -235,7 +235,6 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#link-url-paste-shortcut kbd", "V")
       assert has_element?(view, "#link-url-focus-shortcut kbd", "⌘")
       assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
-      assert has_element?(view, "#keyboard-shortcuts-help")
       refute has_element?(view, "#link-url-paste-from-clipboard")
       refute render(view) =~ "Super"
       refute render(view) =~ "Ctrl"
