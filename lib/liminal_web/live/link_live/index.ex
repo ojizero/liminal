@@ -122,7 +122,13 @@ defmodule LiminalWeb.LinkLive.Index do
                     </span>
                   </.with_tooltip>
                 </div>
-                <div :if={@shortcut_platform && !@show_keyboard_shortcut_hints} class="mt-2">
+                <div
+                  :if={
+                    @shortcut_platform && !@show_keyboard_shortcut_hints &&
+                      @show_clipboard_paste_button
+                  }
+                  class="mt-2"
+                >
                   <.button
                     type="button"
                     id="link-url-paste-from-clipboard"
@@ -507,6 +513,7 @@ defmodule LiminalWeb.LinkLive.Index do
       |> assign(:tag_id, nil)
       |> assign(:shortcut_platform, nil)
       |> assign(:show_keyboard_shortcut_hints, false)
+      |> assign(:show_clipboard_paste_button, false)
       |> assign(:clipboard_has_link, false)
       |> assign(:duplicate_link, nil)
       |> assign(:pending_link_params, nil)
@@ -617,6 +624,7 @@ defmodule LiminalWeb.LinkLive.Index do
      socket
      |> assign(:shortcut_platform, parse_shortcut_platform(params["platform"]))
      |> assign(:show_keyboard_shortcut_hints, show_keyboard_shortcut_hints?(params))
+     |> assign(:show_clipboard_paste_button, show_clipboard_paste_button?(params))
      |> assign(:clipboard_has_link, false)}
   end
 
@@ -889,6 +897,10 @@ defmodule LiminalWeb.LinkLive.Index do
   defp show_keyboard_shortcut_hints?(%{"show_keyboard_shortcut_hints" => false}), do: false
   defp show_keyboard_shortcut_hints?(%{"show_keyboard_shortcut_hints" => "false"}), do: false
   defp show_keyboard_shortcut_hints?(_params), do: true
+
+  defp show_clipboard_paste_button?(%{"show_clipboard_paste_button" => false}), do: false
+  defp show_clipboard_paste_button?(%{"show_clipboard_paste_button" => "false"}), do: false
+  defp show_clipboard_paste_button?(_params), do: true
 
   defp clipboard_has_link?(%{"has_link" => true}), do: true
   defp clipboard_has_link?(%{"has_link" => "true"}), do: true

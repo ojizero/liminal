@@ -243,7 +243,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> element("#link-shortcuts")
       |> render_hook("set_shortcut_platform", %{
         "platform" => "mac",
-        "show_keyboard_shortcut_hints" => false
+        "show_keyboard_shortcut_hints" => false,
+        "show_clipboard_paste_button" => true
       })
 
       refute has_element?(view, "#link-url-paste-shortcut")
@@ -253,6 +254,21 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       refute has_element?(view, "#link-url-paste-from-clipboard:not([disabled])")
     end
 
+    test "hides clipboard paste button on iOS touch-first devices", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "mac",
+        "show_keyboard_shortcut_hints" => false,
+        "show_clipboard_paste_button" => false
+      })
+
+      refute has_element?(view, "#link-url-paste-from-clipboard")
+      refute render(view) =~ "Paste from clipboard"
+    end
+
     test "touch-first paste button enables when clipboard contains a link", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
@@ -260,7 +276,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> element("#link-shortcuts")
       |> render_hook("set_shortcut_platform", %{
         "platform" => "mac",
-        "show_keyboard_shortcut_hints" => false
+        "show_keyboard_shortcut_hints" => false,
+        "show_clipboard_paste_button" => true
       })
 
       assert has_element?(view, "#link-url-paste-from-clipboard[disabled]")

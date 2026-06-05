@@ -1,6 +1,13 @@
 export const platform = navigator.userAgentData?.platform || navigator.platform || ""
 const isWindowsPlatform = /win/i.test(platform)
 
+// iOS Safari (and all iOS browsers) cannot probe the clipboard in the background.
+export const isIOS = () => {
+  if (/iPad|iPhone|iPod/i.test(navigator.userAgent)) return true
+
+  return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1
+}
+
 const usesModKey = (event) => {
   if (isWindowsPlatform) return event.ctrlKey
   return event.metaKey
@@ -69,7 +76,8 @@ const LinkShortcuts = {
 
     this.pushEvent("set_shortcut_platform", {
       platform: detectShortcutPlatform(),
-      show_keyboard_shortcut_hints: showKeyboardShortcutHints
+      show_keyboard_shortcut_hints: showKeyboardShortcutHints,
+      show_clipboard_paste_button: showKeyboardShortcutHints || !isIOS()
     })
 
     this.onKeyDown = (event) => {
@@ -106,7 +114,7 @@ const LinkShortcuts = {
     window.addEventListener("keydown", this.onKeyDown, true)
     window.addEventListener("paste", this.onPaste, true)
 
-    if (!showKeyboardShortcutHints) {
+    if (!showKeyboardShortcutHints && !isIOS()) {
       this.lastClipboardHasLink = null
 
       this.refreshClipboardLinkState = async () => {
