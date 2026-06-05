@@ -212,7 +212,7 @@ defmodule LiminalWeb.Admin.UserLive.IndexTest do
     setup :register_and_log_in_admin
 
     test "displays reset URL inline when clicking Reset Password", %{conn: conn} do
-      _regular_user = user_fixture(%{username: "resetme"})
+      user = user_fixture(%{username: "resetme"})
       {:ok, view, _html} = live(conn, ~p"/admin/users")
 
       assert has_element?(view, "#users", "resetme")
@@ -221,7 +221,14 @@ defmodule LiminalWeb.Admin.UserLive.IndexTest do
       |> element("button[phx-click='generate_reset_link']")
       |> render_click()
 
-      assert has_element?(view, "input[readonly]")
+      assert has_element?(view, "#reset-url-#{user.id}")
+      assert has_element?(view, "button[aria-label='Copy password reset link for resetme']")
+
+      view
+      |> element("#copy-reset-url-#{user.id}")
+      |> render_hook("copied_to_clipboard", %{})
+
+      assert render(view) =~ "Copied to clipboard"
     end
   end
 end

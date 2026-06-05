@@ -27,7 +27,11 @@ defmodule LiminalWeb.TagLive.Index do
 
       <%!-- Tags list --%>
       <ul id="tags" phx-update="stream" class="space-y-3">
-        <li id="tags-empty" class="hidden only:block text-center py-6 text-base-content/50">
+        <li
+          id="tags-empty"
+          role="status"
+          class="hidden only:block text-center py-6 text-base-content/50"
+        >
           No tags yet.
         </li>
         <li
@@ -42,7 +46,12 @@ defmodule LiminalWeb.TagLive.Index do
             </span>
           </div>
           <div class="flex gap-1">
-            <.button patch={~p"/tags/#{tag.id}/edit"} variant="ghost" class="btn-sm btn-circle">
+            <.button
+              patch={~p"/tags/#{tag.id}/edit"}
+              variant="ghost"
+              class="btn-sm btn-circle"
+              aria-label={"Edit tag #{tag.name}"}
+            >
               <.icon name="hero-pencil-square" class="size-4" />
             </.button>
             <.button
@@ -51,6 +60,7 @@ defmodule LiminalWeb.TagLive.Index do
               phx-click="delete"
               phx-target={@myself}
               phx-value-id={tag.id}
+              aria-label={"Delete tag #{tag.name}"}
               data-confirm="Are you sure? Links tagged with this tag will lose the tag."
             >
               <.icon name="hero-trash" class="size-4" />

@@ -16,11 +16,12 @@ defmodule LiminalWeb.LinkLive.Index do
 
       <%!-- Filter buttons and sort control --%>
       <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2" role="group" aria-label="Filter links by view status">
           <button
             :for={filter <- [:unviewed, :all, :viewed]}
             phx-click="filter"
             phx-value-filter={filter}
+            aria-pressed={@filter == filter}
             class={[
               "btn btn-sm",
               if(@filter == filter, do: "btn-primary", else: "btn-ghost")
@@ -31,9 +32,10 @@ defmodule LiminalWeb.LinkLive.Index do
         </div>
 
         <div class="flex items-center gap-2 sm:ml-auto">
-          <span class="text-sm text-base-content/60 shrink-0">Sort:</span>
+          <label for="sort-select" class="text-sm text-base-content/60 shrink-0">Sort:</label>
           <form phx-change="sort" id="sort-form" class="min-w-0 flex-1 sm:flex-none">
             <select
+              id="sort-select"
               name="sort"
               class="select select-sm select-bordered w-full min-w-0 sm:w-auto"
             >
@@ -48,12 +50,19 @@ defmodule LiminalWeb.LinkLive.Index do
       </div>
 
       <%!-- Tag filter chips --%>
-      <div :if={@tags != []} class="flex flex-wrap gap-2 mb-4">
+      <div
+        :if={@tags != []}
+        class="flex flex-wrap gap-2 mb-4"
+        role="group"
+        aria-label="Filter by tags"
+      >
         <span class="text-sm text-base-content/60 self-center mr-1">Tags:</span>
         <button
           :for={tag <- @tags}
           phx-click="toggle_filter_tag"
           phx-value-id={tag.id}
+          aria-pressed={tag.id in @filter_tag_ids}
+          aria-label={"Filter by #{tag.name}"}
           class={[
             "badge cursor-pointer select-none transition-colors",
             if(tag.id in @filter_tag_ids, do: "badge-primary", else: "badge-outline badge-ghost")
@@ -87,6 +96,9 @@ defmodule LiminalWeb.LinkLive.Index do
                   phx-debounce="300"
                   fieldset_class="mb-0"
                   class={@shortcut_platform && @show_keyboard_shortcut_hints && "pr-20"}
+                  aria-keyshortcuts={
+                    @shortcut_platform && focus_url_aria_keyshortcuts(@shortcut_platform)
+                  }
                 >
                   <:suffix :if={@shortcut_platform && @show_keyboard_shortcut_hints}>
                     <div
@@ -111,7 +123,15 @@ defmodule LiminalWeb.LinkLive.Index do
                     tip="Paste a copied URL from your clipboard into the link field. This action works anywhere as long as you're not focusing an input field."
                     class="cursor-default inline-flex items-center gap-1.5"
                   >
-                    <span class="text-xs text-base-content/45">Paste from anywhere</span>
+                    <span
+                      class="text-xs text-base-content/45"
+                      aria-label="Paste a copied URL from clipboard. Works when not focused in an input."
+                      aria-keyshortcuts={
+                        @shortcut_platform && paste_aria_keyshortcuts(@shortcut_platform)
+                      }
+                    >
+                      Paste from anywhere
+                    </span>
                     <span class="inline-flex items-center gap-0.5">
                       <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
                         {shortcut_mod_label(@shortcut_platform)}
@@ -182,6 +202,11 @@ defmodule LiminalWeb.LinkLive.Index do
                       phx-value-id={tag.id}
                       id={"new-link-tag-#{idx}"}
                       data-shortcut-index={idx}
+                      aria-pressed={tag.id in @selected_tag_ids}
+                      aria-label={"#{tag.name}, expires in #{tag.expires_in_days} days"}
+                      aria-keyshortcuts={
+                        @shortcut_platform && tag_toggle_aria_keyshortcuts(@shortcut_platform, idx)
+                      }
                       class={[
                         "badge badge-sm cursor-pointer select-none transition-colors",
                         if(tag.id in @selected_tag_ids,
@@ -206,7 +231,11 @@ defmodule LiminalWeb.LinkLive.Index do
         </div>
 
         <div id="links" phx-update="stream" class="contents">
-          <div id="links-empty" class="hidden only:block text-center py-8 text-base-content/50">
+          <div
+            id="links-empty"
+            role="status"
+            class="hidden only:block text-center py-8 text-base-content/50"
+          >
             No links yet. Add one above!
           </div>
           <div
@@ -218,22 +247,14 @@ defmodule LiminalWeb.LinkLive.Index do
               link.viewed_at && "opacity-60"
             ]}
           >
-            <a
-              :if={link.image_path}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              phx-click={@auto_mark_viewed && "open_link"}
-              phx-value-id={link.id}
-              class="h-56 w-full shrink-0 overflow-hidden block"
-            >
+            <div :if={link.image_path} class="h-56 w-full shrink-0 overflow-hidden">
               <img
                 src={"/#{link.image_path}"}
                 alt=""
                 class="h-full w-full object-cover"
                 loading="lazy"
               />
-            </a>
+            </div>
 
             <div class="card-body p-4 gap-2">
               <a
@@ -242,26 +263,41 @@ defmodule LiminalWeb.LinkLive.Index do
                 rel="noopener noreferrer"
                 phx-click={@auto_mark_viewed && "open_link"}
                 phx-value-id={link.id}
+                aria-label={"Open #{link_display_title(link)} (opens in new tab)"}
                 class="font-bold line-clamp-2 hover:underline"
               >
-                {link.title || link.url}
+                {link_display_title(link)}
               </a>
 
               <%= case index_status(link) do %>
                 <% :pending -> %>
-                  <span class="badge badge-sm badge-ghost gap-1 w-fit">
+                  <span
+                    class="badge badge-sm badge-ghost gap-1 w-fit"
+                    role="status"
+                    aria-live="polite"
+                  >
                     <.icon name="hero-arrow-path" class="size-3 animate-spin" /> Fetching metadata…
                   </span>
                 <% :scheduled -> %>
                   <.with_tooltip tip={"Next attempt #{format_datetime(link.index_next_attempt_at)}"}>
-                    <span class="badge badge-sm badge-ghost w-fit">
+                    <span
+                      class="badge badge-sm badge-ghost w-fit"
+                      role="status"
+                      aria-live="polite"
+                      aria-label={"Retry scheduled, next attempt #{format_datetime(link.index_next_attempt_at)}"}
+                    >
                       Retry scheduled · {time_until(link.index_next_attempt_at)}
                     </span>
                   </.with_tooltip>
                 <% :gave_up -> %>
                   <div class="flex flex-wrap items-center gap-2">
                     <.with_tooltip tip={"Gave up #{format_datetime(link.index_gave_up_at)} after #{link.index_attempt_count} attempts"}>
-                      <span class="badge badge-sm badge-warning w-fit">
+                      <span
+                        class="badge badge-sm badge-warning w-fit"
+                        role="status"
+                        aria-live="polite"
+                        aria-label={"Indexing failed, gave up #{format_datetime(link.index_gave_up_at)} after #{link.index_attempt_count} attempts"}
+                      >
                         Indexing failed
                       </span>
                     </.with_tooltip>
@@ -290,6 +326,7 @@ defmodule LiminalWeb.LinkLive.Index do
                         phx-click="untag"
                         phx-value-link-id={link.id}
                         phx-value-tag-id={lt.tag_id}
+                        aria-label={"Remove tag #{lt.tag.name} from link"}
                         class="hover:text-error"
                       >
                         <.icon name="hero-x-mark" class="size-3" />
@@ -301,13 +338,21 @@ defmodule LiminalWeb.LinkLive.Index do
                 <% assigned_ids = Enum.map(link.link_tags, & &1.tag_id) %>
                 <% available = Enum.reject(@tags, fn t -> t.id in assigned_ids end) %>
                 <details :if={available != []} class="dropdown">
-                  <summary class="badge badge-sm badge-ghost cursor-pointer gap-1">
+                  <summary
+                    class="badge badge-sm badge-ghost cursor-pointer gap-1"
+                    aria-label="Add tag"
+                  >
                     <.icon name="hero-plus" class="size-3" /> tag
                   </summary>
                   <ul class="dropdown-content menu bg-base-200 rounded-box z-10 p-2 shadow mt-1">
                     <li :for={tag <- available}>
                       <.with_tooltip tip={"Expires in #{tag.expires_in_days} days"}>
-                        <button phx-click="tag" phx-value-link-id={link.id} phx-value-tag-id={tag.id}>
+                        <button
+                          phx-click="tag"
+                          phx-value-link-id={link.id}
+                          phx-value-tag-id={tag.id}
+                          aria-label={"Add tag #{tag.name}, expires in #{tag.expires_in_days} days"}
+                        >
                           {tag.name}
                         </button>
                       </.with_tooltip>
@@ -327,22 +372,16 @@ defmodule LiminalWeb.LinkLive.Index do
                 <%= if link.favicon_url do %>
                   <img src={link.favicon_url} class="size-4 rounded" alt="" />
                 <% end %>
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  phx-click={@auto_mark_viewed && "open_link"}
-                  phx-value-id={link.id}
-                  class="truncate hover:underline hover:text-primary"
-                >
-                  {URI.parse(link.url).host || link.url}
-                </a>
+                <span class="truncate text-base-content/50">
+                  {link_host(link)}
+                </span>
 
                 <%= if expiry = Links.link_expires_at(link) do %>
                   <.with_tooltip tip={format_datetime(expiry)}>
                     <span
                       id={"link-expiry-#{link.id}"}
                       class="flex items-center gap-1 shrink-0 text-base-content/45"
+                      aria-label={"Expires #{format_datetime(expiry)}"}
                     >
                       <.icon name="hero-clock" class="size-3.5" />
                       {time_remaining(expiry)}
@@ -355,6 +394,7 @@ defmodule LiminalWeb.LinkLive.Index do
                     <button
                       phx-click={if(link.viewed_at, do: "mark_unviewed", else: "mark_viewed")}
                       phx-value-id={link.id}
+                      aria-label={mark_viewed_label(link)}
                       class="btn btn-ghost btn-xs btn-circle"
                     >
                       <.icon
@@ -364,7 +404,11 @@ defmodule LiminalWeb.LinkLive.Index do
                     </button>
                   </.with_tooltip>
                   <.with_tooltip tip="Edit">
-                    <.link patch={~p"/links/#{link.id}/edit"} class="btn btn-ghost btn-xs btn-circle">
+                    <.link
+                      patch={~p"/links/#{link.id}/edit"}
+                      aria-label={"Edit #{link_display_title(link)}"}
+                      class="btn btn-ghost btn-xs btn-circle"
+                    >
                       <.icon name="hero-pencil-square" class="size-3.5" />
                     </.link>
                   </.with_tooltip>
@@ -373,6 +417,7 @@ defmodule LiminalWeb.LinkLive.Index do
                       phx-click="delete"
                       phx-value-id={link.id}
                       data-confirm="Are you sure?"
+                      aria-label={"Delete #{link_display_title(link)}"}
                       class="btn btn-ghost btn-xs btn-circle hover:text-error"
                     >
                       <.icon name="hero-trash" class="size-3.5" />
@@ -390,7 +435,6 @@ defmodule LiminalWeb.LinkLive.Index do
         show={@duplicate_link != nil}
         on_cancel={JS.push("discard_duplicate")}
         closeable={true}
-        show_close={false}
         box_class="sm:max-w-lg"
       >
         <:title>Link already exists</:title>
@@ -440,7 +484,7 @@ defmodule LiminalWeb.LinkLive.Index do
         id="edit-link-modal"
         show={@live_action == :edit}
         on_cancel={JS.patch(~p"/")}
-        show_close={false}
+        close_label="Cancel"
         box_class="sm:max-w-xl"
       >
         <:title>Edit Link</:title>
@@ -914,6 +958,20 @@ defmodule LiminalWeb.LinkLive.Index do
   defp shortcut_shift_label(:linux), do: "Shift"
   defp shortcut_shift_label(:windows), do: "Shift"
 
+  defp shortcut_mod_aria(:mac), do: "Meta"
+  defp shortcut_mod_aria(:linux), do: "Meta"
+  defp shortcut_mod_aria(:windows), do: "Control"
+
+  defp focus_url_aria_keyshortcuts(platform) do
+    mod = shortcut_mod_aria(platform)
+    "#{mod}+K #{mod}+V"
+  end
+
+  defp paste_aria_keyshortcuts(platform), do: "#{shortcut_mod_aria(platform)}+V"
+
+  defp tag_toggle_aria_keyshortcuts(platform, index),
+    do: "#{shortcut_mod_aria(platform)}+Shift+#{index}"
+
   defp normalize_pasted_url(url) when is_binary(url) do
     trimmed = String.trim(url)
 
@@ -1091,5 +1149,21 @@ defmodule LiminalWeb.LinkLive.Index do
 
   defp format_datetime(dt) do
     Calendar.strftime(dt, "%Y-%m-%d %H:%M UTC")
+  end
+
+  defp link_display_title(link), do: link.title || link.url
+
+  defp link_host(link) do
+    URI.parse(link.url).host || link.url
+  end
+
+  defp mark_viewed_label(link) do
+    title = link_display_title(link)
+
+    if link.viewed_at do
+      "Mark #{title} as unviewed"
+    else
+      "Mark #{title} as viewed"
+    end
   end
 end

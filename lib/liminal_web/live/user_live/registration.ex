@@ -88,6 +88,7 @@ defmodule LiminalWeb.UserLive.Registration do
 
         {:ok,
          socket
+         |> assign(:page_title, "Register")
          |> assign(:admin_setup, false)
          |> assign_form(changeset), temporary_assigns: [form: nil]}
 
@@ -96,6 +97,7 @@ defmodule LiminalWeb.UserLive.Registration do
 
         {:ok,
          socket
+         |> assign(:page_title, "Set up your instance")
          |> assign(:admin_setup, true)
          |> assign_form(changeset), temporary_assigns: [form: nil]}
 

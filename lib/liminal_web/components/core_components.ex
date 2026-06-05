@@ -207,7 +207,8 @@ defmodule LiminalWeb.CoreComponents do
 
   attr :rest, :global,
     include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
-                multiple pattern placeholder readonly required rows size step)
+                multiple pattern placeholder readonly required rows size step aria-describedby
+                aria-invalid aria-keyshortcuts)
 
   slot :suffix, doc: "optional content overlaid on the input (e.g. keyboard shortcut hints)"
 
@@ -219,6 +220,7 @@ defmodule LiminalWeb.CoreComponents do
     |> assign(:errors, Enum.map(errors, &translate_error(&1)))
     |> assign_new(:name, fn -> if assigns.multiple, do: field.name <> "[]", else: field.name end)
     |> assign_new(:value, fn -> field.value end)
+    |> assign_input_aria()
     |> input()
   end
 
@@ -230,9 +232,11 @@ defmodule LiminalWeb.CoreComponents do
 
   def input(%{type: "checkbox"} = assigns) do
     assigns =
-      assign_new(assigns, :checked, fn ->
+      assigns
+      |> assign_new(:checked, fn ->
         Phoenix.HTML.Form.normalize_value("checkbox", assigns[:value])
       end)
+      |> assign_input_aria()
 
     ~H"""
     <div class={["fieldset mb-2", @fieldset_class]}>
@@ -251,17 +255,24 @@ defmodule LiminalWeb.CoreComponents do
             name={@name}
             value="true"
             checked={@checked}
-            class={@class || "checkbox checkbox-sm"}
+            class={[
+              @class || "checkbox checkbox-sm",
+              @has_errors && "validator"
+            ]}
+            aria-invalid={@aria_invalid}
+            aria-describedby={@aria_describedby}
             {@rest}
           />{@label}
         </span>
       </label>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.field_errors errors={@errors} id={@error_id} />
     </div>
     """
   end
 
   def input(%{type: "select"} = assigns) do
+    assigns = assign_input_aria(assigns)
+
     ~H"""
     <div class={["fieldset mb-2", @fieldset_class]}>
       <label for={@id}>
@@ -269,7 +280,13 @@ defmodule LiminalWeb.CoreComponents do
         <select
           id={@id}
           name={@name}
-          class={[@class || "w-full select", @errors != [] && (@error_class || "select-error")]}
+          class={[
+            @class || "w-full select",
+            @has_errors && (@error_class || "select-error"),
+            @has_errors && "validator"
+          ]}
+          aria-invalid={@aria_invalid}
+          aria-describedby={@aria_describedby}
           multiple={@multiple}
           {@rest}
         >
@@ -277,12 +294,14 @@ defmodule LiminalWeb.CoreComponents do
           {Phoenix.HTML.Form.options_for_select(@options, @value)}
         </select>
       </label>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.field_errors errors={@errors} id={@error_id} />
     </div>
     """
   end
 
   def input(%{type: "textarea"} = assigns) do
+    assigns = assign_input_aria(assigns)
+
     ~H"""
     <div class={["fieldset mb-2", @fieldset_class]}>
       <label for={@id}>
@@ -292,18 +311,23 @@ defmodule LiminalWeb.CoreComponents do
           name={@name}
           class={[
             @class || "w-full textarea",
-            @errors != [] && (@error_class || "textarea-error")
+            @has_errors && (@error_class || "textarea-error"),
+            @has_errors && "validator"
           ]}
+          aria-invalid={@aria_invalid}
+          aria-describedby={@aria_describedby}
           {@rest}
         >{Phoenix.HTML.Form.normalize_value("textarea", @value)}</textarea>
       </label>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.field_errors errors={@errors} id={@error_id} />
     </div>
     """
   end
 
   # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
+    assigns = assign_input_aria(assigns)
+
     ~H"""
     <div class={["fieldset mb-2", @fieldset_class]}>
       <label for={@id}>
@@ -317,31 +341,55 @@ defmodule LiminalWeb.CoreComponents do
             class={[
               "w-full input",
               @class,
-              @errors != [] && (@error_class || "input-error")
+              @has_errors && (@error_class || "input-error"),
+              @has_errors && "validator"
             ]}
+            aria-invalid={@aria_invalid}
+            aria-describedby={@aria_describedby}
             {@rest}
           />
           {render_slot(@suffix)}
         </div>
       </label>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.field_errors errors={@errors} id={@error_id} />
     </div>
     """
   end
 
-  # Helper used by inputs to generate form errors
-  defp error(assigns) do
+  defp assign_input_aria(assigns) do
+    has_errors = assigns.errors != []
+    error_id = if has_errors, do: "#{assigns.id}-error", else: nil
+
+    assigns
+    |> assign(:has_errors, has_errors)
+    |> assign(:error_id, error_id)
+    |> assign(:aria_invalid, has_errors)
+    |> assign(:aria_describedby, error_id)
+  end
+
+  attr :errors, :list, required: true
+  attr :id, :string, default: nil
+
+  defp field_errors(assigns) do
     ~H"""
-    <p class="mt-1.5 flex gap-2 items-center text-sm text-error">
-      <.icon name="hero-exclamation-circle" class="size-5" />
-      {render_slot(@inner_block)}
-    </p>
+    <div :if={@errors != []} id={@id} role="alert" class="space-y-1">
+      <p
+        :for={msg <- @errors}
+        class="mt-1.5 flex gap-2 items-center text-sm text-error validator-hint"
+      >
+        <.icon name="hero-exclamation-circle" class="size-5" aria_hidden={true} />
+        {msg}
+      </p>
+    </div>
     """
   end
 
   @doc """
   Renders a header with title.
+
+  Use `level={2}` for section headings when the page already has an `h1`.
   """
+  attr :level, :integer, default: 1, values: [1, 2]
   slot :inner_block, required: true
   slot :subtitle
   slot :actions
@@ -353,9 +401,15 @@ defmodule LiminalWeb.CoreComponents do
       "pb-4"
     ]}>
       <div class="min-w-0">
-        <h1 class="text-lg font-semibold leading-8">
-          {render_slot(@inner_block)}
-        </h1>
+        <%= if @level == 1 do %>
+          <h1 class="text-lg font-semibold leading-8">
+            {render_slot(@inner_block)}
+          </h1>
+        <% else %>
+          <h2 class="text-lg font-semibold leading-8">
+            {render_slot(@inner_block)}
+          </h2>
+        <% end %>
         <p :if={@subtitle != []} class="text-sm text-base-content/70">
           {render_slot(@subtitle)}
         </p>
@@ -370,10 +424,13 @@ defmodule LiminalWeb.CoreComponents do
   @doc """
   Wraps content in a [daisyUI tooltip](https://daisyui.com/components/tooltip/) trigger.
 
+  `data-tip` is hover-only. Put `aria-label` on the focusable child inside the slot
+  so screen readers get an accessible name.
+
   ## Examples
 
       <.with_tooltip tip="Edit">
-        <button class="btn btn-ghost btn-xs btn-circle">
+        <button aria-label="Edit link" class="btn btn-ghost btn-xs btn-circle">
           <.icon name="hero-pencil-square" />
         </button>
       </.with_tooltip>
@@ -437,10 +494,11 @@ defmodule LiminalWeb.CoreComponents do
   """
   attr :name, :string, required: true
   attr :class, :any, default: "size-4"
+  attr :aria_hidden, :boolean, default: true
 
   def icon(%{name: "hero-" <> _} = assigns) do
     ~H"""
-    <span class={[@name, @class]} />
+    <span class={[@name, @class]} aria-hidden={@aria_hidden} />
     """
   end
 
