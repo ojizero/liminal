@@ -8,7 +8,7 @@ defmodule Liminal.Links do
   require Logger
 
   alias Liminal.Repo
-  alias Liminal.Links.{Tag, Link, LinkTag}
+  alias Liminal.Links.{Tag, Link, LinkTag, TextSearch}
 
   ## PubSub
 
@@ -123,12 +123,14 @@ defmodule Liminal.Links do
     * `:filter` - `:unviewed` (default), `:all`, or `:viewed`
     * `:sort` - `:time_added_desc` (default), `:time_added_asc`, or `:expiring_soon`
     * `:tag_ids` - list of tag IDs to filter by (default `[]` = no tag filter)
+    * `:query` - fuzzy text search across title, note, description, and URL (default `""`)
 
   """
   def list_links(scope, opts \\ []) do
     filter = Keyword.get(opts, :filter, :unviewed)
     sort = Keyword.get(opts, :sort, :time_added_desc)
     tag_ids = Keyword.get(opts, :tag_ids, [])
+    query = Keyword.get(opts, :query, "")
 
     from(l in Link, where: l.user_id == ^scope.user.id)
     |> apply_link_filter(filter)
@@ -136,6 +138,7 @@ defmodule Liminal.Links do
     |> apply_sort(sort)
     |> Repo.all()
     |> Repo.preload(link_tags: :tag)
+    |> TextSearch.filter_links(query)
   end
 
   defp apply_link_filter(query, :unviewed) do

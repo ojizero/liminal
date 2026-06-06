@@ -14,6 +14,19 @@ defmodule LiminalWeb.LinkLive.Index do
         </:actions>
       </.header>
 
+      <form phx-change="search" id="link-search-form" class="mb-4">
+        <.input
+          id="link-search-input"
+          name="query"
+          type="search"
+          value={@search_query}
+          placeholder="Search title, note, description, or URL…"
+          phx-debounce="300"
+          fieldset_class="mb-0"
+          aria-label="Search links"
+        />
+      </form>
+
       <%!-- Filter buttons and sort control --%>
       <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
         <div class="flex flex-wrap gap-2" role="group" aria-label="Filter links by view status">
@@ -236,7 +249,11 @@ defmodule LiminalWeb.LinkLive.Index do
             role="status"
             class="hidden only:block text-center py-8 text-base-content/50"
           >
-            No links yet. Add one above!
+            <%= if @search_query != "" do %>
+              No links match your search.
+            <% else %>
+              No links yet. Add one above!
+            <% end %>
           </div>
           <div
             :for={{id, link} <- @streams.links}
@@ -549,6 +566,7 @@ defmodule LiminalWeb.LinkLive.Index do
       |> assign(:filter, :unviewed)
       |> assign(:sort, :time_added_desc)
       |> assign(:filter_tag_ids, [])
+      |> assign(:search_query, "")
       |> assign(:link, link)
       |> assign(:selected_tag_ids, [])
       |> assign(:form, to_form(Links.change_link(link)))
@@ -854,6 +872,10 @@ defmodule LiminalWeb.LinkLive.Index do
     {:noreply, socket |> assign(:filter, filter) |> refetch_links()}
   end
 
+  def handle_event("search", %{"query" => query}, socket) do
+    {:noreply, socket |> assign(:search_query, query) |> refetch_links()}
+  end
+
   def handle_event("sort", %{"sort" => sort_str}, socket) do
     sort = String.to_existing_atom(sort_str)
     {:noreply, socket |> assign(:sort, sort) |> refetch_links()}
@@ -1042,7 +1064,7 @@ defmodule LiminalWeb.LinkLive.Index do
         {:noreply,
          socket
          |> put_flash(:info, "Link added")
-         |> stream_insert(:links, link, at: 0)
+         |> maybe_stream_insert_link(link)
          |> assign(:link, new_link)
          |> assign(:selected_tag_ids, [])
          |> assign(:form, to_form(Links.change_link(new_link)))}
@@ -1077,15 +1099,29 @@ defmodule LiminalWeb.LinkLive.Index do
       Links.list_links(scope,
         filter: socket.assigns.filter,
         sort: socket.assigns.sort,
-        tag_ids: socket.assigns.filter_tag_ids
+        tag_ids: socket.assigns.filter_tag_ids,
+        query: socket.assigns.search_query
       )
 
     stream(socket, :links, links, reset: true)
   end
 
+  defp maybe_stream_insert_link(socket, link) do
+    if matches_filters?(link, socket.assigns) do
+      if socket.assigns.sort == :time_added_desc do
+        stream_insert(socket, :links, link, at: 0)
+      else
+        refetch_links(socket)
+      end
+    else
+      socket
+    end
+  end
+
   defp matches_filters?(link, assigns) do
     matches_viewed_filter?(link, assigns.filter) and
-      matches_tag_filter?(link, assigns.filter_tag_ids)
+      matches_tag_filter?(link, assigns.filter_tag_ids) and
+      matches_search_filter?(link, assigns.search_query)
   end
 
   defp matches_viewed_filter?(_link, :all), do: true
@@ -1096,6 +1132,12 @@ defmodule LiminalWeb.LinkLive.Index do
 
   defp matches_tag_filter?(link, tag_ids) do
     Enum.any?(link.link_tags, fn lt -> lt.tag_id in tag_ids end)
+  end
+
+  defp matches_search_filter?(_link, query) when query in [nil, ""], do: true
+
+  defp matches_search_filter?(link, query) do
+    Liminal.Links.TextSearch.matches?(link, query)
   end
 
   defp time_remaining(nil), do: nil

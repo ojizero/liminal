@@ -749,6 +749,50 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#links", "Viewed Link")
     end
 
+    test "search filters links by title, note, and url with typos", %{conn: conn, scope: scope} do
+      _matching =
+        link_fixture(scope, %{
+          title: "Phoenix LiveView Guide",
+          url: "https://example.com/phoenix",
+          note: "Conference prep"
+        })
+
+      _other =
+        link_fixture(scope, %{
+          title: "Unrelated",
+          url: "https://example.com/other",
+          note: "Something else"
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      assert has_element?(view, "#link-search-input")
+      assert has_element?(view, "#links", "Phoenix LiveView Guide")
+
+      view
+      |> form("#link-search-form", query: "liveveiw confernce")
+      |> render_change()
+
+      assert has_element?(view, "#links", "Phoenix LiveView Guide")
+      refute has_element?(view, "#links", "Unrelated")
+    end
+
+    test "search with no matches shows empty state message", %{conn: conn, scope: scope} do
+      _link = link_fixture(scope, %{title: "Visible Link"})
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      view
+      |> form("#link-search-form", query: "does-not-exist-anywhere")
+      |> render_change()
+
+      assert render(view) =~ "No links match your search."
+      refute has_element?(view, "#links", "Visible Link")
+    end
+
     # ------------------------------------------------------------------
     # Tag filter tests
     # ------------------------------------------------------------------

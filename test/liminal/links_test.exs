@@ -897,6 +897,83 @@ defmodule Liminal.LinksTest do
     end
   end
 
+  describe "list_links/2 search" do
+    test "query matches title" do
+      scope = user_scope_fixture()
+      matching = link_fixture(scope, %{title: "Phoenix LiveView Patterns"})
+      _other = link_fixture(scope, %{title: "Unrelated bookmark"})
+
+      results = Links.list_links(scope, filter: :all, query: "liveview")
+      ids = Enum.map(results, & &1.id)
+      assert matching.id in ids
+      assert length(ids) == 1
+    end
+
+    test "query matches note and description" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope, %{title: "Docs", note: "Check deployment steps"})
+      {:ok, _link} = Links.update_link_metadata(link, %{description: "Official deployment guide"})
+
+      assert [_] = Links.list_links(scope, filter: :all, query: "deploymnt")
+      assert [_] = Links.list_links(scope, filter: :all, query: "deplyment steps")
+    end
+
+    test "query matches url with typos" do
+      scope = user_scope_fixture()
+
+      matching =
+        link_fixture(scope, %{
+          url: "https://github.com/elixir-lang/elixir",
+          title: "Repo"
+        })
+
+      _other = link_fixture(scope, %{url: "https://example.com/other", title: "Other"})
+
+      results = Links.list_links(scope, filter: :all, query: "githib elxir")
+      assert Enum.map(results, & &1.id) == [matching.id]
+    end
+
+    test "empty query returns all links" do
+      scope = user_scope_fixture()
+      link1 = link_fixture(scope, %{title: "One"})
+      link2 = link_fixture(scope, %{title: "Two"})
+
+      results = Links.list_links(scope, filter: :all, query: "")
+      ids = Enum.map(results, & &1.id)
+      assert link1.id in ids
+      assert link2.id in ids
+    end
+
+    test "search composes with filter and tag_ids" do
+      scope = user_scope_fixture()
+      tag1 = tag_fixture(scope)
+      tag2 = tag_fixture(scope)
+
+      matching =
+        link_fixture(scope, %{
+          title: "Searchable tagged link",
+          tag_ids: [tag1.id]
+        })
+
+      _wrong_tag =
+        link_fixture(scope, %{
+          title: "Searchable other tag",
+          tag_ids: [tag2.id]
+        })
+
+      _wrong_title = link_fixture(scope, %{title: "Different", tag_ids: [tag1.id]})
+
+      results =
+        Links.list_links(scope,
+          filter: :all,
+          tag_ids: [tag1.id],
+          query: "serchable tagged"
+        )
+
+      assert Enum.map(results, & &1.id) == [matching.id]
+    end
+  end
+
   describe "ownership enforcement" do
     test "update_link/3 on another user's link raises MatchError" do
       scope_a = user_scope_fixture()
