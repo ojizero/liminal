@@ -26,10 +26,50 @@ defmodule Liminal.Links.Link do
   def changeset(link, attrs) do
     link
     |> cast(attrs, [:url, :title, :note])
+    |> normalize_url()
     |> validate_required([:url])
     |> validate_length(:url, max: 2000)
+    |> validate_url()
     |> validate_length(:title, max: 255)
     |> validate_length(:note, max: 500)
+  end
+
+  defp normalize_url(changeset) do
+    case get_change(changeset, :url) do
+      url when is_binary(url) -> put_change(changeset, :url, normalize_url_string(url))
+      _ -> changeset
+    end
+  end
+
+  defp normalize_url_string(url) do
+    trimmed = String.trim(url)
+
+    cond do
+      trimmed == "" -> trimmed
+      Regex.match?(~r/^https?:\/\//i, trimmed) -> trimmed
+      true -> "https://" <> trimmed
+    end
+  end
+
+  defp validate_url(changeset) do
+    validate_change(changeset, :url, fn :url, url ->
+      cond do
+        url == "" -> []
+        valid_url?(url) -> []
+        true -> [url: "must be a valid URL"]
+      end
+    end)
+  end
+
+  defp valid_url?(url) do
+    case URI.parse(url) do
+      %URI{scheme: scheme, host: host}
+      when scheme in ["http", "https"] and is_binary(host) and host != "" ->
+        String.contains?(host, ".")
+
+      _ ->
+        false
+    end
   end
 
   def metadata_changeset(link, attrs) do
