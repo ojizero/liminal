@@ -108,4 +108,21 @@
   display: contents
 }
 
+/* Prevent iOS Safari/Chrome from showing the Paste callout on tap for UI chrome.
+   Inputs and textareas keep native selection/paste behavior. */
+@media (hover: none) and (pointer: coarse) {
+  :where(
+    button,
+    .btn,
+    .badge,
+    .card,
+    nav,
+    header,
+    [role="group"],
+    label:not([for="link_url"]):not([for="sort-select"])
+  ) {
+    -webkit-touch-callout: none;
+  }
+}
+
 /* This file is for your main application CSS */

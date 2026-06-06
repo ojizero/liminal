@@ -288,8 +288,25 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       refute has_element?(view, "#link-url-paste-shortcut")
       refute has_element?(view, "#link-url-focus-shortcut")
       refute render(view) =~ "1..9"
+      refute has_element?(view, "#link_url[aria-keyshortcuts]")
+      refute has_element?(view, "[id^='new-link-tag-'][aria-keyshortcuts]")
       assert has_element?(view, "#link-url-paste-from-clipboard[disabled]")
       refute has_element?(view, "#link-url-paste-from-clipboard:not([disabled])")
+    end
+
+    test "hides aria-keyshortcuts on iOS touch-first devices", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "mac",
+        "show_keyboard_shortcut_hints" => false,
+        "show_clipboard_paste_button" => false
+      })
+
+      refute has_element?(view, "#link_url[aria-keyshortcuts]")
+      refute has_element?(view, "[id^='new-link-tag-'][aria-keyshortcuts]")
     end
 
     test "hides clipboard paste button on iOS touch-first devices", %{conn: conn} do

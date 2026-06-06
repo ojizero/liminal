@@ -97,22 +97,27 @@ const LinkShortcuts = {
       }
     }
 
-    this.onPaste = (event) => {
-      if (isEditableTarget(event.target)) return
+    // Global paste/keyboard shortcuts tell iOS WebKit the document accepts paste
+    // outside inputs, which triggers the native Paste callout on tap. Only enable
+    // on devices with a hardware keyboard where the shortcuts are actually usable.
+    if (showKeyboardShortcutHints) {
+      this.onPaste = (event) => {
+        if (isEditableTarget(event.target)) return
 
-      event.preventDefault()
+        event.preventDefault()
 
-      const text = event.clipboardData?.getData("text") ?? ""
+        const text = event.clipboardData?.getData("text") ?? ""
 
-      if (looksLikeUrl(text)) {
-        this.pushEvent("shortcut_paste_link", {url: normalizePastedUrl(text)})
-      } else {
-        this.pushEvent("shortcut_paste_no_link", {})
+        if (looksLikeUrl(text)) {
+          this.pushEvent("shortcut_paste_link", {url: normalizePastedUrl(text)})
+        } else {
+          this.pushEvent("shortcut_paste_no_link", {})
+        }
       }
-    }
 
-    window.addEventListener("keydown", this.onKeyDown, true)
-    window.addEventListener("paste", this.onPaste, true)
+      window.addEventListener("keydown", this.onKeyDown, true)
+      window.addEventListener("paste", this.onPaste, true)
+    }
 
     if (!showKeyboardShortcutHints && !isIOS()) {
       this.lastClipboardHasLink = null
@@ -195,8 +200,13 @@ const LinkShortcuts = {
   },
 
   destroyed() {
-    window.removeEventListener("keydown", this.onKeyDown, true)
-    window.removeEventListener("paste", this.onPaste, true)
+    if (this.onKeyDown) {
+      window.removeEventListener("keydown", this.onKeyDown, true)
+    }
+
+    if (this.onPaste) {
+      window.removeEventListener("paste", this.onPaste, true)
+    }
 
     if (this.refreshClipboardLinkState) {
       document.removeEventListener("visibilitychange", this.onVisibilityChange)
