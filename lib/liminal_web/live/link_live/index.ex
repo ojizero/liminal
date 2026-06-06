@@ -14,17 +14,32 @@ defmodule LiminalWeb.LinkLive.Index do
         </:actions>
       </.header>
 
-      <form phx-change="search" id="link-search-form" class="mb-4">
+      <form phx-change="search" id="link-search-form" role="search" class="mb-4">
+        <p id="link-search-hint" class="sr-only">
+          Filters links by title, note, description, or URL. Typos are allowed.
+        </p>
         <.input
           id="link-search-input"
           name="query"
           type="search"
+          label="Search"
           value={@search_query}
-          placeholder="Search title, note, description, or URL…"
+          placeholder="Title, note, description, or URL…"
           phx-debounce="300"
           fieldset_class="mb-0"
-          aria-label="Search links"
+          aria-controls="links"
+          aria-describedby={search_input_describedby(@search_query)}
         />
+        <p
+          :if={@search_query != ""}
+          id="link-search-status"
+          class="sr-only"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {@search_results_count} {if @search_results_count == 1, do: "link", else: "links"} match your search.
+        </p>
       </form>
 
       <%!-- Filter buttons and sort control --%>
@@ -243,7 +258,7 @@ defmodule LiminalWeb.LinkLive.Index do
           </div>
         </div>
 
-        <div id="links" phx-update="stream" class="contents">
+        <div id="links" phx-update="stream" class="contents" role="region" aria-label="Link results">
           <div
             id="links-empty"
             role="status"
@@ -567,6 +582,7 @@ defmodule LiminalWeb.LinkLive.Index do
       |> assign(:sort, :time_added_desc)
       |> assign(:filter_tag_ids, [])
       |> assign(:search_query, "")
+      |> assign(:search_results_count, length(links))
       |> assign(:link, link)
       |> assign(:selected_tag_ids, [])
       |> assign(:form, to_form(Links.change_link(link)))
@@ -1103,8 +1119,14 @@ defmodule LiminalWeb.LinkLive.Index do
         query: socket.assigns.search_query
       )
 
-    stream(socket, :links, links, reset: true)
+    socket
+    |> assign(:search_results_count, length(links))
+    |> stream(:links, links, reset: true)
   end
+
+  defp search_input_describedby(""), do: "link-search-hint"
+
+  defp search_input_describedby(_query), do: "link-search-hint link-search-status"
 
   defp maybe_stream_insert_link(socket, link) do
     if matches_filters?(link, socket.assigns) do

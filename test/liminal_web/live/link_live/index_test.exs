@@ -41,6 +41,15 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "button[phx-value-filter='unviewed'][aria-pressed]")
       assert has_element?(view, "label[for='sort-select']", "Sort:")
       assert has_element?(view, "#sort-select")
+      assert has_element?(view, "#link-search-form[role='search']")
+      assert has_element?(view, "label[for='link-search-input']", "Search")
+
+      assert has_element?(
+               view,
+               "#link-search-input[aria-controls='links'][aria-describedby='link-search-hint']"
+             )
+
+      assert has_element?(view, "#links[role='region'][aria-label='Link results']")
       assert has_element?(view, "a[href='#main-content']", "Skip to main content")
       assert has_element?(view, "#main-content")
 
@@ -775,6 +784,14 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> form("#link-search-form", query: "liveveiw confernce")
       |> render_change()
 
+      assert has_element?(view, "#link-search-status[role='status'][aria-live='polite']")
+      assert render(view) =~ "1 link match your search."
+
+      assert has_element?(
+               view,
+               "#link-search-input[aria-describedby='link-search-hint link-search-status']"
+             )
+
       assert has_element?(view, "#links", "Phoenix LiveView Guide")
       refute has_element?(view, "#links", "Unrelated")
     end
@@ -790,6 +807,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> render_change()
 
       assert render(view) =~ "No links match your search."
+      assert has_element?(view, "#link-search-status", "0 links match your search.")
       refute has_element?(view, "#links", "Visible Link")
     end
 
