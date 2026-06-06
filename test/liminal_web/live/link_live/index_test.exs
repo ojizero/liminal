@@ -66,6 +66,35 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       refute has_element?(view, "img[alt='A11y Link']")
     end
 
+    test "add a link via form without a url scheme", %{conn: conn, scope: scope} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      tag = hd(Liminal.Links.list_tags(scope))
+
+      view
+      |> element("button[phx-click='toggle_tag'][phx-value-id='#{tag.id}']")
+      |> render_click()
+
+      view
+      |> form("#link-form", link: %{url: "example.com/no-scheme-form"})
+      |> render_submit()
+
+      assert has_element?(view, "#links", "https://example.com/no-scheme-form")
+
+      saved = Liminal.Links.find_link_by_url(scope, "https://example.com/no-scheme-form")
+      assert saved.url == "https://example.com/no-scheme-form"
+    end
+
+    test "validating url without a scheme normalizes the input value", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> form("#link-form", link: %{url: "example.com/normalize"})
+      |> render_change()
+
+      assert has_element?(view, "#link_url[value='https://example.com/normalize']")
+    end
+
     test "add a link via form with tag selection", %{conn: conn, scope: scope} do
       {:ok, view, _html} = live(conn, ~p"/")
 

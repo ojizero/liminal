@@ -121,6 +121,34 @@ defmodule Liminal.LinksTest do
       assert %{url: ["can't be blank"]} = errors_on(changeset)
     end
 
+    test "prepends https:// when url lacks a scheme" do
+      scope = user_scope_fixture()
+      tag = tag_fixture(scope)
+
+      assert {:ok, link} =
+               Links.create_link(scope, %{url: "example.com/no-scheme"}, [tag.id])
+
+      assert link.url == "https://example.com/no-scheme"
+    end
+
+    test "preserves an existing http:// scheme" do
+      scope = user_scope_fixture()
+      tag = tag_fixture(scope)
+
+      assert {:ok, link} =
+               Links.create_link(scope, %{url: "http://example.com/insecure"}, [tag.id])
+
+      assert link.url == "http://example.com/insecure"
+    end
+
+    test "returns error changeset for invalid url" do
+      scope = user_scope_fixture()
+      tag = tag_fixture(scope)
+
+      assert {:error, changeset} = Links.create_link(scope, %{url: "not-a-url"}, [tag.id])
+      assert %{url: ["must be a valid URL"]} = errors_on(changeset)
+    end
+
     test "returns {:error, :no_tags} with empty tag list" do
       scope = user_scope_fixture()
 

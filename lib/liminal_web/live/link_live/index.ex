@@ -91,8 +91,9 @@ defmodule LiminalWeb.LinkLive.Index do
               <div class="fieldset mb-2">
                 <.input
                   field={@form[:url]}
-                  type="url"
-                  placeholder="https://…"
+                  type="text"
+                  inputmode="url"
+                  placeholder="example.com or https://…"
                   phx-debounce="300"
                   fieldset_class="mb-0"
                   class={@shortcut_platform && @show_keyboard_shortcut_hints && "pr-20"}
@@ -495,7 +496,13 @@ defmodule LiminalWeb.LinkLive.Index do
           phx-change="validate_edit"
           phx-submit="save_edit"
         >
-          <.input field={@edit_form[:url]} type="url" label="URL" placeholder="https://…" />
+          <.input
+            field={@edit_form[:url]}
+            type="text"
+            inputmode="url"
+            label="URL"
+            placeholder="example.com or https://…"
+          />
           <.input field={@edit_form[:title]} type="text" label="Title (optional)" />
           <.input
             field={@edit_form[:note]}
@@ -681,8 +688,6 @@ defmodule LiminalWeb.LinkLive.Index do
   end
 
   def handle_event("shortcut_paste_link", %{"url" => url}, socket) do
-    url = normalize_pasted_url(url)
-
     changeset =
       socket.assigns.link
       |> Links.change_link(%{"url" => url})
@@ -971,16 +976,6 @@ defmodule LiminalWeb.LinkLive.Index do
 
   defp tag_toggle_aria_keyshortcuts(platform, index),
     do: "#{shortcut_mod_aria(platform)}+Shift+#{index}"
-
-  defp normalize_pasted_url(url) when is_binary(url) do
-    trimmed = String.trim(url)
-
-    if String.match?(trimmed, ~r/^https?:\/\//i) do
-      trimmed
-    else
-      "https://" <> trimmed
-    end
-  end
 
   defp toggle_selected_tag(socket, tag_id) do
     selected = socket.assigns.selected_tag_ids
