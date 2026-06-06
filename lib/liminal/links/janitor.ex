@@ -18,8 +18,11 @@ defmodule Liminal.Links.Janitor do
   ## Server callbacks
 
   @impl true
-  def init(_opts) do
-    schedule_sweep(0)
+  def init(opts) do
+    unless Keyword.get(opts, :skip_initial_sweep, false) do
+      schedule_sweep(0)
+    end
+
     {:ok, %{}}
   end
 

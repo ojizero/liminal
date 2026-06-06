@@ -1,5 +1,7 @@
 defmodule Liminal.Links.JanitorTest do
-  use Liminal.DataCase
+  # GenServer sweeps use the database outside the test process; keep this module
+  # serial and grant the janitor access to the SQL sandbox connection.
+  use Liminal.DataCase, async: false
 
   alias Liminal.Links
   alias Liminal.Links.Janitor
@@ -29,8 +31,7 @@ defmodule Liminal.Links.JanitorTest do
         set: [expires_at: DateTime.utc_now(:second) |> DateTime.add(-1, :second)]
       )
 
-      # Start the janitor under test supervision
-      janitor_pid = start_supervised!(Janitor)
+      janitor_pid = start_janitor!()
 
       # Trigger the sweep manually
       send(janitor_pid, :sweep)
@@ -63,7 +64,7 @@ defmodule Liminal.Links.JanitorTest do
       assert unindexed.id == link.id
 
       # Sweep completes without crashing (indexer tasks are gated by start_indexer config)
-      janitor_pid = start_supervised!(Janitor)
+      janitor_pid = start_janitor!()
       send(janitor_pid, :sweep)
       _ = :sys.get_state(janitor_pid)
 
@@ -71,6 +72,12 @@ defmodule Liminal.Links.JanitorTest do
       refetched = Links.get_link!(scope, link.id)
       assert is_nil(refetched.indexed_at)
     end
+  end
+
+  defp start_janitor! do
+    janitor_pid = start_supervised!({Janitor, skip_initial_sweep: true})
+    Ecto.Adapters.SQL.Sandbox.allow(Repo, self(), janitor_pid)
+    janitor_pid
   end
 
   defp insert_tag(scope, attrs) do
