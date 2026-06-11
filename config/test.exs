@@ -11,7 +11,11 @@ config :bcrypt_elixir, :log_rounds, 1
 config :liminal, Liminal.Repo,
   database: Path.expand("../data.local/liminal_test.db", __DIR__),
   pool_size: 5,
-  pool: Ecto.Adapters.SQL.Sandbox
+  pool: Ecto.Adapters.SQL.Sandbox,
+  # SQLite allows only one writer at a time; under ExUnit's parallel test
+  # execution, short lock contention is expected. Retry longer than the driver
+  # default so transient "database busy" errors don't flake CI.
+  busy_timeout: 10_000
 
 config :liminal, :assets_dir, Path.expand("../data.local/assets-test", __DIR__)
 
