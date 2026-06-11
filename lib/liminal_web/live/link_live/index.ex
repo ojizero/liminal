@@ -98,7 +98,11 @@ defmodule LiminalWeb.LinkLive.Index do
                   fieldset_class="mb-0"
                   class={@shortcut_platform && @show_keyboard_shortcut_hints && "pr-20"}
                   aria-keyshortcuts={
-                    @shortcut_platform && focus_url_aria_keyshortcuts(@shortcut_platform)
+                    @shortcut_platform &&
+                      focus_url_aria_keyshortcuts(
+                        @shortcut_platform,
+                        @show_keyboard_shortcut_hints
+                      )
                   }
                 >
                   <:suffix :if={@shortcut_platform && @show_keyboard_shortcut_hints}>
@@ -967,9 +971,13 @@ defmodule LiminalWeb.LinkLive.Index do
   defp shortcut_mod_aria(:linux), do: "Meta"
   defp shortcut_mod_aria(:windows), do: "Control"
 
-  defp focus_url_aria_keyshortcuts(platform) do
+  defp focus_url_aria_keyshortcuts(platform, true) do
     mod = shortcut_mod_aria(platform)
     "#{mod}+K #{mod}+V"
+  end
+
+  defp focus_url_aria_keyshortcuts(platform, _show_keyboard_shortcut_hints) do
+    "#{shortcut_mod_aria(platform)}+K"
   end
 
   defp paste_aria_keyshortcuts(platform), do: "#{shortcut_mod_aria(platform)}+V"

@@ -97,22 +97,28 @@ const LinkShortcuts = {
       }
     }
 
-    this.onPaste = (event) => {
-      if (isEditableTarget(event.target)) return
+    // Touch-first browsers (e.g. iOS Chrome) show a persistent Paste affordance when
+    // a document-level paste listener is present, so only enable paste-from-anywhere
+    // on devices that likely have a hardware keyboard.
+    if (showKeyboardShortcutHints) {
+      this.onPaste = (event) => {
+        if (isEditableTarget(event.target)) return
 
-      event.preventDefault()
+        event.preventDefault()
 
-      const text = event.clipboardData?.getData("text") ?? ""
+        const text = event.clipboardData?.getData("text") ?? ""
 
-      if (looksLikeUrl(text)) {
-        this.pushEvent("shortcut_paste_link", {url: normalizePastedUrl(text)})
-      } else {
-        this.pushEvent("shortcut_paste_no_link", {})
+        if (looksLikeUrl(text)) {
+          this.pushEvent("shortcut_paste_link", {url: normalizePastedUrl(text)})
+        } else {
+          this.pushEvent("shortcut_paste_no_link", {})
+        }
       }
+
+      window.addEventListener("paste", this.onPaste, true)
     }
 
     window.addEventListener("keydown", this.onKeyDown, true)
-    window.addEventListener("paste", this.onPaste, true)
 
     if (!showKeyboardShortcutHints && !isIOS()) {
       this.lastClipboardHasLink = null
@@ -196,7 +202,10 @@ const LinkShortcuts = {
 
   destroyed() {
     window.removeEventListener("keydown", this.onKeyDown, true)
-    window.removeEventListener("paste", this.onPaste, true)
+
+    if (this.onPaste) {
+      window.removeEventListener("paste", this.onPaste, true)
+    }
 
     if (this.refreshClipboardLinkState) {
       document.removeEventListener("visibilitychange", this.onVisibilityChange)
