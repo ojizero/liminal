@@ -112,7 +112,13 @@ const LinkShortcuts = {
     }
 
     window.addEventListener("keydown", this.onKeyDown, true)
-    window.addEventListener("paste", this.onPaste, true)
+
+    // Touch-first browsers (notably iOS Chrome) show a persistent Paste affordance when
+    // a global paste listener is registered. Desktop keeps paste-from-anywhere via Cmd/Ctrl+V.
+    if (showKeyboardShortcutHints) {
+      this.globalPasteEnabled = true
+      window.addEventListener("paste", this.onPaste, true)
+    }
 
     if (!showKeyboardShortcutHints && !isIOS()) {
       this.lastClipboardHasLink = null
@@ -196,7 +202,10 @@ const LinkShortcuts = {
 
   destroyed() {
     window.removeEventListener("keydown", this.onKeyDown, true)
-    window.removeEventListener("paste", this.onPaste, true)
+
+    if (this.globalPasteEnabled) {
+      window.removeEventListener("paste", this.onPaste, true)
+    }
 
     if (this.refreshClipboardLinkState) {
       document.removeEventListener("visibilitychange", this.onVisibilityChange)
