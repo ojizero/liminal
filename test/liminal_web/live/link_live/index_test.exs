@@ -710,7 +710,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#links", "Updated Title")
     end
 
-    test "link_updated broadcast removes link from unviewed filter when viewed", %{
+    test "link_updated broadcast fades then removes link from unviewed filter when viewed", %{
       conn: conn,
       scope: scope
     } do
@@ -732,6 +732,10 @@ defmodule LiminalWeb.LinkLive.IndexTest do
         {:link_updated, viewed_link}
       )
 
+      render(view)
+      assert has_element?(view, "#links", "Will Be Viewed")
+
+      send(view.pid, {:remove_viewed_link, link.id})
       render(view)
       refute has_element?(view, "#links", "Will Be Viewed")
     end
@@ -1266,9 +1270,13 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> element("a[phx-click='open_link'][phx-value-id='#{link.id}']", "Open Mark")
       |> render_click()
 
-      # It leaves the unviewed filter
-      refute has_element?(view, "#links", "Open Mark")
+      # It fades in place before leaving the unviewed filter
+      assert has_element?(view, "#links", "Open Mark")
       assert Liminal.Links.get_link!(scope, link.id).viewed_at
+
+      send(view.pid, {:remove_viewed_link, link.id})
+      render(view)
+      refute has_element?(view, "#links", "Open Mark")
 
       # And appears under the viewed filter
       view |> element("button[phx-click='filter'][phx-value-filter='viewed']") |> render_click()
