@@ -3,6 +3,9 @@ defmodule LiminalWeb.LinkLive.Index do
 
   alias Liminal.Links
 
+  @viewed_removal_delay_ms 1_000
+  @viewed_removal_transition_ms 500
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -276,8 +279,10 @@ defmodule LiminalWeb.LinkLive.Index do
             id={id}
             data-masonry-item
             class={[
-              "card bg-base-200",
-              link.viewed_at && "opacity-60"
+              "card bg-base-200 transition-all duration-500 ease-out",
+              link.viewed_at && !MapSet.member?(@removing_link_ids, link.id) && "opacity-60",
+              MapSet.member?(@removing_link_ids, link.id) &&
+                "opacity-0 scale-95 -translate-y-1 pointer-events-none"
             ]}
           >
             <div :if={link.image_path} class="h-56 w-full shrink-0 overflow-hidden">
@@ -603,6 +608,8 @@ defmodule LiminalWeb.LinkLive.Index do
       |> assign(:duplicate_link, nil)
       |> assign(:pending_link_params, nil)
       |> assign(:pending_tag_ids, [])
+      |> assign(:pending_viewed_removals, %{})
+      |> assign(:removing_link_ids, MapSet.new())
       |> stream(:links, links)
 
     {:ok, socket}
@@ -670,15 +677,72 @@ defmodule LiminalWeb.LinkLive.Index do
   end
 
   def handle_info({:link_updated, link}, socket) do
-    if matches_filters?(link, socket.assigns) do
-      if socket.assigns.sort == :time_added_desc do
-        {:noreply, stream_insert(socket, :links, link)}
-      else
-        {:noreply, refetch_links(socket)}
-      end
-    else
-      {:noreply, stream_delete(socket, :links, link)}
+    cond do
+      matches_filters?(link, socket.assigns) ->
+        socket =
+          socket
+          |> cancel_viewed_removal(link.id)
+          |> assign(:removing_link_ids, MapSet.delete(socket.assigns.removing_link_ids, link.id))
+          |> then(fn socket ->
+            if socket.assigns.sort == :time_added_desc do
+              stream_insert(socket, :links, link)
+            else
+              refetch_links(socket)
+            end
+          end)
+
+        {:noreply, socket}
+
+      leaving_unviewed_filter?(link, socket.assigns) ->
+        {:noreply,
+         socket
+         |> stream_insert(:links, link)
+         |> schedule_viewed_removal(link.id)}
+
+      true ->
+        {:noreply, stream_delete(socket, :links, link)}
     end
+  end
+
+  def handle_info({:remove_viewed_link, link_id}, socket) do
+    socket = cancel_viewed_removal(socket, link_id)
+
+    if socket.assigns.filter == :unviewed and
+         not MapSet.member?(socket.assigns.removing_link_ids, link_id) do
+      ref =
+        Process.send_after(
+          self(),
+          {:complete_viewed_removal, link_id},
+          @viewed_removal_transition_ms
+        )
+
+      {:noreply,
+       socket
+       |> assign(:removing_link_ids, MapSet.put(socket.assigns.removing_link_ids, link_id))
+       |> assign(
+         :pending_viewed_removals,
+         Map.put(socket.assigns.pending_viewed_removals, link_id, ref)
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:complete_viewed_removal, link_id}, socket) do
+    socket = cancel_viewed_removal(socket, link_id)
+
+    socket =
+      socket
+      |> assign(:removing_link_ids, MapSet.delete(socket.assigns.removing_link_ids, link_id))
+      |> then(fn socket ->
+        if socket.assigns.filter == :unviewed do
+          stream_delete(socket, :links, %{id: link_id})
+        else
+          socket
+        end
+      end)
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -832,8 +896,7 @@ defmodule LiminalWeb.LinkLive.Index do
 
       if is_nil(link.viewed_at) do
         {:ok, _} = Links.mark_viewed(scope, link)
-        updated_link = Links.get_link!(scope, id)
-        {:noreply, stream_insert(socket, :links, updated_link)}
+        {:noreply, socket}
       else
         {:noreply, socket}
       end
@@ -846,9 +909,8 @@ defmodule LiminalWeb.LinkLive.Index do
     scope = socket.assigns.current_scope
     link = Links.get_link!(scope, id)
     {:ok, _} = Links.mark_viewed(scope, link)
-    updated_link = Links.get_link!(scope, id)
 
-    {:noreply, stream_insert(socket, :links, updated_link)}
+    {:noreply, socket}
   end
 
   def handle_event("mark_unviewed", %{"id" => id}, socket) do
@@ -1106,6 +1168,8 @@ defmodule LiminalWeb.LinkLive.Index do
   defp refetch_links(socket) do
     scope = socket.assigns.current_scope
 
+    socket = cancel_all_viewed_removals(socket)
+
     links =
       Links.list_links(scope,
         filter: socket.assigns.filter,
@@ -1116,6 +1180,7 @@ defmodule LiminalWeb.LinkLive.Index do
 
     socket
     |> assign(:search_results_count, length(links))
+    |> assign(:removing_link_ids, MapSet.new())
     |> stream(:links, links, reset: true)
   end
 
@@ -1144,6 +1209,50 @@ defmodule LiminalWeb.LinkLive.Index do
   defp matches_viewed_filter?(_link, :all), do: true
   defp matches_viewed_filter?(link, :unviewed), do: is_nil(link.viewed_at)
   defp matches_viewed_filter?(link, :viewed), do: not is_nil(link.viewed_at)
+
+  defp leaving_unviewed_filter?(link, assigns) do
+    assigns.filter == :unviewed and not is_nil(link.viewed_at) and
+      matches_tag_filter?(link, assigns.filter_tag_ids) and
+      matches_search_filter?(link, assigns.search_query)
+  end
+
+  defp schedule_viewed_removal(socket, link_id) do
+    socket = cancel_viewed_removal(socket, link_id)
+
+    ref = Process.send_after(self(), {:remove_viewed_link, link_id}, @viewed_removal_delay_ms)
+
+    assign(
+      socket,
+      :pending_viewed_removals,
+      Map.put(socket.assigns.pending_viewed_removals, link_id, ref)
+    )
+  end
+
+  defp cancel_viewed_removal(socket, link_id) do
+    case Map.fetch(socket.assigns.pending_viewed_removals, link_id) do
+      {:ok, ref} ->
+        Process.cancel_timer(ref)
+
+        assign(
+          socket,
+          :pending_viewed_removals,
+          Map.delete(socket.assigns.pending_viewed_removals, link_id)
+        )
+
+      :error ->
+        socket
+    end
+  end
+
+  defp cancel_all_viewed_removals(socket) do
+    for {_link_id, ref} <- socket.assigns.pending_viewed_removals do
+      Process.cancel_timer(ref)
+    end
+
+    socket
+    |> assign(:pending_viewed_removals, %{})
+    |> assign(:removing_link_ids, MapSet.new())
+  end
 
   defp matches_tag_filter?(_link, []), do: true
 
