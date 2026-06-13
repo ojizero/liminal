@@ -194,6 +194,33 @@ defmodule Liminal.Links.IndexerTest do
       assert updated.title == "Image Page"
     end
 
+    test "indexes video duration for YouTube links" do
+      scope = user_scope_fixture()
+
+      link =
+        link_fixture(scope, %{
+          title: nil,
+          url: "https://www.youtube.com/watch?v=abc123"
+        })
+
+      html = """
+      <html><head>
+        <title>YouTube Video</title>
+        <meta itemprop="duration" content="PT4M13S">
+      </head></html>
+      """
+
+      opts =
+        build_req_options(fn conn ->
+          html_response(conn, html)
+        end)
+
+      assert :ok = Indexer.index(link.id, scope.user.id, opts)
+
+      updated = Links.get_link!(scope, link.id)
+      assert updated.duration_seconds == 253
+    end
+
     test "image download failure still indexes link successfully" do
       scope = user_scope_fixture()
       link = link_fixture(scope, %{title: nil})

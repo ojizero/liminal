@@ -75,6 +75,26 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       refute has_element?(view, "img[alt='A11y Link']")
     end
 
+    test "shows video duration overlay on preview image", %{conn: conn, scope: scope} do
+      link = link_fixture(scope, %{url: "https://www.youtube.com/watch?v=abc", title: "Video"})
+
+      {:ok, _} =
+        link
+        |> Ecto.Changeset.change(%{
+          image_path: "assets/#{scope.user.id}/preview.jpg",
+          duration_seconds: 253,
+          indexed_at: DateTime.utc_now(:second)
+        })
+        |> Liminal.Repo.update()
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      assert has_element?(view, "#link-duration-#{link.id}", "4:13")
+      assert render(view) =~ ~s/aria-label="Video length 4:13"/
+    end
+
     test "add a link via form without a url scheme", %{conn: conn, scope: scope} do
       {:ok, view, _html} = live(conn, ~p"/")
 

@@ -285,13 +285,21 @@ defmodule LiminalWeb.LinkLive.Index do
                 "opacity-0 scale-95 -translate-y-1 pointer-events-none"
             ]}
           >
-            <div :if={link.image_path} class="h-56 w-full shrink-0 overflow-hidden">
+            <div :if={link.image_path} class="relative h-56 w-full shrink-0 overflow-hidden">
               <img
                 src={"/#{link.image_path}"}
                 alt=""
                 class="h-full w-full object-cover"
                 loading="lazy"
               />
+              <span
+                :if={link.duration_seconds}
+                id={"link-duration-#{link.id}"}
+                class="absolute bottom-2 right-2 rounded bg-black/80 px-1.5 py-0.5 text-xs font-medium tabular-nums text-white shadow-sm"
+                aria-label={"Video length #{format_video_duration(link.duration_seconds)}"}
+              >
+                {format_video_duration(link.duration_seconds)}
+              </span>
             </div>
 
             <div class="card-body p-4 gap-2">
@@ -1317,6 +1325,10 @@ defmodule LiminalWeb.LinkLive.Index do
 
   defp format_datetime(dt) do
     Calendar.strftime(dt, "%Y-%m-%d %H:%M UTC")
+  end
+
+  defp format_video_duration(seconds) do
+    Liminal.Links.Duration.format(seconds)
   end
 
   defp link_display_title(link), do: link.title || link.url
