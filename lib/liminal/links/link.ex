@@ -9,6 +9,7 @@ defmodule Liminal.Links.Link do
     field :description, :string
     field :favicon_url, :string
     field :image_path, :string
+    field :duration_seconds, :integer
     field :viewed_at, :utc_datetime
     field :indexed_at, :utc_datetime
     field :index_attempt_count, :integer, default: 0
@@ -78,6 +79,7 @@ defmodule Liminal.Links.Link do
       :description,
       :favicon_url,
       :image_path,
+      :duration_seconds,
       :indexed_at,
       :index_attempt_count,
       :index_last_attempted_at,

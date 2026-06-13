@@ -73,10 +73,14 @@ defmodule Liminal.Links.Indexer do
             end
           end
 
+        duration_seconds =
+          Liminal.Links.VideoMetadata.fetch_duration(link.url, body, opts)
+
         metadata =
           metadata
           |> Map.delete(:image_url)
           |> Map.put(:image_path, image_path)
+          |> Map.put(:duration_seconds, duration_seconds)
 
         Liminal.Links.update_link_metadata(link, metadata)
         :ok

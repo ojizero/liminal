@@ -262,6 +262,7 @@ defmodule Liminal.Links do
         |> Ecto.Changeset.put_change(:description, nil)
         |> Ecto.Changeset.put_change(:favicon_url, nil)
         |> Ecto.Changeset.put_change(:image_path, nil)
+        |> Ecto.Changeset.put_change(:duration_seconds, nil)
         |> put_index_retry_reset_changes()
       else
         changeset
