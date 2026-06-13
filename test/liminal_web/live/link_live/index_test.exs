@@ -737,6 +737,10 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       send(view.pid, {:remove_viewed_link, link.id})
       render(view)
+      assert has_element?(view, "#links", "Will Be Viewed")
+
+      send(view.pid, {:complete_viewed_removal, link.id})
+      render(view)
       refute has_element?(view, "#links", "Will Be Viewed")
     end
 
@@ -1275,6 +1279,10 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert Liminal.Links.get_link!(scope, link.id).viewed_at
 
       send(view.pid, {:remove_viewed_link, link.id})
+      render(view)
+      assert has_element?(view, "#links", "Open Mark")
+
+      send(view.pid, {:complete_viewed_removal, link.id})
       render(view)
       refute has_element?(view, "#links", "Open Mark")
 

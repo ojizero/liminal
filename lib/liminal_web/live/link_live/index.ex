@@ -3,7 +3,8 @@ defmodule LiminalWeb.LinkLive.Index do
 
   alias Liminal.Links
 
-  @viewed_removal_delay_ms 600
+  @viewed_removal_delay_ms 1_000
+  @viewed_removal_transition_ms 500
 
   @impl true
   def render(assigns) do
@@ -278,8 +279,10 @@ defmodule LiminalWeb.LinkLive.Index do
             id={id}
             data-masonry-item
             class={[
-              "card bg-base-200 transition-opacity duration-500 ease-out",
-              link.viewed_at && "opacity-60"
+              "card bg-base-200 transition-all duration-500 ease-out",
+              link.viewed_at && !MapSet.member?(@removing_link_ids, link.id) && "opacity-60",
+              MapSet.member?(@removing_link_ids, link.id) &&
+                "opacity-0 scale-95 -translate-y-1 pointer-events-none"
             ]}
           >
             <div :if={link.image_path} class="h-56 w-full shrink-0 overflow-hidden">
@@ -606,6 +609,7 @@ defmodule LiminalWeb.LinkLive.Index do
       |> assign(:pending_link_params, nil)
       |> assign(:pending_tag_ids, [])
       |> assign(:pending_viewed_removals, %{})
+      |> assign(:removing_link_ids, MapSet.new())
       |> stream(:links, links)
 
     {:ok, socket}
@@ -678,6 +682,7 @@ defmodule LiminalWeb.LinkLive.Index do
         socket =
           socket
           |> cancel_viewed_removal(link.id)
+          |> assign(:removing_link_ids, MapSet.delete(socket.assigns.removing_link_ids, link.id))
           |> then(fn socket ->
             if socket.assigns.sort == :time_added_desc do
               stream_insert(socket, :links, link)
@@ -702,12 +707,40 @@ defmodule LiminalWeb.LinkLive.Index do
   def handle_info({:remove_viewed_link, link_id}, socket) do
     socket = cancel_viewed_removal(socket, link_id)
 
+    if socket.assigns.filter == :unviewed and
+         not MapSet.member?(socket.assigns.removing_link_ids, link_id) do
+      ref =
+        Process.send_after(
+          self(),
+          {:complete_viewed_removal, link_id},
+          @viewed_removal_transition_ms
+        )
+
+      {:noreply,
+       socket
+       |> assign(:removing_link_ids, MapSet.put(socket.assigns.removing_link_ids, link_id))
+       |> assign(
+         :pending_viewed_removals,
+         Map.put(socket.assigns.pending_viewed_removals, link_id, ref)
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:complete_viewed_removal, link_id}, socket) do
+    socket = cancel_viewed_removal(socket, link_id)
+
     socket =
-      if socket.assigns.filter == :unviewed do
-        stream_delete(socket, :links, %{id: link_id})
-      else
-        socket
-      end
+      socket
+      |> assign(:removing_link_ids, MapSet.delete(socket.assigns.removing_link_ids, link_id))
+      |> then(fn socket ->
+        if socket.assigns.filter == :unviewed do
+          stream_delete(socket, :links, %{id: link_id})
+        else
+          socket
+        end
+      end)
 
     {:noreply, socket}
   end
@@ -1147,6 +1180,7 @@ defmodule LiminalWeb.LinkLive.Index do
 
     socket
     |> assign(:search_results_count, length(links))
+    |> assign(:removing_link_ids, MapSet.new())
     |> stream(:links, links, reset: true)
   end
 
@@ -1215,7 +1249,9 @@ defmodule LiminalWeb.LinkLive.Index do
       Process.cancel_timer(ref)
     end
 
-    assign(socket, :pending_viewed_removals, %{})
+    socket
+    |> assign(:pending_viewed_removals, %{})
+    |> assign(:removing_link_ids, MapSet.new())
   end
 
   defp matches_tag_filter?(_link, []), do: true
