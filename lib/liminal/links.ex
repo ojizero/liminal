@@ -141,6 +141,23 @@ defmodule Liminal.Links do
     |> TextSearch.filter_links(query)
   end
 
+  @doc """
+  Returns a random link for the given user.
+
+  Picks uniformly from all saved links regardless of viewed state or tags.
+  """
+  def random_link(scope) do
+    case from(l in Link,
+           where: l.user_id == ^scope.user.id,
+           order_by: fragment("RANDOM()"),
+           limit: 1
+         )
+         |> Repo.one() do
+      nil -> {:error, :no_links}
+      link -> {:ok, Repo.preload(link, link_tags: :tag)}
+    end
+  end
+
   defp apply_link_filter(query, :unviewed) do
     from(l in query, where: is_nil(l.viewed_at))
   end

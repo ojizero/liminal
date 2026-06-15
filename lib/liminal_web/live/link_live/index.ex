@@ -13,6 +13,17 @@ defmodule LiminalWeb.LinkLive.Index do
       <.header>
         My Links
         <:actions>
+          <.with_tooltip tip="Open a random saved link">
+            <.button
+              type="button"
+              id="shuffle-link"
+              phx-click="shuffle"
+              variant="soft"
+              aria-label="Open a random saved link"
+            >
+              <.icon name="hero-arrow-path" class="size-4" /> Shuffle
+            </.button>
+          </.with_tooltip>
           <.button patch={~p"/tags"} variant="soft">Manage Tags</.button>
         </:actions>
       </.header>
@@ -910,6 +921,22 @@ defmodule LiminalWeb.LinkLive.Index do
       end
     else
       {:noreply, socket}
+    end
+  end
+
+  def handle_event("shuffle", _params, socket) do
+    scope = socket.assigns.current_scope
+
+    case Links.random_link(scope) do
+      {:error, :no_links} ->
+        {:noreply, put_flash(socket, :error, "No links to shuffle")}
+
+      {:ok, link} ->
+        if socket.assigns.auto_mark_viewed and is_nil(link.viewed_at) do
+          {:ok, _} = Links.mark_viewed(scope, link)
+        end
+
+        {:noreply, push_event(socket, "open-external-link", %{url: link.url})}
     end
   end
 

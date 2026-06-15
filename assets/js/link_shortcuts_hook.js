@@ -198,6 +198,12 @@ const LinkShortcuts = {
         input.setSelectionRange(input.value.length, input.value.length)
       }
     })
+
+    this.handleEvent("open-external-link", ({url}) => {
+      if (url) {
+        window.open(url, "_blank", "noopener,noreferrer")
+      }
+    })
   },
 
   destroyed() {
