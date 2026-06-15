@@ -92,6 +92,48 @@ defmodule Liminal.LinksTest do
     end
   end
 
+  describe "random_link/1" do
+    test "returns {:error, :no_links} when the user has no links" do
+      scope = user_scope_fixture()
+      assert {:error, :no_links} = Links.random_link(scope)
+    end
+
+    test "returns one of the user's saved links with tags preloaded" do
+      scope = user_scope_fixture()
+      link_a = link_fixture(scope, %{url: "https://a.example.com"})
+      link_b = link_fixture(scope, %{url: "https://b.example.com"})
+
+      assert {:ok, link} = Links.random_link(scope)
+      assert link.id in [link_a.id, link_b.id]
+      assert Ecto.assoc_loaded?(link.link_tags)
+    end
+
+    test "can return viewed and unviewed links" do
+      scope = user_scope_fixture()
+      unviewed = link_fixture(scope, %{url: "https://unviewed.example.com"})
+      viewed = link_fixture(scope, %{url: "https://viewed.example.com"})
+      {:ok, _} = Links.mark_viewed(scope, viewed)
+
+      ids =
+        for _ <- 1..20,
+            {:ok, link} = Links.random_link(scope),
+            do: link.id
+
+      assert unviewed.id in ids
+      assert viewed.id in ids
+    end
+
+    test "does not return another user's links" do
+      scope_a = user_scope_fixture()
+      scope_b = user_scope_fixture()
+      link = link_fixture(scope_a)
+      _other = link_fixture(scope_b)
+
+      assert {:ok, fetched} = Links.random_link(scope_a)
+      assert fetched.id == link.id
+    end
+  end
+
   describe "create_link/3" do
     test "creates a link with valid attrs and tags" do
       scope = user_scope_fixture()
