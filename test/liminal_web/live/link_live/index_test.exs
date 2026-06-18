@@ -868,6 +868,37 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       refute has_element?(view, "#links", "Visible Link")
     end
 
+    test "search submit preserves active query when submit payload is empty", %{
+      conn: conn,
+      scope: scope
+    } do
+      _matching =
+        link_fixture(scope, %{
+          title: "Visual Design Patterns",
+          url: "https://example.com/visual"
+        })
+
+      _other = link_fixture(scope, %{title: "Unrelated", url: "https://example.com/other"})
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      view
+      |> form("#link-search-form", query: "visual")
+      |> render_change()
+
+      assert has_element?(view, "#links", "Visual Design Patterns")
+      refute has_element?(view, "#links", "Unrelated")
+
+      view
+      |> form("#link-search-form", query: "")
+      |> render_submit()
+
+      assert has_element?(view, "#link-search-input[value='visual']")
+      assert has_element?(view, "#links", "Visual Design Patterns")
+      refute has_element?(view, "#links", "Unrelated")
+    end
+
     # ------------------------------------------------------------------
     # Tag filter tests
     # ------------------------------------------------------------------

@@ -206,7 +206,8 @@ defmodule LiminalWeb.CoreComponents do
   attr :fieldset_class, :any, default: nil, doc: "extra classes on the fieldset wrapper"
 
   attr :rest, :global,
-    include: ~w(accept autocomplete capture cols disabled form inputmode list max maxlength min
+    include:
+      ~w(accept autocomplete capture cols disabled enterkeyhint form inputmode list max maxlength min
                 minlength multiple pattern placeholder readonly required rows size step aria-controls
                 aria-describedby aria-invalid aria-keyshortcuts aria-label aria-labelledby)
 
