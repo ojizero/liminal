@@ -28,7 +28,7 @@ defmodule LiminalWeb.LinkLive.Index do
         </:actions>
       </.header>
 
-      <form phx-change="search" id="link-search-form" role="search" class="mb-4">
+      <form phx-change="search" phx-submit="search" id="link-search-form" role="search" class="mb-4">
         <p id="link-search-hint" class="sr-only">
           Filters links by title, note, description, or URL. Typos are allowed.
         </p>

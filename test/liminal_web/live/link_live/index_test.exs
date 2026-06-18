@@ -868,6 +868,40 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       refute has_element?(view, "#links", "Visible Link")
     end
 
+    test "search submit preserves query and filter (iOS return key)", %{conn: conn, scope: scope} do
+      _matching =
+        link_fixture(scope, %{
+          title: "Phoenix LiveView Guide",
+          url: "https://example.com/phoenix"
+        })
+
+      _other = link_fixture(scope, %{title: "Unrelated", url: "https://example.com/other"})
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      view
+      |> form("#link-search-form", query: "phoenix")
+      |> render_change()
+
+      assert has_element?(view, "#links", "Phoenix LiveView Guide")
+      refute has_element?(view, "#links", "Unrelated")
+
+      view
+      |> form("#link-search-form", query: "phoenix")
+      |> render_submit()
+
+      assert has_element?(view, "#link-search-input[value='phoenix']")
+
+      assert has_element?(
+               view,
+               "button[phx-click='filter'][phx-value-filter='all'][aria-pressed]"
+             )
+
+      assert has_element?(view, "#links", "Phoenix LiveView Guide")
+      refute has_element?(view, "#links", "Unrelated")
+    end
+
     # ------------------------------------------------------------------
     # Tag filter tests
     # ------------------------------------------------------------------
