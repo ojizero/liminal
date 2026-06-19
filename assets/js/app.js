@@ -27,6 +27,7 @@ import topbar from "../vendor/topbar"
 import Masonry from "./masonry_hook"
 import CopyToClipboard from "./copy_to_clipboard_hook"
 import LinkShortcuts, {platform} from "./link_shortcuts_hook"
+import ConnectionStatus from "./connection_status_hook"
 import {initConnectionResilience} from "./connection_resilience"
 
 const liveSocket = new LiveSocket("/live", Socket, {
@@ -34,7 +35,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
   params: () => ({
     _csrf_token: document.querySelector("meta[name='csrf-token']").getAttribute("content")
   }),
-  hooks: {...colocatedHooks, Masonry, LinkShortcuts, CopyToClipboard},
+  hooks: {...colocatedHooks, Masonry, LinkShortcuts, CopyToClipboard, ConnectionStatus},
   metadata: {
     keydown: (event) => ({
       key: event.key,
