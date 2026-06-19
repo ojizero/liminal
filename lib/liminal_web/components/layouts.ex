@@ -161,70 +161,62 @@ defmodule LiminalWeb.Layouts do
       <.flash kind={:info} flash={@flash} />
       <.flash kind={:error} flash={@flash} />
 
-      <div
+      <.flash
         id="client-error"
-        role="alert"
-        class="toast toast-top toast-end z-50 hidden"
+        kind={:error}
+        flash={@flash}
+        autoclose={false}
+        title={gettext("Connection lost")}
         phx-disconnected={show(".phx-client-error #client-error") |> JS.remove_attribute("hidden")}
         phx-connected={hide("#client-error") |> JS.set_attribute({"hidden", ""})}
         hidden
       >
-        <div class="alert alert-error w-80 sm:w-96 max-w-80 sm:max-w-96 text-wrap">
-          <.icon name="hero-exclamation-circle" class="size-5 shrink-0" />
-          <div class="min-w-0">
-            <p class="font-semibold">{gettext("Connection lost")}</p>
-            <p id="client-error-message" class="flex items-center gap-1">
-              <span data-role="message">{gettext("Reconnecting…")}</span>
-              <span data-role="spinner">
-                <.icon name="hero-arrow-path" class="size-3 motion-safe:animate-spin" />
-              </span>
-            </p>
-            <button type="button" id="client-error-retry" class="btn btn-xs btn-ghost mt-2 hidden">
-              {gettext("Retry now")}
-            </button>
-          </div>
-        </div>
-      </div>
+        <span id="client-error-message" class="flex items-center gap-1">
+          <span data-role="message">{gettext("Reconnecting…")}</span>
+          <span data-role="spinner">
+            <.icon name="hero-arrow-path" class="size-3 motion-safe:animate-spin" />
+          </span>
+        </span>
+        <:actions>
+          <button type="button" id="client-error-retry" class="btn btn-xs btn-ghost mt-2 hidden">
+            {gettext("Retry now")}
+          </button>
+        </:actions>
+      </.flash>
 
-      <div
+      <.flash
         id="server-error"
-        role="alert"
-        class="toast toast-top toast-end z-50 hidden"
+        kind={:error}
+        flash={@flash}
+        autoclose={false}
+        title={gettext("Something went wrong")}
         phx-disconnected={show(".phx-server-error #server-error") |> JS.remove_attribute("hidden")}
         phx-connected={hide("#server-error") |> JS.set_attribute({"hidden", ""})}
         hidden
       >
-        <div class="alert alert-error w-80 sm:w-96 max-w-80 sm:max-w-96 text-wrap">
-          <.icon name="hero-exclamation-circle" class="size-5 shrink-0" />
-          <div class="min-w-0">
-            <p class="font-semibold">{gettext("Something went wrong")}</p>
-            <p id="server-error-message" class="flex items-center gap-1">
-              <span data-role="message">{gettext("Reconnecting…")}</span>
-              <span data-role="spinner">
-                <.icon name="hero-arrow-path" class="size-3 motion-safe:animate-spin" />
-              </span>
-            </p>
-            <button type="button" id="server-error-retry" class="btn btn-xs btn-ghost mt-2 hidden">
-              {gettext("Retry now")}
-            </button>
-          </div>
-        </div>
-      </div>
+        <span id="server-error-message" class="flex items-center gap-1">
+          <span data-role="message">{gettext("Reconnecting…")}</span>
+          <span data-role="spinner">
+            <.icon name="hero-arrow-path" class="size-3 motion-safe:animate-spin" />
+          </span>
+        </span>
+        <:actions>
+          <button type="button" id="server-error-retry" class="btn btn-xs btn-ghost mt-2 hidden">
+            {gettext("Retry now")}
+          </button>
+        </:actions>
+      </.flash>
 
-      <div
+      <.flash
         id="connection-restored"
-        role="status"
-        class="toast toast-top toast-end z-50 hidden"
+        kind={:info}
+        flash={@flash}
+        autoclose={false}
+        title={gettext("Back online")}
         hidden
       >
-        <div class="alert alert-success w-80 sm:w-96 max-w-80 sm:max-w-96 text-wrap">
-          <.icon name="hero-signal" class="size-5 shrink-0" />
-          <div>
-            <p class="font-semibold">{gettext("Back online")}</p>
-            <p>{gettext("Your session was restored.")}</p>
-          </div>
-        </div>
-      </div>
+        {gettext("Your session was restored.")}
+      </.flash>
     </div>
     """
   end

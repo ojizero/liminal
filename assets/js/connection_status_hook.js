@@ -3,7 +3,8 @@ const ConnectionStatus = {
     this.onLost = () => this.showReconnecting()
     this.onRestored = () => this.showRestored()
     this.onStalled = () => this.showRetry()
-    this.retry = () => {
+    this.retry = (event) => {
+      event?.stopPropagation()
       if (typeof window.lvReconnect === "function") window.lvReconnect()
       this.showReconnecting()
     }
