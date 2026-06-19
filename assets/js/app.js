@@ -27,12 +27,15 @@ import topbar from "../vendor/topbar"
 import Masonry from "./masonry_hook"
 import CopyToClipboard from "./copy_to_clipboard_hook"
 import LinkShortcuts, {platform} from "./link_shortcuts_hook"
+import ConnectionStatus from "./connection_status_hook"
+import {initConnectionResilience} from "./connection_resilience"
 
-const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
-  params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, Masonry, LinkShortcuts, CopyToClipboard},
+  params: () => ({
+    _csrf_token: document.querySelector("meta[name='csrf-token']").getAttribute("content")
+  }),
+  hooks: {...colocatedHooks, Masonry, LinkShortcuts, CopyToClipboard, ConnectionStatus},
   metadata: {
     keydown: (event) => ({
       key: event.key,
@@ -50,9 +53,13 @@ const liveSocket = new LiveSocket("/live", Socket, {
   }
 })
 
-// Show progress bar on live navigation and form submits
+// Show progress bar on live navigation and form submits (not connection recovery)
 topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
-window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
+window.addEventListener("phx:page-loading-start", (event) => {
+  const {kind, errorKind} = event.detail || {}
+  if (kind === "error" && errorKind === "client") return
+  topbar.show(300)
+})
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
 // Close dropdowns when clicking outside
@@ -66,6 +73,7 @@ document.addEventListener("click", (event) => {
 
 // connect if there are any LiveViews on the page
 liveSocket.connect()
+initConnectionResilience(liveSocket)
 
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()

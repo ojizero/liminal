@@ -157,34 +157,65 @@ defmodule LiminalWeb.Layouts do
 
   def flash_group(assigns) do
     ~H"""
-    <div id={@id} aria-live="polite">
+    <div id={@id} aria-live="polite" phx-hook="ConnectionStatus" class="contents">
       <.flash kind={:info} flash={@flash} />
       <.flash kind={:error} flash={@flash} />
 
       <.flash
         id="client-error"
         kind={:error}
+        flash={@flash}
         autoclose={false}
-        title={gettext("We can't find the internet")}
+        title={gettext("Connection lost")}
         phx-disconnected={show(".phx-client-error #client-error") |> JS.remove_attribute("hidden")}
         phx-connected={hide("#client-error") |> JS.set_attribute({"hidden", ""})}
         hidden
       >
-        {gettext("Attempting to reconnect")}
-        <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
+        <span id="client-error-message" class="flex items-center gap-1">
+          <span data-role="message">{gettext("Reconnecting…")}</span>
+          <span data-role="spinner">
+            <.icon name="hero-arrow-path" class="size-3 motion-safe:animate-spin" />
+          </span>
+        </span>
+        <:actions>
+          <button type="button" id="client-error-retry" class="btn btn-xs btn-ghost mt-2 hidden">
+            {gettext("Retry now")}
+          </button>
+        </:actions>
       </.flash>
 
       <.flash
         id="server-error"
         kind={:error}
+        flash={@flash}
         autoclose={false}
-        title={gettext("Something went wrong!")}
+        title={gettext("Something went wrong")}
         phx-disconnected={show(".phx-server-error #server-error") |> JS.remove_attribute("hidden")}
         phx-connected={hide("#server-error") |> JS.set_attribute({"hidden", ""})}
         hidden
       >
-        {gettext("Attempting to reconnect")}
-        <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
+        <span id="server-error-message" class="flex items-center gap-1">
+          <span data-role="message">{gettext("Reconnecting…")}</span>
+          <span data-role="spinner">
+            <.icon name="hero-arrow-path" class="size-3 motion-safe:animate-spin" />
+          </span>
+        </span>
+        <:actions>
+          <button type="button" id="server-error-retry" class="btn btn-xs btn-ghost mt-2 hidden">
+            {gettext("Retry now")}
+          </button>
+        </:actions>
+      </.flash>
+
+      <.flash
+        id="connection-restored"
+        kind={:info}
+        flash={@flash}
+        autoclose={false}
+        title={gettext("Back online")}
+        hidden
+      >
+        {gettext("Your session was restored.")}
       </.flash>
     </div>
     """
