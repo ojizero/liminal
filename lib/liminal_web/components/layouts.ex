@@ -157,36 +157,150 @@ defmodule LiminalWeb.Layouts do
 
   def flash_group(assigns) do
     ~H"""
-    <div id={@id} aria-live="polite">
+    <div id={@id} aria-live="polite" phx-hook=".ConnectionStatus" class="contents">
       <.flash kind={:info} flash={@flash} />
       <.flash kind={:error} flash={@flash} />
 
-      <.flash
+      <div
         id="client-error"
-        kind={:error}
-        autoclose={false}
-        title={gettext("We can't find the internet")}
+        role="alert"
+        class="toast toast-top toast-end z-50 hidden"
         phx-disconnected={show(".phx-client-error #client-error") |> JS.remove_attribute("hidden")}
         phx-connected={hide("#client-error") |> JS.set_attribute({"hidden", ""})}
         hidden
       >
-        {gettext("Attempting to reconnect")}
-        <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
-      </.flash>
+        <div class="alert alert-error w-80 sm:w-96 max-w-80 sm:max-w-96 text-wrap">
+          <.icon name="hero-exclamation-circle" class="size-5 shrink-0" />
+          <div class="min-w-0">
+            <p class="font-semibold">{gettext("Connection lost")}</p>
+            <p id="client-error-message" class="flex items-center gap-1">
+              <span data-role="message">{gettext("Reconnecting…")}</span>
+              <span data-role="spinner">
+                <.icon name="hero-arrow-path" class="size-3 motion-safe:animate-spin" />
+              </span>
+            </p>
+            <button type="button" id="client-error-retry" class="btn btn-xs btn-ghost mt-2 hidden">
+              {gettext("Retry now")}
+            </button>
+          </div>
+        </div>
+      </div>
 
-      <.flash
+      <div
         id="server-error"
-        kind={:error}
-        autoclose={false}
-        title={gettext("Something went wrong!")}
+        role="alert"
+        class="toast toast-top toast-end z-50 hidden"
         phx-disconnected={show(".phx-server-error #server-error") |> JS.remove_attribute("hidden")}
         phx-connected={hide("#server-error") |> JS.set_attribute({"hidden", ""})}
         hidden
       >
-        {gettext("Attempting to reconnect")}
-        <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
-      </.flash>
+        <div class="alert alert-error w-80 sm:w-96 max-w-80 sm:max-w-96 text-wrap">
+          <.icon name="hero-exclamation-circle" class="size-5 shrink-0" />
+          <div class="min-w-0">
+            <p class="font-semibold">{gettext("Something went wrong")}</p>
+            <p id="server-error-message" class="flex items-center gap-1">
+              <span data-role="message">{gettext("Reconnecting…")}</span>
+              <span data-role="spinner">
+                <.icon name="hero-arrow-path" class="size-3 motion-safe:animate-spin" />
+              </span>
+            </p>
+            <button type="button" id="server-error-retry" class="btn btn-xs btn-ghost mt-2 hidden">
+              {gettext("Retry now")}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        id="connection-restored"
+        role="status"
+        class="toast toast-top toast-end z-50 hidden"
+        hidden
+      >
+        <div class="alert alert-success w-80 sm:w-96 max-w-80 sm:max-w-96 text-wrap">
+          <.icon name="hero-signal" class="size-5 shrink-0" />
+          <div>
+            <p class="font-semibold">{gettext("Back online")}</p>
+            <p>{gettext("Your session was restored.")}</p>
+          </div>
+        </div>
+      </div>
     </div>
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".ConnectionStatus">
+      export default {
+        mounted() {
+          this.onLost = () => this.showReconnecting()
+          this.onRestored = () => this.showRestored()
+          this.onStalled = () => this.showRetry()
+          this.retry = () => {
+            if (typeof window.lvReconnect === "function") window.lvReconnect()
+            this.showReconnecting()
+          }
+
+          window.addEventListener("lv:connection-lost", this.onLost)
+          window.addEventListener("lv:connection-restored", this.onRestored)
+          window.addEventListener("lv:connection-stalled", this.onStalled)
+
+          this.el.querySelector("#client-error-retry")?.addEventListener("click", this.retry)
+          this.el.querySelector("#server-error-retry")?.addEventListener("click", this.retry)
+        },
+
+        destroyed() {
+          window.removeEventListener("lv:connection-lost", this.onLost)
+          window.removeEventListener("lv:connection-restored", this.onRestored)
+          window.removeEventListener("lv:connection-stalled", this.onStalled)
+          clearTimeout(this.restoredTimer)
+        },
+
+        showReconnecting() {
+          for (const id of ["client-error-message", "server-error-message"]) {
+            const el = this.el.querySelector(`#${id}`)
+            if (!el) continue
+            const message = el.querySelector('[data-role="message"]')
+            const spinner = el.querySelector('[data-role="spinner"]')
+            if (message) message.textContent = "Reconnecting…"
+            spinner?.classList.remove("hidden")
+          }
+          this.hideRetry()
+        },
+
+        showRetry() {
+          for (const id of ["client-error-message", "server-error-message"]) {
+            const el = this.el.querySelector(`#${id}`)
+            if (!el) continue
+            const message = el.querySelector('[data-role="message"]')
+            const spinner = el.querySelector('[data-role="spinner"]')
+            if (message) message.textContent = "Still offline. Check your connection."
+            spinner?.classList.add("hidden")
+          }
+          for (const id of ["client-error-retry", "server-error-retry"]) {
+            const btn = this.el.querySelector(`#${id}`)
+            if (btn) btn.classList.remove("hidden")
+          }
+        },
+
+        hideRetry() {
+          for (const id of ["client-error-retry", "server-error-retry"]) {
+            const btn = this.el.querySelector(`#${id}`)
+            if (btn) btn.classList.add("hidden")
+          }
+        },
+
+        showRestored() {
+          this.hideRetry()
+          const toast = this.el.querySelector("#connection-restored")
+          if (!toast) return
+
+          toast.removeAttribute("hidden")
+          toast.classList.remove("hidden")
+          clearTimeout(this.restoredTimer)
+          this.restoredTimer = setTimeout(() => {
+            toast.setAttribute("hidden", "")
+            toast.classList.add("hidden")
+          }, 3000)
+        }
+      }
+    </script>
     """
   end
 
