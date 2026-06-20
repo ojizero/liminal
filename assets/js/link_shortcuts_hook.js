@@ -13,6 +13,11 @@ const usesModKey = (event) => {
   return event.metaKey
 }
 
+const usesNoteSubmitModKey = (event) => {
+  if (/mac/i.test(platform)) return event.metaKey
+  return event.ctrlKey
+}
+
 const detectShortcutPlatform = () => {
   if (/mac/i.test(platform)) return "mac"
   if (/win/i.test(platform)) return "windows"
@@ -84,6 +89,14 @@ const LinkShortcuts = {
       if (event.repeat) return
 
       const key = event.key?.toLowerCase()
+      if (key === "enter" && usesNoteSubmitModKey(event) && !event.shiftKey && !event.altKey) {
+        if (event.target?.id === "link_note") {
+          event.preventDefault()
+          document.querySelector("#link-form")?.requestSubmit()
+          return
+        }
+      }
+
       if (key === "k" && usesModKey(event)) {
         event.preventDefault()
         this.pushEvent("shortcut_focus_new_link", {})
