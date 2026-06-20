@@ -314,6 +314,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert html =~ "Super"
       assert html =~ "Shift"
       assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
+      assert has_element?(view, "#link-note-save-shortcut kbd", "Ctrl")
+      assert has_element?(view, "#link_note[aria-keyshortcuts='Control+Enter']")
       refute html =~ "⌘"
 
       view

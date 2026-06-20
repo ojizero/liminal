@@ -226,7 +226,7 @@ defmodule LiminalWeb.LinkLive.Index do
                       class="pointer-events-none absolute top-2 right-2 flex items-center gap-0.5"
                     >
                       <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                        {shortcut_mod_label(@shortcut_platform)}
+                        {save_note_mod_label(@shortcut_platform)}
                       </kbd>
                       <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
                         Enter
@@ -1118,7 +1118,15 @@ defmodule LiminalWeb.LinkLive.Index do
   defp tag_toggle_aria_keyshortcuts(platform, index),
     do: "#{shortcut_mod_aria(platform)}+Shift+#{index}"
 
-  defp save_note_aria_keyshortcuts(platform), do: "#{shortcut_mod_aria(platform)}+Enter"
+  defp save_note_aria_keyshortcuts(platform), do: "#{save_note_mod_aria(platform)}+Enter"
+
+  defp save_note_mod_label(:mac), do: "⌘"
+  defp save_note_mod_label(:linux), do: "Ctrl"
+  defp save_note_mod_label(:windows), do: "Ctrl"
+
+  defp save_note_mod_aria(:mac), do: "Meta"
+  defp save_note_mod_aria(:linux), do: "Control"
+  defp save_note_mod_aria(:windows), do: "Control"
 
   defp toggle_selected_tag(socket, tag_id) do
     selected = socket.assigns.selected_tag_ids
