@@ -90,6 +90,12 @@ const LinkShortcuts = {
         return
       }
 
+      if (key === "s" && usesModKey(event) && !event.shiftKey && !event.altKey) {
+        event.preventDefault()
+        document.querySelector("#shuffle-link")?.click()
+        return
+      }
+
       const digit = parseDigitShortcut(event)
       if (digit && event.shiftKey && usesModKey(event) && !event.altKey) {
         event.preventDefault()
