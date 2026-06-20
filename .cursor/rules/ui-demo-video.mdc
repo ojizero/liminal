@@ -31,4 +31,4 @@ The recording must clearly show:
 2. User actions that trigger the behaviour
 3. The outcome — bug reproduced, fix verified, or new feature working
 
-Attach or reference the demo video in your final response. If recording is blocked (auth, permissions, server not running), start the app, resolve blockers with existing tooling, or report what prevented recording and what manual step is needed.
+Attach or reference the demo video in your final response. If recording is blocked (auth, permissions, server not running), start the app and try to resolve blockers with existing tooling.
