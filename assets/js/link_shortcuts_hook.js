@@ -84,6 +84,14 @@ const LinkShortcuts = {
       if (event.repeat) return
 
       const key = event.key?.toLowerCase()
+      if (key === "enter" && usesModKey(event) && !event.shiftKey && !event.altKey) {
+        if (event.target?.id === "link_note") {
+          event.preventDefault()
+          document.querySelector("#link-form")?.requestSubmit()
+          return
+        }
+      }
+
       if (key === "k" && usesModKey(event)) {
         event.preventDefault()
         this.pushEvent("shortcut_focus_new_link", {})

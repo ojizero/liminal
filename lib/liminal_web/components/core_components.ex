@@ -308,18 +308,21 @@ defmodule LiminalWeb.CoreComponents do
     <div class={["fieldset mb-2", @fieldset_class]}>
       <label for={@id}>
         <span :if={@label} class="label mb-1">{@label}</span>
-        <textarea
-          id={@id}
-          name={@name}
-          class={[
-            @class || "w-full textarea",
-            @has_errors && (@error_class || "textarea-error"),
-            @has_errors && "validator"
-          ]}
-          aria-invalid={@aria_invalid}
-          aria-describedby={@aria_describedby}
-          {@rest}
-        >{Phoenix.HTML.Form.normalize_value("textarea", @value)}</textarea>
+        <div class={[@suffix != [] && "relative"]}>
+          <textarea
+            id={@id}
+            name={@name}
+            class={[
+              @class || "w-full textarea",
+              @has_errors && (@error_class || "textarea-error"),
+              @has_errors && "validator"
+            ]}
+            aria-invalid={@aria_invalid}
+            aria-describedby={@aria_describedby}
+            {@rest}
+          >{Phoenix.HTML.Form.normalize_value("textarea", @value)}</textarea>
+          {render_slot(@suffix)}
+        </div>
       </label>
       <.field_errors errors={@errors} id={@error_id} />
     </div>
