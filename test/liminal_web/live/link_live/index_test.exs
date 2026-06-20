@@ -1368,60 +1368,14 @@ defmodule LiminalWeb.LinkLive.IndexTest do
   describe "shuffle" do
     setup :register_and_log_in_user
 
-    test "renders shuffle control in the page header", %{conn: conn} do
+    test "renders shuffle control as a link in the page header", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
-      assert has_element?(view, "#shuffle-link[phx-click='shuffle']", "Shuffle")
-    end
-
-    test "shows an error when there are no links to shuffle", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
-
-      view |> element("#shuffle-link") |> render_click()
-
-      assert render(view) =~ "No links to shuffle"
-    end
-
-    test "opens a random saved link", %{conn: conn, scope: scope} do
-      url = "https://shuffle.example.com"
-      _link = link_fixture(scope, %{url: url})
-
-      {:ok, view, _html} = live(conn, ~p"/")
-
-      view |> element("#shuffle-link") |> render_click()
-
-      assert_push_event(view, "open-external-link", %{url: ^url})
-    end
-
-    test "marks the link viewed when auto mark on open is enabled", %{conn: conn} do
-      user = Liminal.AccountsFixtures.user_fixture()
-      {:ok, user} = Liminal.Accounts.update_user_settings(user, %{auto_mark_viewed_on_open: true})
-      scope = Liminal.Accounts.Scope.for_user(user)
-      url = "https://shuffle-mark.example.com"
-
-      link = link_fixture(scope, %{url: url, title: "Shuffle Mark"})
-
-      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/")
-
-      view |> element("#shuffle-link") |> render_click()
-
-      assert_push_event(view, "open-external-link", %{url: ^url})
-      assert Liminal.Links.get_link!(scope, link.id).viewed_at
-    end
-
-    test "does not mark the link viewed when auto mark on open is disabled", %{
-      conn: conn,
-      scope: scope
-    } do
-      url = "https://shuffle-skip.example.com"
-      link = link_fixture(scope, %{url: url})
-
-      {:ok, view, _html} = live(conn, ~p"/")
-
-      view |> element("#shuffle-link") |> render_click()
-
-      assert_push_event(view, "open-external-link", %{url: ^url})
-      refute Liminal.Links.get_link!(scope, link.id).viewed_at
+      assert has_element?(
+               view,
+               "#shuffle-link[href='/links/shuffle'][target='_blank']",
+               "Shuffle"
+             )
     end
   end
 
