@@ -21,6 +21,7 @@ defmodule LiminalWeb.LinkLive.Index do
               rel="noopener noreferrer"
               variant="soft"
               aria-label="Open a random saved link (opens in new tab)"
+              aria-keyshortcuts={@shortcut_platform && shuffle_aria_keyshortcuts(@shortcut_platform)}
             >
               <.icon name="hero-arrow-path" class="size-4" /> Shuffle
             </.button>
@@ -1093,6 +1094,8 @@ defmodule LiminalWeb.LinkLive.Index do
   end
 
   defp paste_aria_keyshortcuts(platform), do: "#{shortcut_mod_aria(platform)}+V"
+
+  defp shuffle_aria_keyshortcuts(platform), do: "#{shortcut_mod_aria(platform)}+S"
 
   defp tag_toggle_aria_keyshortcuts(platform, index),
     do: "#{shortcut_mod_aria(platform)}+Shift+#{index}"

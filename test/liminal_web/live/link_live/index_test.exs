@@ -1377,6 +1377,32 @@ defmodule LiminalWeb.LinkLive.IndexTest do
                "Shuffle"
              )
     end
+
+    test "shuffle control exposes platform-specific save shortcut in aria-keyshortcuts", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      refute has_element?(view, "#shuffle-link[aria-keyshortcuts]")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "mac",
+        "show_keyboard_shortcut_hints" => true
+      })
+
+      assert has_element?(view, "#shuffle-link[aria-keyshortcuts='Meta+S']")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "windows",
+        "show_keyboard_shortcut_hints" => true
+      })
+
+      assert has_element?(view, "#shuffle-link[aria-keyshortcuts='Control+S']")
+    end
   end
 
   defp link_expiry_label(link) do
