@@ -23,7 +23,7 @@ A self-hosted link manager and bookmarking app built with Phoenix LiveView and S
 
 ### Prerequisites
 
-- Elixir ~> 1.15 and Erlang/OTP
+- Elixir ~> 1.20 and Erlang/OTP 27+
 
 ### Local development
 

@@ -295,9 +295,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
       assert has_element?(view, "#link_url[aria-keyshortcuts='Meta+K Meta+V']")
       assert has_element?(view, "#new-link-tag-1[aria-keyshortcuts='Meta+Shift+1']")
-      assert has_element?(view, "#link-note-save-shortcut kbd", "⌘")
-      assert has_element?(view, "#link-note-save-shortcut kbd", "Enter")
       assert has_element?(view, "#link_note[aria-keyshortcuts='Meta+Enter']")
+      refute has_element?(view, "#link-note-save-shortcut")
       refute has_element?(view, "#link-url-paste-from-clipboard")
       refute render(view) =~ "Super"
       refute render(view) =~ "Ctrl"
@@ -314,7 +313,6 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert html =~ "Super"
       assert html =~ "Shift"
       assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
-      assert has_element?(view, "#link-note-save-shortcut kbd", "Ctrl")
       assert has_element?(view, "#link_note[aria-keyshortcuts='Control+Enter']")
       refute html =~ "⌘"
 
@@ -332,8 +330,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#link-url-paste-shortcut kbd", "V")
       assert has_element?(view, "#link_url[aria-keyshortcuts='Control+K Control+V']")
       assert has_element?(view, "#new-link-tag-1[aria-keyshortcuts='Control+Shift+1']")
-      assert has_element?(view, "#link-note-save-shortcut kbd", "Ctrl")
       assert has_element?(view, "#link_note[aria-keyshortcuts='Control+Enter']")
+      refute has_element?(view, "#link-note-save-shortcut")
       refute html =~ "Super"
     end
 
