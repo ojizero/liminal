@@ -53,3 +53,21 @@ else
 fi
 
 echo "Conventional Commit helper tests passed."
+
+# verify-commit task (commit-msg hook entrypoint)
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+
+printf 'feat(links): add search\n' >"$tmp"
+mise run verify-commit "$tmp"
+
+printf 'not a conventional commit\n' >"$tmp"
+if mise run verify-commit "$tmp" 2>/dev/null; then
+  echo "FAIL: expected verify-commit to reject non-conventional message" >&2
+  exit 1
+fi
+
+printf 'Merge pull request #1 from foo/bar\n' >"$tmp"
+mise run verify-commit "$tmp"
+
+echo "verify-commit tests passed."

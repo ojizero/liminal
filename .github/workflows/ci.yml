@@ -48,9 +48,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mise run ci:verify-version
 
-      - name: Verify release commits follow Conventional Commits
-        run: mise run ci:verify-commits
-
   test:
     name: Test & Lint
     runs-on: ubuntu-latest

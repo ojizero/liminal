@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+#MISE description="Verify a commit message follows Conventional Commits"
+set -euo pipefail
+
+source "${MISE_PROJECT_ROOT}/.mise/lib/conventional-commit.sh"
+
+COMMIT_MSG_FILE=${1:-}
+
+if [[ -z "$COMMIT_MSG_FILE" || ! -f "$COMMIT_MSG_FILE" ]]; then
+  echo "Usage: mise run verify-commit <commit-msg-file>" >&2
+  exit 1
+fi
+
+subject=$(grep -v '^#' "$COMMIT_MSG_FILE" | sed '/^$/d' | head -n1)
+
+if [[ -z "$subject" ]]; then
+  echo "Commit message is empty." >&2
+  exit 1
+fi
+
+if cc_should_skip_subject "$subject"; then
+  exit 0
+fi
+
+if cc_subject_matches "$subject"; then
+  exit 0
+fi
+
+cat >&2 <<EOF
+Commit message does not follow Conventional Commits 1.0.0:
+
+  $subject
+
+Expected format: <type>[optional scope][optional !]: <description>
+
+Examples:
+  feat(links): add fuzzy search
+  fix: stabilize flaky tests
+  chore(release): version 1.11.0
+
+See https://www.conventionalcommits.org/en/v1.0.0/
+EOF
+
+exit 1
