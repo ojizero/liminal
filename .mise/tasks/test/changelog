@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+#MISE description="Run shell tests for Conventional Commit helpers"
+set -euo pipefail
+
+source "${MISE_PROJECT_ROOT}/.mise/lib/conventional-commit.sh"
+
+assert_parse() {
+  local subject=$1
+  local expected_type=$2
+  local expected_scope=$3
+  local expected_breaking=$4
+  local expected_description=$5
+
+  if ! cc_parse_subject "$subject"; then
+    echo "FAIL: expected parse success for: $subject" >&2
+    exit 1
+  fi
+
+  if [[ "$CC_TYPE" != "$expected_type" || "$CC_SCOPE" != "$expected_scope" || "$CC_BREAKING" != "$expected_breaking" || "$CC_DESCRIPTION" != "$expected_description" ]]; then
+    echo "FAIL: parse mismatch for: $subject" >&2
+    echo "  got:      type=$CC_TYPE scope=$CC_SCOPE breaking=$CC_BREAKING description=$CC_DESCRIPTION" >&2
+    echo "  expected: type=$expected_type scope=$expected_scope breaking=$expected_breaking description=$expected_description" >&2
+    exit 1
+  fi
+}
+
+assert_reject() {
+  local subject=$1
+
+  if cc_parse_subject "$subject"; then
+    echo "FAIL: expected parse failure for: $subject" >&2
+    exit 1
+  fi
+}
+
+assert_parse "feat(links): save new link" feat links false "save new link"
+assert_parse "fix: disable paste" fix "" false "disable paste"
+assert_parse "feat!: drop support" feat "" true "drop support"
+assert_parse "feat(api)!: send email" feat api true "send email"
+assert_parse "FEAT(ui): mobile layout" feat ui false "mobile layout"
+assert_parse "chore(AGENTS.md): document commits" chore "AGENTS.md" false "document commits"
+
+assert_reject "Show link expiry on cards using tag or viewed grace rules."
+assert_reject "Merge pull request #1"
+assert_reject "feat:missing space after colon"
+assert_reject "feet: wrong type"
+
+if cc_has_breaking_change_footer $'fix: prevent races\n\nBREAKING CHANGE: config format changed'; then
+  :
+else
+  echo "FAIL: expected BREAKING CHANGE footer detection" >&2
+  exit 1
+fi
+
+echo "Conventional Commit helper tests passed."

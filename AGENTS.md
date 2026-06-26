@@ -530,5 +530,7 @@ And **never** do this:
 
 ## Conventions and practices
 
-- All commit messages must follow conventional commits structure.
+- All commit messages must follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).
 - Commit messages should be concise, direct, and descriptive.
+- Release notes are generated from Conventional Commits between the previous release tag and `HEAD`. Preview with `mise run changelog` before bumping `VERSION`.
+- `chore(release):` commits and merge commits are excluded from release notes. `feat`, `fix`, `perf`, `revert`, `refactor`, and `docs` commits are included.

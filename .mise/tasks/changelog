@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#MISE description="Preview release notes from Conventional Commits since the previous tag"
+set -euo pipefail
+
+source "${MISE_PROJECT_ROOT}/.mise/lib/changelog.sh"
+
+VERSION=${VERSION:-$(current_version)}
+changelog_for_version "$VERSION" HEAD

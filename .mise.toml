@@ -29,5 +29,6 @@ run = [
   { task = "ci:deps" },
   { task = "ci:format" },
   { task = "ci:compile" },
+  { task = "test:changelog" },
   { task = "ci:test" },
 ]

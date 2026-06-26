@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+#MISE description="Verify commits since the previous release follow Conventional Commits"
+set -euo pipefail
+
+source "${MISE_PROJECT_ROOT}/.mise/lib/changelog.sh"
+
+VERSION=${VERSION:-$(current_version)}
+PREVIOUS_TAG=$(changelog_previous_tag "$VERSION")
+
+echo "Verifying Conventional Commits for release v${VERSION}"
+echo "Range: ${PREVIOUS_TAG:-<first release>}..HEAD"
+
+cc_verify_subjects "${PREVIOUS_TAG}" HEAD
+
+echo "All commits in release range follow Conventional Commits."
