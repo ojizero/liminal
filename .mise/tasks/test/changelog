@@ -71,3 +71,23 @@ printf 'Merge pull request #1 from foo/bar\n' >"$tmp"
 mise run verify-commit "$tmp"
 
 echo "verify-commit tests passed."
+
+# setup:git-hooks idempotency
+first_output=$(mise run setup:git-hooks)
+second_output=$(mise run setup:git-hooks)
+
+if [[ -z "$second_output" ]]; then
+  :
+else
+  echo "FAIL: expected setup:git-hooks to be silent on second run, got: $second_output" >&2
+  exit 1
+fi
+
+if [[ "$first_output" == "Configured core.hooksPath=.githooks" ]] || git config --local --get core.hooksPath | grep -qx '.githooks'; then
+  :
+else
+  echo "FAIL: setup:git-hooks did not configure core.hooksPath" >&2
+  exit 1
+fi
+
+echo "setup:git-hooks tests passed."

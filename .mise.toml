@@ -1,7 +1,17 @@
+[settings]
+experimental = true
+
 [tools]
 erlang = "28.5"
 elixir = "1.19.5-otp-28"
 gh = "2.93.0"
+
+# Git hook setup runs idempotently via setup:git-hooks.
+# enter: enforced on every project entry (mise activate required).
+# postinstall: covers fresh clones that run mise install before cd.
+[hooks]
+enter = { task = "setup:git-hooks" }
+postinstall = { task = "setup:git-hooks" }
 
 [tasks."ci:deps"]
 description = "Install Mix dependencies for CI"

@@ -28,10 +28,11 @@ A self-hosted link manager and bookmarking app built with Phoenix LiveView and S
 ### Local development
 
 ```bash
-mix setup                 # Install deps, create DB, run migrations, build assets
-mise run setup:git-hooks  # One-time: enable Conventional Commits commit-msg hook
-mix phx.server            # Start the server at localhost:4000
+mix setup      # Install deps, create DB, run migrations, build assets
+mix phx.server # Start the server at localhost:4000
 ```
+
+Git commit hooks for Conventional Commits are configured automatically via mise when you enter the project directory or run `mise install`.
 
 Local development state is stored under `data.local/`:
 
