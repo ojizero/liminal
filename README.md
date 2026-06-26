@@ -28,9 +28,11 @@ A self-hosted link manager and bookmarking app built with Phoenix LiveView and S
 ### Local development
 
 ```bash
-mix setup          # Install deps, create DB, run migrations, build assets
-mix phx.server     # Start the server at localhost:4000
+mix setup      # Install deps, create DB, run migrations, build assets
+mix phx.server # Start the server at localhost:4000
 ```
+
+[mise](https://mise.jdx.dev/) with shell activation is required for local development. Git commit hooks for Conventional Commits are configured automatically when you enter the project directory or run `mise install`. See [Commit messages](#commit-messages) below.
 
 Local development state is stored under `data.local/`:
 
@@ -116,7 +118,51 @@ mix precommit              # Compile (warnings as errors), format, and test
 mix test                   # Run the test suite
 mix test --failed          # Re-run only previously failed tests
 mix test test/path_test.exs # Run a specific test file
+mise run changelog         # Preview release notes for the current VERSION
 ```
+
+### Commit messages
+
+This project uses [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). Every commit subject must match:
+
+```
+<type>[optional scope][optional !]: <description>
+```
+
+Examples:
+
+```
+feat(links): add fuzzy search across title and URL
+fix: stabilize flaky SQLite tests
+feat!: drop legacy bookmark import API
+chore(release): version 1.11.0
+```
+
+**Enforcement**
+
+- A `commit-msg` Git hook validates each commit locally (`mise run verify-commit`)
+- CI checks all commits in a pull request since the base branch (`mise run verify-commits`)
+- Hooks are configured automatically when you enter the project or run `mise install` (requires [mise](https://mise.jdx.dev/) with shell activation)
+
+**Allowed types** — custom types such as `security` or `deps` are rejected:
+
+| Type | Use for |
+|------|---------|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `docs` | Documentation only |
+| `style` | Formatting, no logic change |
+| `refactor` | Code change that is neither feat nor fix |
+| `perf` | Performance improvement |
+| `test` | Tests only |
+| `build` | Build system or dependencies |
+| `ci` | CI configuration |
+| `chore` | Other maintenance (use `chore(release):` for version bumps) |
+| `revert` | Revert a prior commit |
+
+**Breaking changes** — append `!` after the type or scope (e.g. `feat!: …`, `feat(api)!: …`), or add a `BREAKING CHANGE:` footer in the commit body.
+
+**Release notes** — generated from commits between the previous release tag and `HEAD` when `VERSION` is bumped. Preview with `mise run changelog`. Included: `feat`, `fix`, `perf`, `revert`, `refactor`, `docs`, and breaking changes. Excluded: `chore(release):` commits and merge commits.
 
 ### Project structure
 

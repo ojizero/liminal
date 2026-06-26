@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#MISE description="Configure Git to use the repository hook scripts"
+set -euo pipefail
+
+HOOKS_PATH=".githooks"
+
+current=$(git config --local --get core.hooksPath 2>/dev/null || true)
+
+if [[ "$current" == "$HOOKS_PATH" ]]; then
+  exit 0
+fi
+
+git config --local core.hooksPath "$HOOKS_PATH"
+echo "Configured core.hooksPath=$HOOKS_PATH"

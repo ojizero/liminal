@@ -2,9 +2,28 @@
 #MISE description="Create a GitHub release for VERSION"
 set -euo pipefail
 
+source "${MISE_PROJECT_ROOT}/.mise/lib/changelog.sh"
+
 : "${VERSION:?VERSION is required}"
 : "${GH_TOKEN:?GH_TOKEN is required}"
 
+PREVIOUS_TAG=$(changelog_previous_tag "$VERSION")
+NOTES_FILE=$(mktemp)
+
+cleanup() {
+  rm -f "$NOTES_FILE"
+}
+
+trap cleanup EXIT
+
+echo "Verifying Conventional Commits between ${PREVIOUS_TAG:-<first release>}..HEAD"
+cc_verify_subjects "${PREVIOUS_TAG}" HEAD
+
+changelog_for_version "$VERSION" HEAD >"$NOTES_FILE"
+
+echo "Release notes:"
+cat "$NOTES_FILE"
+
 gh release create "v${VERSION}" \
   --title "v${VERSION}" \
-  --generate-notes
+  --notes-file "$NOTES_FILE"
