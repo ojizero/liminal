@@ -3,11 +3,10 @@
 
 set -euo pipefail
 
-CHANGELOG_LIB_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=release-scope.sh
-source "${CHANGELOG_LIB_DIR}/release-scope.sh"
+source "${MISE_PROJECT_ROOT}/.mise/lib/release-scope.sh"
 # shellcheck source=conventional-commit.sh
-source "${CHANGELOG_LIB_DIR}/conventional-commit.sh"
+source "${MISE_PROJECT_ROOT}/.mise/lib/conventional-commit.sh"
 
 changelog_previous_tag() {
   local version=$1
