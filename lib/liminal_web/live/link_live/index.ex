@@ -207,31 +207,14 @@ defmodule LiminalWeb.LinkLive.Index do
               </div>
 
               <div class="fieldset mt-3">
-                <div class="flex flex-wrap items-center gap-1.5 mb-1">
-                  <label for="link_note" class="label mb-0 p-0">
-                    Note (optional)
-                  </label>
-                  <span
-                    :if={@shortcut_platform && @show_keyboard_shortcut_hints}
-                    id="link-note-save-shortcut"
-                    class="flex items-center gap-0.5"
-                  >
-                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                      {save_note_mod_label(@shortcut_platform)}
-                    </kbd>
-                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                      Enter
-                    </kbd>
-                  </span>
-                </div>
                 <.input
                   field={@form[:note]}
                   type="textarea"
+                  label="Note (optional)"
                   placeholder="Add a short note…"
                   rows="2"
                   maxlength="500"
                   phx-debounce="300"
-                  fieldset_class="mb-0"
                   class="w-full textarea resize-none"
                   aria-keyshortcuts={
                     @shortcut_platform && save_note_aria_keyshortcuts(@shortcut_platform)
@@ -1122,10 +1105,6 @@ defmodule LiminalWeb.LinkLive.Index do
     do: "#{shortcut_mod_aria(platform)}+Shift+#{index}"
 
   defp save_note_aria_keyshortcuts(platform), do: "#{save_note_mod_aria(platform)}+Enter"
-
-  defp save_note_mod_label(:mac), do: "⌘"
-  defp save_note_mod_label(:linux), do: "Ctrl"
-  defp save_note_mod_label(:windows), do: "Ctrl"
 
   defp save_note_mod_aria(:mac), do: "Meta"
   defp save_note_mod_aria(:linux), do: "Control"
