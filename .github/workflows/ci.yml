@@ -29,6 +29,24 @@ jobs:
           AFTER: ${{ github.sha }}
         run: mise run ci:detect-version-change
 
+  verify-commits:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: jdx/mise-action@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify commits follow Conventional Commits
+        env:
+          BEFORE: ${{ github.event.pull_request.base.sha }}
+          AFTER: ${{ github.sha }}
+        run: mise run verify-commits
+
   version-check:
     name: Version Check
     needs: changes

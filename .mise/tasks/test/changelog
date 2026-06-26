@@ -91,3 +91,12 @@ else
 fi
 
 echo "setup:git-hooks tests passed."
+
+if BEFORE=v1.10.2 AFTER=v1.10.3 mise run verify-commits >/dev/null; then
+  :
+else
+  echo "FAIL: expected verify-commits to pass for v1.10.2..v1.10.3" >&2
+  exit 1
+fi
+
+echo "verify-commits tests passed."

@@ -530,7 +530,7 @@ And **never** do this:
 
 ## Conventions and practices
 
-- All commit messages must follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). A `commit-msg` hook enforces this locally via `mise run verify-commit`.
+- All commit messages must follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). A `commit-msg` hook enforces this locally via `mise run verify-commit`; CI verifies all commits in a PR since the base branch via `mise run verify-commits`.
 - Git hooks are configured automatically when entering the project or running `mise install` (`setup:git-hooks`, idempotent).
 - Commit messages should be concise, direct, and descriptive.
 - Release notes are generated from Conventional Commits between the previous release tag and `HEAD`. Preview with `mise run changelog` before bumping `VERSION`.
