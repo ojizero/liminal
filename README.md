@@ -162,7 +162,7 @@ chore(release): version 1.11.0
 
 **Breaking changes** — append `!` after the type or scope (e.g. `feat!: …`, `feat(api)!: …`), or add a `BREAKING CHANGE:` footer in the commit body.
 
-**Release notes** — generated from commits between the previous release tag and `HEAD` when `VERSION` is bumped. Preview with `mise run changelog`. Included: `feat`, `fix`, `perf`, `revert`, `refactor`, `docs`, and breaking changes. Excluded: `chore(release):` commits and merge commits.
+**Release notes** — generated from commits between the previous release tag and `HEAD` when `VERSION` is bumped. Preview with `mise run changelog`. Included: all Conventional Commit types (`feat`, `fix`, `perf`, `revert`, `refactor`, `docs`, `build`, `chore`, `ci`, `style`, `test`) and breaking changes. Excluded: `chore(release):` commits and merge commits.
 
 ### Project structure
 

@@ -558,6 +558,6 @@ A `commit-msg` hook enforces this locally via `mise run verify-commit`; CI verif
 
 **Breaking changes:** append `!` after the type or scope (e.g. `feat!: …`, `feat(api)!: …`), or add a `BREAKING CHANGE:` footer in the commit body.
 
-**Release notes** are generated from Conventional Commits between the previous release tag and `HEAD`. Preview with `mise run changelog` before bumping `VERSION`. Included in release notes: `feat`, `fix`, `perf`, `revert`, `refactor`, `docs`, and any breaking change. Excluded: `chore(release):` commits and merge commits.
+**Release notes** are generated from Conventional Commits between the previous release tag and `HEAD`. Preview with `mise run changelog` before bumping `VERSION`. Included in release notes: all allowed Conventional Commit types (`feat`, `fix`, `perf`, `revert`, `refactor`, `docs`, `build`, `chore`, `ci`, `style`, `test`) and any breaking change. Excluded: `chore(release):` commits and merge commits.
 
 Commit messages should be concise, direct, and descriptive.

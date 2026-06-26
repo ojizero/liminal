@@ -49,6 +49,11 @@ changelog_generate() {
   local -a revert_lines=()
   local -a refactor_lines=()
   local -a docs_lines=()
+  local -a build_lines=()
+  local -a chore_lines=()
+  local -a ci_lines=()
+  local -a style_lines=()
+  local -a test_lines=()
   local -a other_lines=()
 
   local subject body line
@@ -71,6 +76,11 @@ changelog_generate() {
               revert) revert_lines+=("$(cc_format_release_line "$subject")") ;;
               refactor) refactor_lines+=("$(cc_format_release_line "$subject")") ;;
               docs) docs_lines+=("$(cc_format_release_line "$subject")") ;;
+              build) build_lines+=("$(cc_format_release_line "$subject")") ;;
+              chore) chore_lines+=("$(cc_format_release_line "$subject")") ;;
+              ci) ci_lines+=("$(cc_format_release_line "$subject")") ;;
+              style) style_lines+=("$(cc_format_release_line "$subject")") ;;
+              test) test_lines+=("$(cc_format_release_line "$subject")") ;;
             esac
           fi
         else
@@ -106,6 +116,11 @@ changelog_generate() {
   changelog_print_section revert ${revert_lines[@]+"${revert_lines[@]}"}
   changelog_print_section refactor ${refactor_lines[@]+"${refactor_lines[@]}"}
   changelog_print_section docs ${docs_lines[@]+"${docs_lines[@]}"}
+  changelog_print_section build ${build_lines[@]+"${build_lines[@]}"}
+  changelog_print_section chore ${chore_lines[@]+"${chore_lines[@]}"}
+  changelog_print_section ci ${ci_lines[@]+"${ci_lines[@]}"}
+  changelog_print_section style ${style_lines[@]+"${style_lines[@]}"}
+  changelog_print_section test ${test_lines[@]+"${test_lines[@]}"}
   changelog_print_section other ${other_lines[@]+"${other_lines[@]}"}
 }
 
