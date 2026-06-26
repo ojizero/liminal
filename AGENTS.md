@@ -530,8 +530,34 @@ And **never** do this:
 
 ## Conventions and practices
 
-- All commit messages must follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). A `commit-msg` hook enforces this locally via `mise run verify-commit`; CI verifies all commits in a PR since the base branch via `mise run verify-commits`.
-- Git hooks are configured automatically when entering the project or running `mise install` (`setup:git-hooks`, idempotent).
-- Commit messages should be concise, direct, and descriptive.
-- Release notes are generated from Conventional Commits between the previous release tag and `HEAD`. Preview with `mise run changelog` before bumping `VERSION`.
-- `chore(release):` commits and merge commits are excluded from release notes. `feat`, `fix`, `perf`, `revert`, `refactor`, and `docs` commits are included.
+### Conventional Commits
+
+All commit messages must follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/):
+
+```
+<type>[optional scope][optional !]: <description>
+```
+
+A `commit-msg` hook enforces this locally via `mise run verify-commit`; CI verifies all commits in a PR since the base branch via `mise run verify-commits`. Git hooks are configured automatically when entering the project or running `mise install` (`setup:git-hooks`, idempotent).
+
+**Allowed types** (Angular convention — custom types such as `security` or `deps` are rejected):
+
+| Type | Use for |
+|------|---------|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `docs` | Documentation only |
+| `style` | Formatting, no logic change |
+| `refactor` | Code change that is neither feat nor fix |
+| `perf` | Performance improvement |
+| `test` | Tests only |
+| `build` | Build system or dependencies |
+| `ci` | CI configuration |
+| `chore` | Other maintenance (use `chore(release):` for version bumps) |
+| `revert` | Revert a prior commit |
+
+**Breaking changes:** append `!` after the type or scope (e.g. `feat!: …`, `feat(api)!: …`), or add a `BREAKING CHANGE:` footer in the commit body.
+
+**Release notes** are generated from Conventional Commits between the previous release tag and `HEAD`. Preview with `mise run changelog` before bumping `VERSION`. Included in release notes: `feat`, `fix`, `perf`, `revert`, `refactor`, `docs`, and any breaking change. Excluded: `chore(release):` commits and merge commits.
+
+Commit messages should be concise, direct, and descriptive.

@@ -33,8 +33,14 @@ Commit message does not follow Conventional Commits 1.0.0:
 
 Expected format: <type>[optional scope][optional !]: <description>
 
+Allowed types: $(cc_allowed_types_csv)
+
+Breaking changes: append ! after the type or scope (e.g. feat!: …), or add a
+BREAKING CHANGE: footer in the commit body.
+
 Examples:
   feat(links): add fuzzy search
+  feat!: drop legacy API
   fix: stabilize flaky tests
   chore(release): version 1.11.0
 

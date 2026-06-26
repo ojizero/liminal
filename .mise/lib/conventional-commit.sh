@@ -4,7 +4,37 @@
 
 set -euo pipefail
 
-# Types recommended by the spec (Angular convention).
+# Allowed types per the Angular convention (Conventional Commits 1.0.0).
+# This project rejects custom types (e.g. security, deps) for strict enforcement.
+readonly CC_ALLOWED_TYPES=(build chore ci docs feat fix perf refactor revert style test)
+
+# Subset included in published release notes (unless marked breaking).
+readonly CC_RELEASE_NOTE_TYPES=(feat fix perf revert refactor docs)
+
+cc_allowed_types_csv() {
+  local type
+  local first=true
+
+  for type in "${CC_ALLOWED_TYPES[@]}"; do
+    if [[ "$first" == true ]]; then
+      first=false
+      printf '%s' "$type"
+    else
+      printf ', %s' "$type"
+    fi
+  done
+}
+
+cc_type_allowed() {
+  local type=$1
+  local allowed
+
+  for allowed in "${CC_ALLOWED_TYPES[@]}"; do
+    [[ "$type" == "$allowed" ]] && return 0
+  done
+
+  return 1
+}
 
 cc_subject_matches() {
   cc_parse_subject "$1"
@@ -62,10 +92,9 @@ cc_parse_subject() {
     CC_SCOPE=
   fi
 
-  case "$CC_TYPE" in
-    build | chore | ci | docs | feat | fix | perf | refactor | revert | style | test) ;;
-    *) return 1 ;;
-  esac
+  if ! cc_type_allowed "$CC_TYPE"; then
+    return 1
+  fi
 
   return 0
 }
@@ -95,10 +124,18 @@ cc_include_in_release_notes() {
     return 0
   fi
 
-  case "$type" in
-    feat | fix | perf | revert | refactor | docs) return 0 ;;
-    *) return 1 ;;
-  esac
+  cc_release_note_type_allowed "$type"
+}
+
+cc_release_note_type_allowed() {
+  local type=$1
+  local allowed
+
+  for allowed in "${CC_RELEASE_NOTE_TYPES[@]}"; do
+    [[ "$type" == "$allowed" ]] && return 0
+  done
+
+  return 1
 }
 
 cc_format_release_line() {
