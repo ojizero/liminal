@@ -99,14 +99,14 @@ changelog_generate() {
     printf '## v%s\n\n' "$version"
   fi
 
-  changelog_print_section breaking "${breaking_lines[@]}"
-  changelog_print_section feat "${feat_lines[@]}"
-  changelog_print_section fix "${fix_lines[@]}"
-  changelog_print_section perf "${perf_lines[@]}"
-  changelog_print_section revert "${revert_lines[@]}"
-  changelog_print_section refactor "${refactor_lines[@]}"
-  changelog_print_section docs "${docs_lines[@]}"
-  changelog_print_section other "${other_lines[@]}"
+  changelog_print_section breaking ${breaking_lines[@]+"${breaking_lines[@]}"}
+  changelog_print_section feat ${feat_lines[@]+"${feat_lines[@]}"}
+  changelog_print_section fix ${fix_lines[@]+"${fix_lines[@]}"}
+  changelog_print_section perf ${perf_lines[@]+"${perf_lines[@]}"}
+  changelog_print_section revert ${revert_lines[@]+"${revert_lines[@]}"}
+  changelog_print_section refactor ${refactor_lines[@]+"${refactor_lines[@]}"}
+  changelog_print_section docs ${docs_lines[@]+"${docs_lines[@]}"}
+  changelog_print_section other ${other_lines[@]+"${other_lines[@]}"}
 }
 
 changelog_print_section() {
