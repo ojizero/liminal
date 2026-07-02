@@ -97,16 +97,28 @@ const LinkShortcuts = {
         }
       }
 
-      if (key === "k" && usesModKey(event)) {
-        event.preventDefault()
-        this.pushEvent("shortcut_focus_new_link", {})
-        return
-      }
+      if (!isEditableTarget(event.target)) {
+        if (key === "r" && !usesModKey(event) && !event.shiftKey && !event.altKey) {
+          event.preventDefault()
+          document.querySelector("#random-link")?.click()
+          return
+        }
 
-      if (key === "s" && usesModKey(event) && !event.shiftKey && !event.altKey) {
-        event.preventDefault()
-        document.querySelector("#shuffle-link")?.click()
-        return
+        if (key === "f" && !usesModKey(event) && !event.shiftKey && !event.altKey) {
+          event.preventDefault()
+          const searchInput = document.querySelector("#link-search-input")
+          if (searchInput) {
+            searchInput.focus()
+            searchInput.select?.()
+          }
+          return
+        }
+
+        if (key === "j" && !usesModKey(event) && !event.shiftKey && !event.altKey) {
+          event.preventDefault()
+          this.pushEvent("shortcut_focus_new_link", {})
+          return
+        }
       }
 
       const digit = parseDigitShortcut(event)

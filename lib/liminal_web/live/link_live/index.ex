@@ -15,15 +15,26 @@ defmodule LiminalWeb.LinkLive.Index do
         <:actions>
           <.with_tooltip tip="Open a random saved link">
             <.button
-              href={~p"/links/shuffle"}
-              id="shuffle-link"
+              href={~p"/links/random"}
+              id="random-link"
               target="_blank"
               rel="noopener noreferrer"
               variant="soft"
               aria-label="Open a random saved link (opens in new tab)"
-              aria-keyshortcuts={@shortcut_platform && shuffle_aria_keyshortcuts(@shortcut_platform)}
+              aria-keyshortcuts={@shortcut_platform && random_aria_keyshortcuts()}
             >
-              <.icon name="hero-arrow-path" class="size-4" /> Shuffle
+              <span class="inline-flex items-center gap-2">
+                <.icon name="hero-arrow-path" class="size-4" /> Random
+                <span
+                  :if={@shortcut_platform && @show_keyboard_shortcut_hints}
+                  id="random-link-shortcut"
+                  class="inline-flex items-center"
+                >
+                  <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                    R
+                  </kbd>
+                </span>
+              </span>
             </.button>
           </.with_tooltip>
           <.button patch={~p"/tags"} variant="soft">Manage Tags</.button>
@@ -43,9 +54,22 @@ defmodule LiminalWeb.LinkLive.Index do
           placeholder="Title, note, description, or URL…"
           phx-debounce="300"
           fieldset_class="mb-0"
+          class={@shortcut_platform && @show_keyboard_shortcut_hints && "pr-12"}
           aria-controls="links"
           aria-describedby={search_input_describedby(@search_query)}
-        />
+          aria-keyshortcuts={@shortcut_platform && focus_search_aria_keyshortcuts()}
+        >
+          <:suffix :if={@shortcut_platform && @show_keyboard_shortcut_hints}>
+            <div
+              id="link-search-focus-shortcut"
+              class="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-0.5"
+            >
+              <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                F
+              </kbd>
+            </div>
+          </:suffix>
+        </.input>
         <p
           :if={@search_query != ""}
           id="link-search-status"
@@ -140,7 +164,7 @@ defmodule LiminalWeb.LinkLive.Index do
                   placeholder="example.com or https://…"
                   phx-debounce="300"
                   fieldset_class="mb-0"
-                  class={@shortcut_platform && @show_keyboard_shortcut_hints && "pr-20"}
+                  class={@shortcut_platform && @show_keyboard_shortcut_hints && "pr-12"}
                   aria-keyshortcuts={
                     @shortcut_platform && focus_url_aria_keyshortcuts(@shortcut_platform)
                   }
@@ -151,10 +175,7 @@ defmodule LiminalWeb.LinkLive.Index do
                       class="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-0.5"
                     >
                       <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                        {shortcut_mod_label(@shortcut_platform)}
-                      </kbd>
-                      <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                        K
+                        J
                       </kbd>
                     </div>
                   </:suffix>
@@ -1094,12 +1115,14 @@ defmodule LiminalWeb.LinkLive.Index do
 
   defp focus_url_aria_keyshortcuts(platform) do
     mod = shortcut_mod_aria(platform)
-    "#{mod}+K #{mod}+V"
+    "J #{mod}+V"
   end
 
   defp paste_aria_keyshortcuts(platform), do: "#{shortcut_mod_aria(platform)}+V"
 
-  defp shuffle_aria_keyshortcuts(platform), do: "#{shortcut_mod_aria(platform)}+S"
+  defp focus_search_aria_keyshortcuts, do: "F"
+
+  defp random_aria_keyshortcuts, do: "R"
 
   defp tag_toggle_aria_keyshortcuts(platform, index),
     do: "#{shortcut_mod_aria(platform)}+Shift+#{index}"
