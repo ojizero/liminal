@@ -281,6 +281,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       refute has_element?(view, "#link-url-paste-shortcut")
       refute has_element?(view, "#link-url-focus-shortcut")
+      refute has_element?(view, "#link-search-focus-shortcut")
+      refute has_element?(view, "#random-link-shortcut")
 
       view
       |> element("#link-shortcuts")
@@ -291,9 +293,12 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       assert has_element?(view, "#link-url-paste-shortcut kbd", "⌘")
       assert has_element?(view, "#link-url-paste-shortcut kbd", "V")
-      assert has_element?(view, "#link-url-focus-shortcut kbd", "⌘")
-      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
-      assert has_element?(view, "#link_url[aria-keyshortcuts='Meta+K Meta+V']")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "J")
+      assert has_element?(view, "#link-search-focus-shortcut kbd", "F")
+      assert has_element?(view, "#random-link-shortcut kbd", "R")
+      assert has_element?(view, "#link_url[aria-keyshortcuts='J Meta+V']")
+      assert has_element?(view, "#link-search-input[aria-keyshortcuts='F']")
+      assert has_element?(view, "#random-link[aria-keyshortcuts='R']")
       assert has_element?(view, "#new-link-tag-1[aria-keyshortcuts='Meta+Shift+1']")
       assert has_element?(view, "#link_note[aria-keyshortcuts='Meta+Enter']")
       refute has_element?(view, "#link-note-save-shortcut")
@@ -312,7 +317,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       html = render(view)
       assert html =~ "Super"
       assert html =~ "Shift"
-      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "J")
       assert has_element?(view, "#link_note[aria-keyshortcuts='Control+Enter']")
       refute html =~ "⌘"
 
@@ -326,9 +331,9 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       html = render(view)
       assert html =~ "Ctrl"
       assert html =~ "Shift"
-      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "J")
       assert has_element?(view, "#link-url-paste-shortcut kbd", "V")
-      assert has_element?(view, "#link_url[aria-keyshortcuts='Control+K Control+V']")
+      assert has_element?(view, "#link_url[aria-keyshortcuts='J Control+V']")
       assert has_element?(view, "#new-link-tag-1[aria-keyshortcuts='Control+Shift+1']")
       assert has_element?(view, "#link_note[aria-keyshortcuts='Control+Enter']")
       refute has_element?(view, "#link-note-save-shortcut")
@@ -350,6 +355,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       refute has_element?(view, "#link-url-paste-shortcut")
       refute has_element?(view, "#link-url-focus-shortcut")
+      refute has_element?(view, "#link-search-focus-shortcut")
+      refute has_element?(view, "#random-link-shortcut")
       refute has_element?(view, "#link-note-save-shortcut")
       refute render(view) =~ "1..9"
       assert has_element?(view, "#link-url-paste-from-clipboard[disabled]")
@@ -1371,25 +1378,23 @@ defmodule LiminalWeb.LinkLive.IndexTest do
     end
   end
 
-  describe "shuffle" do
+  describe "random" do
     setup :register_and_log_in_user
 
-    test "renders shuffle control as a link in the page header", %{conn: conn} do
+    test "renders random control as a link in the page header", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
       assert has_element?(
                view,
-               "#shuffle-link[href='/links/shuffle'][target='_blank']",
-               "Shuffle"
+               "#random-link[href='/links/random'][target='_blank']",
+               "Random"
              )
     end
 
-    test "shuffle control exposes platform-specific save shortcut in aria-keyshortcuts", %{
-      conn: conn
-    } do
+    test "random control exposes R shortcut in aria-keyshortcuts", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
-      refute has_element?(view, "#shuffle-link[aria-keyshortcuts]")
+      refute has_element?(view, "#random-link[aria-keyshortcuts]")
 
       view
       |> element("#link-shortcuts")
@@ -1398,7 +1403,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
         "show_keyboard_shortcut_hints" => true
       })
 
-      assert has_element?(view, "#shuffle-link[aria-keyshortcuts='Meta+S']")
+      assert has_element?(view, "#random-link[aria-keyshortcuts='R']")
+      assert has_element?(view, "#random-link-shortcut kbd", "R")
 
       view
       |> element("#link-shortcuts")
@@ -1407,7 +1413,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
         "show_keyboard_shortcut_hints" => true
       })
 
-      assert has_element?(view, "#shuffle-link[aria-keyshortcuts='Control+S']")
+      assert has_element?(view, "#random-link[aria-keyshortcuts='R']")
     end
   end
 

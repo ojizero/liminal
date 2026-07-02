@@ -6,33 +6,33 @@ defmodule LiminalWeb.LinkControllerTest do
 
   setup :register_and_log_in_user
 
-  describe "GET /links/shuffle" do
+  describe "GET /links/random" do
     test "redirects to a random saved link", %{conn: conn, scope: scope} do
-      url = "https://shuffle.example.com"
+      url = "https://random.example.com"
       _link = link_fixture(scope, %{url: url})
 
-      conn = get(conn, ~p"/links/shuffle")
+      conn = get(conn, ~p"/links/random")
 
       assert redirected_to(conn) == url
     end
 
     test "redirects home with an error when there are no links", %{conn: conn} do
-      conn = get(conn, ~p"/links/shuffle")
+      conn = get(conn, ~p"/links/random")
 
       assert redirected_to(conn) == ~p"/"
-      assert Phoenix.Flash.get(conn.assigns.flash, :error) == "No links to shuffle"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) == "No links to open randomly"
     end
 
     test "marks the link viewed and broadcasts when auto mark on open is enabled" do
       user = user_fixture()
       {:ok, user} = Liminal.Accounts.update_user_settings(user, %{auto_mark_viewed_on_open: true})
       scope = Liminal.Accounts.Scope.for_user(user)
-      url = "https://shuffle-mark.example.com"
-      link = link_fixture(scope, %{url: url, title: "Shuffle Mark"})
+      url = "https://random-mark.example.com"
+      link = link_fixture(scope, %{url: url, title: "Random Mark"})
 
       Liminal.Links.subscribe_links(scope)
 
-      conn = build_conn() |> log_in_user(user) |> get(~p"/links/shuffle")
+      conn = build_conn() |> log_in_user(user) |> get(~p"/links/random")
 
       assert redirected_to(conn) == url
       assert Liminal.Links.get_link!(scope, link.id).viewed_at
@@ -46,20 +46,20 @@ defmodule LiminalWeb.LinkControllerTest do
       conn: conn,
       scope: scope
     } do
-      url = "https://shuffle-skip.example.com"
+      url = "https://random-skip.example.com"
       link = link_fixture(scope, %{url: url})
 
-      conn = get(conn, ~p"/links/shuffle")
+      conn = get(conn, ~p"/links/random")
 
       assert redirected_to(conn) == url
       refute Liminal.Links.get_link!(scope, link.id).viewed_at
     end
 
     test "requires authentication", %{scope: scope} do
-      url = "https://shuffle-auth.example.com"
+      url = "https://random-auth.example.com"
       _link = link_fixture(scope, %{url: url})
 
-      conn = build_conn() |> get(~p"/links/shuffle")
+      conn = build_conn() |> get(~p"/links/random")
 
       assert redirected_to(conn) in [~p"/users/log-in", ~p"/users/register"]
     end
