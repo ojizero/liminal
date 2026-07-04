@@ -229,10 +229,19 @@ const LinkShortcuts = {
         input.setSelectionRange(input.value.length, input.value.length)
       }
     })
+
+    this.onUrlFocus = () => {
+      this.pushEvent("focus_new_link", {})
+    }
+
+    this.urlInput = document.querySelector("#link_url")
+    this.urlInput?.addEventListener("focus", this.onUrlFocus)
   },
 
   destroyed() {
     window.removeEventListener("keydown", this.onKeyDown, true)
+
+    this.urlInput?.removeEventListener("focus", this.onUrlFocus)
 
     if (this.globalPasteEnabled) {
       window.removeEventListener("paste", this.onPaste, true)

@@ -263,6 +263,69 @@ defmodule LiminalWeb.UserLive.SettingsTest do
 
       assert Accounts.get_user!(user.id).auto_mark_viewed_on_open == false
     end
+
+    test "renders default tag preference controls", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      assert has_element?(
+               view,
+               "#settings_form input[type=checkbox][name='user[default_tags_enabled]']"
+             )
+
+      refute render(view) =~ "Default tag"
+    end
+
+    test "enabling default tags requires selecting a tag", %{conn: conn, user: user} do
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      view
+      |> element("#settings_form")
+      |> render_change(%{"user" => %{"default_tags_enabled" => "true"}})
+
+      refute Accounts.get_user!(user.id).default_tags_enabled
+    end
+
+    test "enabling default tags persists the chosen tag", %{conn: conn, user: user} do
+      scope = Liminal.Accounts.Scope.for_user(user)
+      [tag | _] = Liminal.Links.list_tags(scope)
+
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      view
+      |> element("#settings_form")
+      |> render_change(%{"user" => %{"default_tags_enabled" => "true"}})
+
+      view
+      |> element("#settings_form")
+      |> render_change(%{
+        "user" => %{"default_tags_enabled" => "true", "default_tag_id" => to_string(tag.id)}
+      })
+
+      updated = Accounts.get_user!(user.id)
+      assert updated.default_tags_enabled
+      assert updated.default_tag_id == tag.id
+    end
+
+    test "disabling default tags clears the stored tag", %{conn: conn, user: user} do
+      scope = Liminal.Accounts.Scope.for_user(user)
+      [tag | _] = Liminal.Links.list_tags(scope)
+
+      {:ok, _} =
+        Accounts.update_user_settings(user, %{
+          default_tags_enabled: true,
+          default_tag_id: tag.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      view
+      |> form("#settings_form", user: %{default_tags_enabled: "false"})
+      |> render_change()
+
+      updated = Accounts.get_user!(user.id)
+      refute updated.default_tags_enabled
+      assert is_nil(updated.default_tag_id)
+    end
   end
 
   describe "update username form" do

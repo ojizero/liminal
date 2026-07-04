@@ -4,6 +4,7 @@ defmodule LiminalWeb.UserLive.Settings do
   on_mount {LiminalWeb.UserAuth, :require_sudo_mode}
 
   alias Liminal.Accounts
+  alias Liminal.Links
 
   @impl true
   def render(assigns) do
@@ -88,6 +89,27 @@ defmodule LiminalWeb.UserLive.Settings do
           <p class="text-sm text-base-content/60 -mt-1">
             When enabled, opening a link automatically marks it as viewed.
           </p>
+
+          <.input
+            field={@settings_form[:default_tags_enabled]}
+            type="checkbox"
+            label="Preselect a default tag for new links"
+            class="toggle toggle-primary mt-4"
+          />
+          <p class="text-sm text-base-content/60 -mt-1">
+            When enabled, your chosen tag is selected automatically when you add a new link.
+          </p>
+
+          <div :if={default_tags_enabled?(@settings_form)} class="mt-3">
+            <.input
+              field={@settings_form[:default_tag_id]}
+              type="select"
+              label="Default tag"
+              prompt="Choose a tag…"
+              options={default_tag_options(@tags)}
+              required
+            />
+          </div>
         </.form>
 
         <%= if @current_scope.user.role == "admin" do %>
@@ -131,6 +153,7 @@ defmodule LiminalWeb.UserLive.Settings do
   @impl true
   def mount(_params, _session, socket) do
     user = socket.assigns.current_scope.user
+    scope = socket.assigns.current_scope
     username_changeset = Accounts.change_user_username(user, %{}, validate_unique: false)
     password_changeset = Accounts.change_user_password(user, %{}, hash_password: false)
 
@@ -141,6 +164,7 @@ defmodule LiminalWeb.UserLive.Settings do
       |> assign(:username_form, to_form(username_changeset))
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:settings_form, to_form(Accounts.change_user_settings(user)))
+      |> assign(:tags, Links.list_tags(scope))
       |> assign(:trigger_submit, false)
 
     {:ok, socket}
@@ -208,7 +232,13 @@ defmodule LiminalWeb.UserLive.Settings do
     case Accounts.update_user_settings(user, user_params) do
       {:ok, updated_user} ->
         # Preserve virtual fields (e.g. authenticated_at) carried on the scope user.
-        scope_user = %{user | auto_mark_viewed_on_open: updated_user.auto_mark_viewed_on_open}
+        scope_user = %{
+          user
+          | auto_mark_viewed_on_open: updated_user.auto_mark_viewed_on_open,
+            default_tags_enabled: updated_user.default_tags_enabled,
+            default_tag_id: updated_user.default_tag_id
+        }
+
         scope = %{socket.assigns.current_scope | user: scope_user}
 
         {:noreply,
@@ -253,5 +283,13 @@ defmodule LiminalWeb.UserLive.Settings do
       {:error, :last_admin} ->
         {:noreply, put_flash(socket, :error, "You are the last admin and cannot step down.")}
     end
+  end
+
+  defp default_tags_enabled?(form) do
+    Phoenix.HTML.Form.normalize_value("checkbox", form[:default_tags_enabled].value)
+  end
+
+  defp default_tag_options(tags) do
+    Enum.map(tags, &{&1.name, &1.id})
   end
 end
