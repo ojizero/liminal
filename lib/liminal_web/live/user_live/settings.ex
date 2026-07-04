@@ -1,6 +1,7 @@
 defmodule LiminalWeb.UserLive.Settings do
   use LiminalWeb, :live_view
 
+  import LiminalWeb.ReindexComponents
   import LiminalWeb.StatsComponents
 
   on_mount {LiminalWeb.UserAuth, :require_sudo_mode}
@@ -18,6 +19,16 @@ defmodule LiminalWeb.UserLive.Settings do
         </.header>
         <.stats_grid stats={@stats} />
       </section>
+
+      <.reindex_panel
+        id="user-reindex"
+        reindex={@reindex}
+        current_scope={@current_scope}
+        heading="Reindex your links"
+        description="Re-fetch metadata for your saved links. Only one reindex job can run at a time across the instance."
+        failed_confirm="Reindex your links that failed indexing? This runs in the background."
+        all_confirm="Reindex all of your saved links? Existing metadata will be cleared first."
+      />
 
       <Layouts.narrow_page>
         <div class="text-center">
@@ -141,13 +152,19 @@ defmodule LiminalWeb.UserLive.Settings do
   @impl true
   def mount(_params, _session, socket) do
     user = socket.assigns.current_scope.user
+    scope = socket.assigns.current_scope
     username_changeset = Accounts.change_user_username(user, %{}, validate_unique: false)
     password_changeset = Accounts.change_user_password(user, %{}, hash_password: false)
+
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Liminal.PubSub, Links.Reindex.pubsub_topic())
+    end
 
     socket =
       socket
       |> assign(:page_title, "Account Settings")
-      |> assign(:stats, Links.user_stats(socket.assigns.current_scope))
+      |> assign(:stats, Links.user_stats(scope))
+      |> assign(:reindex, Links.reindex_status())
       |> assign(:current_username, user.username)
       |> assign(:username_form, to_form(username_changeset))
       |> assign(:password_form, to_form(password_changeset))
@@ -155,6 +172,24 @@ defmodule LiminalWeb.UserLive.Settings do
       |> assign(:trigger_submit, false)
 
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_info({:reindex_progress, reindex}, socket) do
+    scope = socket.assigns.current_scope
+
+    socket =
+      socket
+      |> assign(:reindex, reindex)
+      |> then(fn socket ->
+        if reindex.active do
+          socket
+        else
+          assign(socket, :stats, Links.user_stats(scope))
+        end
+      end)
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -263,6 +298,50 @@ defmodule LiminalWeb.UserLive.Settings do
 
       {:error, :last_admin} ->
         {:noreply, put_flash(socket, :error, "You are the last admin and cannot step down.")}
+    end
+  end
+
+  def handle_event("start_reindex", %{"mode" => mode}, socket) do
+    scope = socket.assigns.current_scope
+    mode = String.to_existing_atom(mode)
+
+    case Links.start_user_reindex(scope, mode) do
+      {:ok, reindex} ->
+        message =
+          if reindex.active do
+            "Reindex job started (#{reindex_scope_label(reindex.scope, reindex.mode)})."
+          else
+            "No links matched that reindex scope."
+          end
+
+        {:noreply,
+         socket
+         |> assign(:reindex, reindex)
+         |> put_flash(:info, message)}
+
+      {:error, :already_running} ->
+        {:noreply,
+         socket
+         |> assign(:reindex, Links.reindex_status())
+         |> put_flash(
+           :error,
+           "A reindex job is already running. Cancel it or wait for it to finish."
+         )}
+    end
+  end
+
+  def handle_event("cancel_reindex", _params, socket) do
+    scope = socket.assigns.current_scope
+
+    case Links.cancel_reindex(scope) do
+      :ok ->
+        {:noreply,
+         socket
+         |> assign(:reindex, Links.reindex_status())
+         |> put_flash(:info, "Reindex job cancelled.")}
+
+      {:error, :unauthorized} ->
+        {:noreply, put_flash(socket, :error, "You cannot cancel this reindex job.")}
     end
   end
 end

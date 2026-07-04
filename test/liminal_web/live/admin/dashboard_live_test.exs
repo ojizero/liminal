@@ -4,13 +4,7 @@ defmodule LiminalWeb.Admin.DashboardLiveTest do
   import Ecto.Query
   import Phoenix.LiveViewTest
 
-  alias Liminal.Links.Reindex
-
-  setup do
-    reindex_pid = start_supervised!({Reindex, []})
-    Ecto.Adapters.SQL.Sandbox.allow(Liminal.Repo, self(), reindex_pid)
-    {:ok, reindex_pid: reindex_pid}
-  end
+  setup :ensure_reindex_started!
 
   describe "unauthenticated" do
     test "redirects from /admin to login", %{conn: conn} do
@@ -80,15 +74,15 @@ defmodule LiminalWeb.Admin.DashboardLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin")
 
-      refute has_element?(view, "#reindex-failed-btn[disabled]")
-      refute has_element?(view, "#reindex-all-btn[disabled]")
+      refute has_element?(view, "#admin-reindex-failed-btn[disabled]")
+      refute has_element?(view, "#admin-reindex-all-btn[disabled]")
 
-      view |> element("#reindex-failed-btn") |> render_click()
+      view |> element("#admin-reindex-failed-btn") |> render_click()
 
-      assert has_element?(view, "#reindex-status", "Running")
-      assert has_element?(view, "#reindex-progress")
-      assert has_element?(view, "#reindex-failed-btn[disabled]")
-      assert has_element?(view, "#reindex-all-btn[disabled]")
+      assert has_element?(view, "#admin-reindex-status", "Running")
+      assert has_element?(view, "#admin-reindex-progress")
+      assert has_element?(view, "#admin-reindex-failed-btn[disabled]")
+      assert has_element?(view, "#admin-reindex-all-btn[disabled]")
     end
 
     test "blocks starting a second job while one is active", %{conn: conn, scope: scope} do
@@ -102,10 +96,10 @@ defmodule LiminalWeb.Admin.DashboardLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin")
 
-      view |> element("#reindex-all-btn") |> render_click()
-      assert has_element?(view, "#reindex-status", "Running")
-      assert has_element?(view, "#reindex-failed-btn[disabled]")
-      assert has_element?(view, "#reindex-all-btn[disabled]")
+      view |> element("#admin-reindex-all-btn") |> render_click()
+      assert has_element?(view, "#admin-reindex-status", "Running")
+      assert has_element?(view, "#admin-reindex-failed-btn[disabled]")
+      assert has_element?(view, "#admin-reindex-all-btn[disabled]")
     end
 
     test "navigates to user management", %{conn: conn} do

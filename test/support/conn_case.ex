@@ -96,4 +96,18 @@ defmodule LiminalWeb.ConnCase do
   defp maybe_set_token_authenticated_at(token, authenticated_at) do
     Liminal.AccountsFixtures.override_token_authenticated_at(token, authenticated_at)
   end
+
+  @doc """
+  Ensures the reindex coordinator is running and allowed to use the SQL sandbox.
+  """
+  def ensure_reindex_started!(_context) do
+    pid =
+      case Process.whereis(Liminal.Links.Reindex) do
+        nil -> start_supervised!({Liminal.Links.Reindex, []})
+        pid -> pid
+      end
+
+    Ecto.Adapters.SQL.Sandbox.allow(Liminal.Repo, self(), pid)
+    :ok
+  end
 end
