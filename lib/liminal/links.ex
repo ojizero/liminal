@@ -7,8 +7,9 @@ defmodule Liminal.Links do
 
   require Logger
 
+  alias Liminal.Accounts.Scope
   alias Liminal.Repo
-  alias Liminal.Links.{Tag, Link, LinkTag, TextSearch}
+  alias Liminal.Links.{Tag, Link, LinkTag, TextSearch, MassReindexer, Stats}
 
   ## PubSub
 
@@ -233,6 +234,93 @@ defmodule Liminal.Links do
 
   @doc false
   def list_unindexed_links(opts \\ []), do: list_index_retry_candidates(opts)
+
+  ## Stats
+
+  @doc "Returns instance-wide link statistics. Admin only."
+  def instance_stats(scope) do
+    ensure_admin!(scope)
+    Stats.instance_stats()
+  end
+
+  @doc "Returns per-user link statistics."
+  def user_stats(scope) do
+    Stats.user_stats(scope)
+  end
+
+  ## Mass reindex (admin)
+
+  @doc """
+  Returns link IDs eligible for a mass reindex job.
+
+  * `:failed` — links where indexing failed or gave up
+  * `:all` — every link in the instance
+  """
+  def list_mass_reindex_ids(:failed) do
+    from(l in Link,
+      where:
+        is_nil(l.indexed_at) and
+          (not is_nil(l.index_gave_up_at) or l.index_attempt_count > 0),
+      select: l.id,
+      order_by: [asc: l.inserted_at]
+    )
+    |> Repo.all()
+  end
+
+  def list_mass_reindex_ids(:all) do
+    from(l in Link, select: l.id, order_by: [asc: l.inserted_at])
+    |> Repo.all()
+  end
+
+  @doc """
+  Resets a link so it can be reindexed during a mass reindex job.
+  """
+  def prepare_link_for_mass_reindex(%Link{} = link, :all) do
+    if link.image_path do
+      Liminal.Links.ImageDownloader.delete(link.image_path)
+    end
+
+    attrs =
+      %{
+        indexed_at: nil,
+        description: nil,
+        favicon_url: nil,
+        image_path: nil,
+        duration_seconds: nil
+      }
+      |> Map.merge(index_retry_reset_attrs())
+
+    link
+    |> Link.metadata_changeset(attrs)
+    |> Repo.update()
+  end
+
+  def prepare_link_for_mass_reindex(%Link{} = link, :failed) do
+    reset_index_retry(link)
+  end
+
+  @doc "Queues a single link for metadata indexing."
+  def queue_index(link_id, user_id) do
+    spawn_index_task(link_id, user_id)
+  end
+
+  @doc "Starts an async mass reindex job. Admin only."
+  def start_mass_reindex(scope, mode) when mode in [:all, :failed] do
+    ensure_admin!(scope)
+    MassReindexer.start_reindex(mode)
+  end
+
+  @doc "Cancels the current mass reindex job. Admin only."
+  def cancel_mass_reindex(scope) do
+    ensure_admin!(scope)
+    MassReindexer.cancel()
+  end
+
+  @doc "Returns mass reindex job status. Admin only."
+  def mass_reindex_status(scope) do
+    ensure_admin!(scope)
+    MassReindexer.status()
+  end
 
   @doc """
   Gets a single link by id, scoped to the user, with preloaded tags.
@@ -809,5 +897,9 @@ defmodule Liminal.Links do
     Enum.reduce(index_retry_reset_attrs(), changeset, fn {field, value}, cs ->
       Ecto.Changeset.put_change(cs, field, value)
     end)
+  end
+
+  defp ensure_admin!(scope) do
+    unless Scope.admin?(scope), do: raise("admin required")
   end
 end

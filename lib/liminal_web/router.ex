@@ -66,6 +66,7 @@ defmodule LiminalWeb.Router do
 
     live_session :require_admin,
       on_mount: [{LiminalWeb.UserAuth, :require_admin}] do
+      live "/", DashboardLive, :index
       live "/users", UserLive.Index, :index
       live "/users/new", UserLive.Index, :new
     end

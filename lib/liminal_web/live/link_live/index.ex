@@ -1,6 +1,8 @@
 defmodule LiminalWeb.LinkLive.Index do
   use LiminalWeb, :live_view
 
+  import LiminalWeb.StatsComponents
+
   alias Liminal.Links
 
   @viewed_removal_delay_ms 1_000
@@ -40,6 +42,11 @@ defmodule LiminalWeb.LinkLive.Index do
           <.button patch={~p"/tags"} variant="soft">Manage Tags</.button>
         </:actions>
       </.header>
+
+      <section id="user-stats" aria-labelledby="user-stats-heading" class="mb-6">
+        <h2 id="user-stats-heading" class="sr-only">Your link stats</h2>
+        <.stats_grid stats={@stats} />
+      </section>
 
       <form phx-change="search" phx-submit="search" id="link-search-form" role="search" class="mb-4">
         <p id="link-search-hint" class="sr-only">
@@ -635,6 +642,7 @@ defmodule LiminalWeb.LinkLive.Index do
     socket =
       socket
       |> assign(:tags, tags)
+      |> assign(:stats, Links.user_stats(scope))
       |> assign(:auto_mark_viewed, scope.user.auto_mark_viewed_on_open)
       |> assign(:filter, :unviewed)
       |> assign(:sort, :time_added_desc)

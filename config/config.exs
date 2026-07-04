@@ -29,6 +29,10 @@ config :liminal, Liminal.Retry,
   base_delay_seconds: 300,
   max_delay_seconds: 86_400
 
+config :liminal, Liminal.Links.MassReindexer,
+  batch_size: 3,
+  interval_ms: 2_000
+
 config :liminal, Liminal.Repo,
   migration_primary_key: [name: :id, type: :binary_id, null: false],
   migration_foreign_key: [type: :binary_id]

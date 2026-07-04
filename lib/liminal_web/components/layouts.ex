@@ -90,7 +90,7 @@ defmodule LiminalWeb.Layouts do
                 <%= if Scope.admin?(@current_scope) do %>
                   <li>
                     <.link
-                      navigate={~p"/admin/users"}
+                      navigate={~p"/admin"}
                       class={[@active_nav == :admin && "menu-active"]}
                       aria-current={@active_nav == :admin && "page"}
                     >
