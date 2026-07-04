@@ -42,8 +42,15 @@ defmodule LiminalWeb.Admin.DashboardLiveTest do
       assert has_element?(view, "#stat-total-users")
     end
 
-    test "shows user stats on links page", %{conn: conn} do
+    test "does not show user stats on links page", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
+
+      refute has_element?(view, "#user-stats")
+      refute has_element?(view, "#stat-total-links")
+    end
+
+    test "shows user stats on settings page", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
 
       assert has_element?(view, "#user-stats")
       assert has_element?(view, "#stat-total-links")

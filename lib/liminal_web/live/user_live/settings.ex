@@ -1,14 +1,24 @@
 defmodule LiminalWeb.UserLive.Settings do
   use LiminalWeb, :live_view
 
+  import LiminalWeb.StatsComponents
+
   on_mount {LiminalWeb.UserAuth, :require_sudo_mode}
 
-  alias Liminal.Accounts
+  alias Liminal.{Accounts, Links}
 
   @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
+      <section id="user-stats" aria-labelledby="user-stats-heading" class="mb-8">
+        <.header level={2}>
+          Your link stats
+          <:subtitle>A snapshot of your saved links and how they are doing.</:subtitle>
+        </.header>
+        <.stats_grid stats={@stats} />
+      </section>
+
       <Layouts.narrow_page>
         <div class="text-center">
           <.header>
@@ -137,6 +147,7 @@ defmodule LiminalWeb.UserLive.Settings do
     socket =
       socket
       |> assign(:page_title, "Account Settings")
+      |> assign(:stats, Links.user_stats(socket.assigns.current_scope))
       |> assign(:current_username, user.username)
       |> assign(:username_form, to_form(username_changeset))
       |> assign(:password_form, to_form(password_changeset))
