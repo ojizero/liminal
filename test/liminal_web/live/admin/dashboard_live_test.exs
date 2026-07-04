@@ -4,12 +4,12 @@ defmodule LiminalWeb.Admin.DashboardLiveTest do
   import Ecto.Query
   import Phoenix.LiveViewTest
 
-  alias Liminal.Links.MassReindexer
+  alias Liminal.Links.Reindex
 
   setup do
-    reindexer_pid = start_supervised!({MassReindexer, []})
-    Ecto.Adapters.SQL.Sandbox.allow(Liminal.Repo, self(), reindexer_pid)
-    {:ok, reindexer_pid: reindexer_pid}
+    reindex_pid = start_supervised!({Reindex, []})
+    Ecto.Adapters.SQL.Sandbox.allow(Liminal.Repo, self(), reindex_pid)
+    {:ok, reindex_pid: reindex_pid}
   end
 
   describe "unauthenticated" do
@@ -50,23 +50,55 @@ defmodule LiminalWeb.Admin.DashboardLiveTest do
       refute has_element?(view, "#stat-total-users")
     end
 
-    test "starts a failed reindex job", %{conn: conn, scope: scope} do
+    test "starts a failed reindex job and disables new jobs while active", %{
+      conn: conn,
+      scope: scope
+    } do
       tag = Liminal.LinksFixtures.tag_fixture(scope)
-      {:ok, link} = Liminal.Links.create_link(scope, %{url: "https://fail.example.com"}, [tag.id])
+
+      {:ok, link1} =
+        Liminal.Links.create_link(scope, %{url: "https://fail-one.example.com"}, [tag.id])
+
+      {:ok, link2} =
+        Liminal.Links.create_link(scope, %{url: "https://fail-two.example.com"}, [tag.id])
 
       now = DateTime.utc_now(:second)
 
-      Liminal.Repo.update_all(
-        from(l in Liminal.Links.Link, where: l.id == ^link.id),
-        set: [index_attempt_count: 1, index_last_attempted_at: now]
-      )
+      for link <- [link1, link2] do
+        Liminal.Repo.update_all(
+          from(l in Liminal.Links.Link, where: l.id == ^link.id),
+          set: [index_attempt_count: 1, index_last_attempted_at: now]
+        )
+      end
 
       {:ok, view, _html} = live(conn, ~p"/admin")
+
+      refute has_element?(view, "#reindex-failed-btn[disabled]")
+      refute has_element?(view, "#reindex-all-btn[disabled]")
 
       view |> element("#reindex-failed-btn") |> render_click()
 
       assert has_element?(view, "#reindex-status", "Running")
       assert has_element?(view, "#reindex-progress")
+      assert has_element?(view, "#reindex-failed-btn[disabled]")
+      assert has_element?(view, "#reindex-all-btn[disabled]")
+    end
+
+    test "blocks starting a second job while one is active", %{conn: conn, scope: scope} do
+      tag = Liminal.LinksFixtures.tag_fixture(scope)
+
+      {:ok, _} =
+        Liminal.Links.create_link(scope, %{url: "https://busy-one.example.com"}, [tag.id])
+
+      {:ok, _} =
+        Liminal.Links.create_link(scope, %{url: "https://busy-two.example.com"}, [tag.id])
+
+      {:ok, view, _html} = live(conn, ~p"/admin")
+
+      view |> element("#reindex-all-btn") |> render_click()
+      assert has_element?(view, "#reindex-status", "Running")
+      assert has_element?(view, "#reindex-failed-btn[disabled]")
+      assert has_element?(view, "#reindex-all-btn[disabled]")
     end
 
     test "navigates to user management", %{conn: conn} do

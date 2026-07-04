@@ -29,7 +29,7 @@ config :liminal, Liminal.Retry,
   base_delay_seconds: 300,
   max_delay_seconds: 86_400
 
-config :liminal, Liminal.Links.MassReindexer,
+config :liminal, Liminal.Links.Reindex,
   batch_size: 3,
   interval_ms: 2_000
 

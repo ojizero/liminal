@@ -21,7 +21,7 @@ defmodule Liminal.Application do
         {Task.Supervisor, name: Liminal.Links.IndexerTaskSupervisor},
         # Start to serve requests, typically the last entry
         LiminalWeb.Endpoint
-      ] ++ janitor_children() ++ mass_reindexer_children()
+      ] ++ janitor_children() ++ reindex_children()
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
@@ -45,9 +45,9 @@ defmodule Liminal.Application do
     end
   end
 
-  defp mass_reindexer_children do
-    if Application.get_env(:liminal, :start_mass_reindexer, true) do
-      [Liminal.Links.MassReindexer]
+  defp reindex_children do
+    if Application.get_env(:liminal, :start_reindex, true) do
+      [Liminal.Links.Reindex]
     else
       []
     end
