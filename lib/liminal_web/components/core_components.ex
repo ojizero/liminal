@@ -394,6 +394,7 @@ defmodule LiminalWeb.CoreComponents do
 
   Use `level={2}` for section headings when the page already has an `h1`.
   """
+  attr :id, :string, default: nil
   attr :level, :integer, default: 1, values: [1, 2]
   slot :inner_block, required: true
   slot :subtitle
@@ -407,11 +408,11 @@ defmodule LiminalWeb.CoreComponents do
     ]}>
       <div class="min-w-0">
         <%= if @level == 1 do %>
-          <h1 class="text-lg font-semibold leading-8">
+          <h1 id={@id} class="text-lg font-semibold leading-8">
             {render_slot(@inner_block)}
           </h1>
         <% else %>
-          <h2 class="text-lg font-semibold leading-8">
+          <h2 id={@id} class="text-lg font-semibold leading-8">
             {render_slot(@inner_block)}
           </h2>
         <% end %>
@@ -423,6 +424,29 @@ defmodule LiminalWeb.CoreComponents do
         {render_slot(@actions)}
       </div>
     </header>
+    """
+  end
+
+  @doc """
+  Renders a consistent surface for grouped page content.
+  """
+  attr :id, :string, default: nil
+  attr :class, :any, default: nil
+  attr :rest, :global
+  slot :inner_block, required: true
+
+  def panel(assigns) do
+    ~H"""
+    <section
+      id={@id}
+      class={[
+        "rounded-xl border border-base-300 bg-base-200/70 p-5 shadow-sm sm:p-6",
+        @class
+      ]}
+      {@rest}
+    >
+      {render_slot(@inner_block)}
+    </section>
     """
   end
 

@@ -9,14 +9,17 @@ defmodule LiminalWeb.UserLive.SettingsTest do
 
   describe "Settings page" do
     test "renders settings page", %{conn: conn} do
-      {:ok, _lv, html} =
+      {:ok, view, _html} =
         conn
         |> log_in_user(user_fixture())
         |> live(~p"/users/settings")
 
-      assert html =~ "Save Password"
-      assert html =~ "Change Username"
-      assert html =~ "Your link stats"
+      assert has_element?(view, "#settings-page")
+      assert has_element?(view, "#account-security")
+      assert has_element?(view, "#username-settings #username_form")
+      assert has_element?(view, "#password-settings #password_form")
+      assert has_element?(view, "#preferences-settings #settings_form")
+      assert has_element?(view, "#user-menu a[aria-current='page']", "Settings")
     end
 
     test "redirects if user is not logged in", %{conn: conn} do

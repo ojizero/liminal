@@ -24,7 +24,7 @@ defmodule LiminalWeb.ReindexComponents do
 
     ~H"""
     <section id={@id} aria-labelledby={"#{@id}-heading"} class="space-y-4">
-      <.header level={2}>
+      <.header id={"#{@id}-heading"} level={2}>
         {@heading}
         <:subtitle>{@description}</:subtitle>
       </.header>
