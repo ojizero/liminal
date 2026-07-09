@@ -27,7 +27,7 @@ defmodule LiminalWeb.Admin.UserLive.Index do
             </:actions>
           </.header>
 
-          <.panel :if={@live_action == :new} id="invite-user-panel" class="max-w-2xl space-y-4">
+          <.panel :if={@live_action == :new} id="invite-user-panel" class="space-y-4">
             <div>
               <h3 class="font-semibold">Invite a user</h3>
               <p class="text-sm text-base-content/60">
@@ -39,12 +39,14 @@ defmodule LiminalWeb.Admin.UserLive.Index do
               id="admin-invite-user-form"
               phx-change="validate"
               phx-submit="save"
+              class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(12rem,1fr)_auto] lg:items-end"
             >
               <.input
                 field={@form[:username]}
                 type="text"
                 label="Username"
                 autocomplete="off"
+                fieldset_class="mb-0"
                 required
               />
               <.input
@@ -52,8 +54,9 @@ defmodule LiminalWeb.Admin.UserLive.Index do
                 type="select"
                 label="Role"
                 options={[{"User", "user"}, {"Admin", "admin"}]}
+                fieldset_class="mb-0"
               />
-              <div class="mt-2 flex gap-2">
+              <div class="flex gap-2 sm:col-span-2 lg:col-span-1">
                 <.button variant="primary" phx-disable-with="Inviting…">Invite User</.button>
                 <.button patch={~p"/admin/users"}>Cancel</.button>
               </div>
