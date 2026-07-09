@@ -828,7 +828,14 @@ defmodule LiminalWeb.LinkLive.Index do
   end
 
   def handle_event("shortcut_focus_new_link", _params, socket) do
-    {:noreply, push_event(socket, "focus-new-link-url", %{scroll: true})}
+    {:noreply,
+     socket
+     |> apply_default_tags()
+     |> push_event("focus-new-link-url", %{scroll: true})}
+  end
+
+  def handle_event("focus_new_link", _params, socket) do
+    {:noreply, apply_default_tags(socket)}
   end
 
   def handle_event("shortcut_paste_link", %{"url" => url}, socket) do
@@ -840,6 +847,7 @@ defmodule LiminalWeb.LinkLive.Index do
     {:noreply,
      socket
      |> assign(:form, to_form(changeset))
+     |> apply_default_tags()
      |> push_event("focus-new-link-url", %{scroll: true})}
   end
 
@@ -1138,8 +1146,24 @@ defmodule LiminalWeb.LinkLive.Index do
   defp save_note_mod_aria(:linux), do: "Control"
   defp save_note_mod_aria(:windows), do: "Control"
 
+  defp apply_default_tags(socket) do
+    user = socket.assigns.current_scope.user
+
+    with true <- user.default_tags_enabled,
+         tag_id when not is_nil(tag_id) <- user.default_tag_id,
+         tag_id <- normalize_tag_id(tag_id),
+         true <- Enum.any?(socket.assigns.tags, &(normalize_tag_id(&1.id) == tag_id)) do
+      assign(socket, :selected_tag_ids, [tag_id])
+    else
+      _ -> socket
+    end
+  end
+
+  defp normalize_tag_id(id), do: to_string(id)
+
   defp toggle_selected_tag(socket, tag_id) do
-    selected = socket.assigns.selected_tag_ids
+    tag_id = normalize_tag_id(tag_id)
+    selected = Enum.map(socket.assigns.selected_tag_ids, &normalize_tag_id/1)
 
     updated =
       if tag_id in selected do

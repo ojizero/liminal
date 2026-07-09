@@ -540,6 +540,102 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#links", "https://example.com/shortcut-hook")
     end
 
+    test "paste shortcut prepopulates default tag when enabled", %{conn: conn, scope: scope} do
+      [tag | _] = Liminal.Links.list_tags(scope)
+
+      {:ok, _} =
+        Liminal.Accounts.update_user_settings(scope.user, %{
+          default_tags_enabled: true,
+          default_tag_id: tag.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_paste_link", %{"url" => "https://example.com/default-tag-paste"})
+
+      assert has_element?(
+               view,
+               "button[phx-click='toggle_tag'][phx-value-id='#{tag.id}'].badge-primary"
+             )
+
+      view
+      |> form("#link-form", link: %{url: "https://example.com/default-tag-paste"})
+      |> render_submit()
+
+      assert render(view) =~ "Link added"
+    end
+
+    test "focus shortcut prepopulates default tag when enabled", %{conn: conn, scope: scope} do
+      [tag | _] = Liminal.Links.list_tags(scope)
+
+      {:ok, _} =
+        Liminal.Accounts.update_user_settings(scope.user, %{
+          default_tags_enabled: true,
+          default_tag_id: tag.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_focus_new_link", %{})
+
+      assert has_element?(
+               view,
+               "button[phx-click='toggle_tag'][phx-value-id='#{tag.id}'].badge-primary"
+             )
+    end
+
+    test "focus on new link url prepopulates default tag when enabled", %{
+      conn: conn,
+      scope: scope
+    } do
+      [tag | _] = Liminal.Links.list_tags(scope)
+
+      {:ok, _} =
+        Liminal.Accounts.update_user_settings(scope.user, %{
+          default_tags_enabled: true,
+          default_tag_id: tag.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("focus_new_link", %{})
+
+      assert has_element?(
+               view,
+               "button[phx-click='toggle_tag'][phx-value-id='#{tag.id}'].badge-primary"
+             )
+    end
+
+    test "default tag is not prepopulated when preference is disabled", %{
+      conn: conn,
+      scope: scope
+    } do
+      [tag | _] = Liminal.Links.list_tags(scope)
+
+      {:ok, _} =
+        Liminal.Accounts.update_user_settings(scope.user, %{
+          default_tags_enabled: false,
+          default_tag_id: tag.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_paste_link", %{"url" => "https://example.com/no-default-tag"})
+
+      refute has_element?(
+               view,
+               "button[phx-click='toggle_tag'][phx-value-id='#{tag.id}'].badge-primary"
+             )
+    end
+
     test "edit a link", %{conn: conn, scope: scope} do
       link = link_fixture(scope, %{url: "https://old.com", title: "Old Title"})
       {:ok, view, _html} = live(conn, ~p"/")

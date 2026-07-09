@@ -1,5 +1,5 @@
 defmodule Liminal.Links.StatsTest do
-  use Liminal.DataCase, async: true
+  use Liminal.DataCase, async: false
 
   alias Liminal.Accounts.Scope
   alias Liminal.Links
