@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#MISE description="Verify commits in a git range follow Conventional Commits"
+set -euo pipefail
+
+source "${MISE_PROJECT_ROOT}/.mise/lib/conventional-commit.sh"
+
+: "${BEFORE:?BEFORE is required}"
+: "${AFTER:?AFTER is required}"
+
+echo "Verifying Conventional Commits between ${BEFORE}..${AFTER}"
+
+cc_verify_subjects "$BEFORE" "$AFTER"
+
+echo "All commits in range follow Conventional Commits."

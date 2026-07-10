@@ -10,7 +10,10 @@ defmodule Liminal.Accounts.User do
     field :disabled_at, :utc_datetime
     field :confirmed_at, :utc_datetime
     field :auto_mark_viewed_on_open, :boolean, default: false
+    field :default_tags_enabled, :boolean, default: false
     field :authenticated_at, :utc_datetime, virtual: true
+
+    belongs_to :default_tag, Liminal.Links.Tag
 
     timestamps(type: :utc_datetime)
   end
@@ -163,7 +166,47 @@ defmodule Liminal.Accounts.User do
   A user changeset for changing user-controlled preferences.
   """
   def settings_changeset(user, attrs) do
-    cast(user, attrs, [:auto_mark_viewed_on_open])
+    user
+    |> cast(attrs, [:auto_mark_viewed_on_open, :default_tags_enabled, :default_tag_id])
+    |> maybe_clear_default_tag()
+    |> validate_default_tag()
+  end
+
+  defp maybe_clear_default_tag(changeset) do
+    if get_field(changeset, :default_tags_enabled) == false do
+      put_change(changeset, :default_tag_id, nil)
+    else
+      changeset
+    end
+  end
+
+  defp validate_default_tag(changeset) do
+    if get_field(changeset, :default_tags_enabled) do
+      changeset
+      |> validate_required([:default_tag_id])
+      |> validate_default_tag_ownership()
+    else
+      changeset
+    end
+  end
+
+  defp validate_default_tag_ownership(changeset) do
+    user_id = changeset.data.id
+    tag_id = get_field(changeset, :default_tag_id)
+
+    cond do
+      is_nil(tag_id) or is_nil(user_id) ->
+        changeset
+
+      true ->
+        case Liminal.Repo.get(Liminal.Links.Tag, tag_id) do
+          %{user_id: ^user_id} ->
+            changeset
+
+          _ ->
+            add_error(changeset, :default_tag_id, "must be one of your tags")
+        end
+    end
   end
 
   @doc """

@@ -12,7 +12,7 @@ defmodule LiminalWeb.AssetController do
          image_path when is_binary(image_path) <- build_image_path(user_id, filename),
          full_path when is_binary(full_path) <- safe_file_path(image_path),
          true <- File.regular?(full_path) do
-      content_type = MIME.from_path(filename) || "application/octet-stream"
+      content_type = MIME.from_path(filename)
 
       conn
       |> put_resp_content_type(content_type)

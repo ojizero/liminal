@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 
 # Build arguments for easy version pinning
-ARG ELIXIR_VERSION=1.19.5
-ARG OTP_VERSION=28.5
-ARG DEBIAN_VERSION=bookworm-20260421-slim
+ARG ELIXIR_VERSION=1.20.2
+ARG OTP_VERSION=29.0.2
+ARG DEBIAN_VERSION=bookworm-20260623-slim
 
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"

@@ -1,123 +1,147 @@
 #!/usr/bin/env bash
-# Generate release notes from conventional commits between two git refs.
+# Generate release notes from Conventional Commits between two git refs.
 
 set -euo pipefail
 
-CHANGELOG_TYPES=(
-  "breaking:Breaking Changes"
-  "feat:Features"
-  "fix:Bug Fixes"
-  "perf:Performance"
-  "refactor:Refactoring"
-)
+# shellcheck source=release-scope.sh
+source "${MISE_PROJECT_ROOT}/.mise/lib/release-scope.sh"
+# shellcheck source=conventional-commit.sh
+source "${MISE_PROJECT_ROOT}/.mise/lib/conventional-commit.sh"
 
-changelog_skip_subject() {
-  local subject=$1
-
-  [[ "$subject" =~ ^chore\(release\): ]] ||
-    [[ "$subject" =~ ^chore\(release\) ]] ||
-    [[ "$subject" =~ ^Merge ]]
-}
-
-changelog_parse_subject() {
-  local subject=$1
-
-  if changelog_skip_subject "$subject"; then
-    return 0
-  fi
-
-  [[ "$subject" != *:* ]] && return 0
-
-  local header="${subject%%:*}"
-  local description="${subject#*: }"
-
-  [[ "$description" == "$subject" || -z "$description" ]] && return 0
-
-  local type="$header"
-  local scope=""
-  local breaking=false
-
-  if [[ "$header" == *"("*")"* ]]; then
-    type="${header%%(*}"
-    scope="${header#*(}"
-    scope="${scope%%)*}"
-
-    local suffix="${header#*${scope})}"
-    [[ "$suffix" == "!" ]] && breaking=true
-  elif [[ "$header" == *"!" ]]; then
-    type="${header%!}"
-    breaking=true
-  fi
-
-  if [[ "$breaking" == true ]]; then
-    type="breaking"
-  fi
-
-  case "$type" in
-    feat|fix|perf|refactor|breaking)
-      if [[ -n "$scope" ]]; then
-        printf '%s\t**%s:** %s\n' "$type" "$scope" "$description"
-      else
-        printf '%s\t%s\n' "$type" "$description"
-      fi
-      ;;
-  esac
-}
-
-changelog_from_subjects() {
-  local version=${1:-}
-  local from_ref=${2:-}
-  local to_ref=${3:-HEAD}
-  local -A section_lines=()
-
-  while IFS= read -r subject; do
-    [[ -z "$subject" ]] && continue
-
-    while IFS=$'\t' read -r type line; do
-      section_lines["$type"]+="- ${line}"$'\n'
-    done < <(changelog_parse_subject "$subject")
-  done < <(git log "${from_ref}..${to_ref}" --pretty=format:'%s' --no-merges 2>/dev/null || true)
-
-  local printed=false
-
-  for mapping in "${CHANGELOG_TYPES[@]}"; do
-    local type=${mapping%%:*}
-    local title=${mapping#*:}
-    local lines=${section_lines[$type]:-}
-
-    if [[ -n "$lines" ]]; then
-      printed=true
-      printf '### %s\n' "$title"
-      printf '%b' "$lines"
-      printf '\n'
-    fi
-  done
-
-  if [[ "$printed" == false ]]; then
-    printf 'No user-facing conventional commits since the previous release.\n\n'
-  fi
-
-  local repo=${GITHUB_REPOSITORY:-}
-  if [[ -z "$repo" ]] && command -v gh >/dev/null 2>&1; then
-    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
-  fi
-
-  if [[ -n "$repo" && -n "$from_ref" && -n "$version" ]]; then
-    local to_tag="v${version}"
-    printf '**Full Changelog**: https://github.com/%s/compare/%s...%s\n' "$repo" "$from_ref" "$to_tag"
-  fi
-}
-
-changelog_for_release() {
+changelog_previous_tag() {
   local version=$1
-  local from_ref=${2:-}
+  local tag ver
+
+  while IFS= read -r tag; do
+    ver="${tag#v}"
+    if version_lt "$ver" "$version"; then
+      printf '%s\n' "$tag"
+      return 0
+    fi
+  done < <(git tag -l 'v*' --sort=-v:refname)
+
+  return 0
+}
+
+changelog_collect_commits() {
+  local from_ref=$1
+  local to_ref=${2:-HEAD}
+  local range
 
   if [[ -z "$from_ref" ]]; then
+    range="$to_ref"
+  else
+    range="${from_ref}..${to_ref}"
+  fi
+
+  git log "$range" --format='%s%n%b%n----' --no-merges
+}
+
+changelog_generate() {
+  local from_ref=$1
+  local to_ref=${2:-HEAD}
+  local version=${3:-}
+
+  local -a breaking_lines=()
+  local -a feat_lines=()
+  local -a fix_lines=()
+  local -a perf_lines=()
+  local -a revert_lines=()
+  local -a refactor_lines=()
+  local -a docs_lines=()
+  local -a build_lines=()
+  local -a chore_lines=()
+  local -a ci_lines=()
+  local -a style_lines=()
+  local -a test_lines=()
+  local -a other_lines=()
+
+  local subject body line
+  subject=
+  body=
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" == "----" ]]; then
+      if [[ -n "$subject" ]] && ! cc_should_skip_subject "$subject"; then
+        if cc_parse_subject "$subject"; then
+          breaking=false
+          if cc_is_breaking_commit "$subject" "$body"; then
+            breaking=true
+            breaking_lines+=("$(cc_format_release_line "$subject")")
+          elif cc_include_in_release_notes "$CC_TYPE" false; then
+            case "$CC_TYPE" in
+              feat) feat_lines+=("$(cc_format_release_line "$subject")") ;;
+              fix) fix_lines+=("$(cc_format_release_line "$subject")") ;;
+              perf) perf_lines+=("$(cc_format_release_line "$subject")") ;;
+              revert) revert_lines+=("$(cc_format_release_line "$subject")") ;;
+              refactor) refactor_lines+=("$(cc_format_release_line "$subject")") ;;
+              docs) docs_lines+=("$(cc_format_release_line "$subject")") ;;
+              build) build_lines+=("$(cc_format_release_line "$subject")") ;;
+              chore) chore_lines+=("$(cc_format_release_line "$subject")") ;;
+              ci) ci_lines+=("$(cc_format_release_line "$subject")") ;;
+              style) style_lines+=("$(cc_format_release_line "$subject")") ;;
+              test) test_lines+=("$(cc_format_release_line "$subject")") ;;
+            esac
+          fi
+        else
+          other_lines+=("$(cc_format_release_line "$subject")")
+        fi
+      fi
+
+      subject=
+      body=
+      continue
+    fi
+
+    if [[ -z "$subject" ]]; then
+      subject=$line
+      continue
+    fi
+
+    if [[ -z "$body" ]]; then
+      body=$line
+    elif [[ -n "$line" ]]; then
+      body+=$'\n'"$line"
+    fi
+  done < <(changelog_collect_commits "$from_ref" "$to_ref")
+
+  if [[ -n "$version" ]]; then
     printf '## v%s\n\n' "$version"
-    printf 'Initial release.\n'
+  fi
+
+  changelog_print_section breaking ${breaking_lines[@]+"${breaking_lines[@]}"}
+  changelog_print_section feat ${feat_lines[@]+"${feat_lines[@]}"}
+  changelog_print_section fix ${fix_lines[@]+"${fix_lines[@]}"}
+  changelog_print_section perf ${perf_lines[@]+"${perf_lines[@]}"}
+  changelog_print_section revert ${revert_lines[@]+"${revert_lines[@]}"}
+  changelog_print_section refactor ${refactor_lines[@]+"${refactor_lines[@]}"}
+  changelog_print_section docs ${docs_lines[@]+"${docs_lines[@]}"}
+  changelog_print_section build ${build_lines[@]+"${build_lines[@]}"}
+  changelog_print_section chore ${chore_lines[@]+"${chore_lines[@]}"}
+  changelog_print_section ci ${ci_lines[@]+"${ci_lines[@]}"}
+  changelog_print_section style ${style_lines[@]+"${style_lines[@]}"}
+  changelog_print_section test ${test_lines[@]+"${test_lines[@]}"}
+  changelog_print_section other ${other_lines[@]+"${other_lines[@]}"}
+}
+
+changelog_print_section() {
+  local type=$1
+  shift
+
+  if [[ "$#" -eq 0 ]]; then
     return 0
   fi
 
-  printf '## v%s\n\n' "$version"
-  changelog_from_subjects "$version" "$from_ref"
+  cc_section_heading "$type"
+  printf '%s\n' "$@"
+  printf '\n'
+}
+
+changelog_for_version() {
+  local version=$1
+  local to_ref=${2:-HEAD}
+  local previous_tag
+
+  previous_tag=$(changelog_previous_tag "$version")
+  changelog_generate "$previous_tag" "$to_ref" "$version"
 }

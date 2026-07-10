@@ -1,16 +1,8 @@
 #!/usr/bin/env bash
-#MISE description="Preview release notes from conventional commits since the latest release"
+#MISE description="Preview release notes from Conventional Commits since the previous tag"
 set -euo pipefail
 
-source "${MISE_PROJECT_ROOT}/.mise/lib/release-scope.sh"
 source "${MISE_PROJECT_ROOT}/.mise/lib/changelog.sh"
 
-version=$(current_version)
-latest_tag=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "")
-from_ref="$latest_tag"
-
-if [[ -n "${1:-}" ]]; then
-  from_ref=$1
-fi
-
-changelog_for_release "$version" "$from_ref"
+VERSION=${VERSION:-$(current_version)}
+changelog_for_version "$VERSION" HEAD

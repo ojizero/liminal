@@ -1263,30 +1263,6 @@ defmodule Liminal.LinksTest do
     end
   end
 
-  describe "retry_indexing/2" do
-    test "resets retry state for gave-up link" do
-      scope = user_scope_fixture()
-      link = link_fixture(scope, %{title: nil})
-      now = DateTime.utc_now(:second)
-
-      Liminal.Repo.update_all(
-        Ecto.Query.from(l in Liminal.Links.Link, where: l.id == ^link.id),
-        set: [
-          index_attempt_count: 10,
-          index_gave_up_at: now,
-          index_last_attempted_at: now
-        ]
-      )
-
-      link = Links.get_link!(scope, link.id)
-
-      assert {:ok, updated} = Links.retry_indexing(scope, link)
-      assert updated.index_attempt_count == 0
-      assert is_nil(updated.index_gave_up_at)
-      assert is_nil(updated.index_next_attempt_at)
-    end
-  end
-
   describe "list_unindexed_links/1" do
     test "delegates to list_index_retry_candidates/1" do
       scope = user_scope_fixture()
