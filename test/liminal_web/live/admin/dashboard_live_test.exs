@@ -30,10 +30,16 @@ defmodule LiminalWeb.Admin.DashboardLiveTest do
     test "renders dashboard with instance stats", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/admin")
 
-      assert has_element?(view, "header", "Admin Dashboard")
+      assert has_element?(view, "#admin-dashboard header", "Admin")
       assert has_element?(view, "#admin-stats")
       assert has_element?(view, "#stat-total-links")
       assert has_element?(view, "#stat-total-users")
+
+      assert has_element?(
+               view,
+               "nav[aria-label='Admin sections'] a[aria-current='page']",
+               "Overview"
+             )
     end
 
     test "does not show user stats on links page", %{conn: conn} do
@@ -107,7 +113,7 @@ defmodule LiminalWeb.Admin.DashboardLiveTest do
 
       {:ok, users_view, _html} =
         view
-        |> element("a", "Manage Users")
+        |> element("nav[aria-label='Admin sections'] a", "Users")
         |> render_click()
         |> follow_redirect(conn, ~p"/admin/users")
 

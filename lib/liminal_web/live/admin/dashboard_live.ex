@@ -10,28 +10,34 @@ defmodule LiminalWeb.Admin.DashboardLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} active_nav={:admin}>
-      <.header>
-        Admin Dashboard
-        <:actions>
-          <.link navigate={~p"/admin/users"} class="btn btn-soft btn-sm">
-            <.icon name="hero-users" class="size-4" /> Manage Users
-          </.link>
-        </:actions>
-      </.header>
+      <div id="admin-dashboard" class="space-y-8">
+        <div class="space-y-2">
+          <.header>
+            Admin
+            <:subtitle>Monitor the instance and manage shared maintenance tasks.</:subtitle>
+          </.header>
+          <Layouts.admin_nav active={:dashboard} />
+        </div>
 
-      <section id="admin-stats" aria-labelledby="admin-stats-heading" class="space-y-4">
-        <h2 id="admin-stats-heading" class="text-lg font-semibold">Instance stats</h2>
-        <.stats_grid stats={@stats} comprehensive />
-      </section>
+        <section id="admin-stats" aria-labelledby="admin-stats-heading" class="space-y-4">
+          <.header id="admin-stats-heading" level={2}>
+            Instance stats
+            <:subtitle>An overview of links, users, and indexing health.</:subtitle>
+          </.header>
+          <.stats_grid stats={@stats} comprehensive />
+        </section>
 
-      <.reindex_panel
-        id="admin-reindex"
-        reindex={@reindex}
-        current_scope={@current_scope}
-        description="Re-fetch metadata asynchronously for the whole instance. Only one reindex job can run at a time."
-        failed_confirm="Reindex all links with failed indexing on this instance? This runs in the background."
-        all_confirm="Reindex every link on the instance? Existing metadata will be cleared first."
-      />
+        <.panel>
+          <.reindex_panel
+            id="admin-reindex"
+            reindex={@reindex}
+            current_scope={@current_scope}
+            description="Re-fetch metadata asynchronously for the whole instance. Only one reindex job can run at a time."
+            failed_confirm="Reindex all links with failed indexing on this instance? This runs in the background."
+            all_confirm="Reindex every link on the instance? Existing metadata will be cleared first."
+          />
+        </.panel>
+      </div>
     </Layouts.app>
     """
   end
@@ -44,6 +50,7 @@ defmodule LiminalWeb.Admin.DashboardLive do
 
     {:ok,
      socket
+     |> assign(:page_title, "Admin")
      |> assign(:stats, Links.instance_stats(socket.assigns.current_scope))
      |> assign(:reindex, Links.reindex_status())}
   end
