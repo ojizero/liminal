@@ -15,13 +15,26 @@ defmodule LiminalWeb.LinkLive.Index do
         <:actions>
           <.with_tooltip tip="Open a random saved link">
             <.button
-              type="button"
-              id="shuffle-link"
-              phx-click="shuffle"
+              href={~p"/links/random"}
+              id="random-link"
+              target="_blank"
+              rel="noopener noreferrer"
               variant="soft"
-              aria-label="Open a random saved link"
+              aria-label="Open a random saved link (opens in new tab)"
+              aria-keyshortcuts={@shortcut_platform && random_aria_keyshortcuts()}
             >
-              <.icon name="hero-arrow-path" class="size-4" /> Shuffle
+              <span class="inline-flex items-center gap-2">
+                <.icon name="hero-arrow-path" class="size-4" /> Random
+                <span
+                  :if={@shortcut_platform && @show_keyboard_shortcut_hints}
+                  id="random-link-shortcut"
+                  class="inline-flex items-center"
+                >
+                  <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                    R
+                  </kbd>
+                </span>
+              </span>
             </.button>
           </.with_tooltip>
           <.button patch={~p"/tags"} variant="soft">Manage Tags</.button>
@@ -50,9 +63,22 @@ defmodule LiminalWeb.LinkLive.Index do
           placeholder="Title, note, description, or URL…"
           phx-debounce="300"
           fieldset_class="mb-0"
+          class={@shortcut_platform && @show_keyboard_shortcut_hints && "pr-12"}
           aria-controls="links"
           aria-describedby={search_input_describedby(@search_query)}
-        />
+          aria-keyshortcuts={@shortcut_platform && focus_search_aria_keyshortcuts()}
+        >
+          <:suffix :if={@shortcut_platform && @show_keyboard_shortcut_hints}>
+            <div
+              id="link-search-focus-shortcut"
+              class="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-0.5"
+            >
+              <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
+                F
+              </kbd>
+            </div>
+          </:suffix>
+        </.input>
         <p
           :if={@search_query != ""}
           id="link-search-status"
@@ -147,7 +173,7 @@ defmodule LiminalWeb.LinkLive.Index do
                   placeholder="example.com or https://…"
                   phx-debounce="300"
                   fieldset_class="mb-0"
-                  class={@shortcut_platform && @show_keyboard_shortcut_hints && "pr-20"}
+                  class={@shortcut_platform && @show_keyboard_shortcut_hints && "pr-12"}
                   aria-keyshortcuts={
                     @shortcut_platform && focus_url_aria_keyshortcuts(@shortcut_platform)
                   }
@@ -158,10 +184,7 @@ defmodule LiminalWeb.LinkLive.Index do
                       class="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-0.5"
                     >
                       <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                        {shortcut_mod_label(@shortcut_platform)}
-                      </kbd>
-                      <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                        K
+                        J
                       </kbd>
                     </div>
                   </:suffix>
@@ -222,6 +245,10 @@ defmodule LiminalWeb.LinkLive.Index do
                   rows="2"
                   maxlength="500"
                   phx-debounce="300"
+                  class="w-full textarea resize-none"
+                  aria-keyshortcuts={
+                    @shortcut_platform && save_note_aria_keyshortcuts(@shortcut_platform)
+                  }
                 />
               </div>
 
@@ -810,7 +837,14 @@ defmodule LiminalWeb.LinkLive.Index do
   end
 
   def handle_event("shortcut_focus_new_link", _params, socket) do
-    {:noreply, push_event(socket, "focus-new-link-url", %{scroll: true})}
+    {:noreply,
+     socket
+     |> apply_default_tags()
+     |> push_event("focus-new-link-url", %{scroll: true})}
+  end
+
+  def handle_event("focus_new_link", _params, socket) do
+    {:noreply, apply_default_tags(socket)}
   end
 
   def handle_event("shortcut_paste_link", %{"url" => url}, socket) do
@@ -822,6 +856,7 @@ defmodule LiminalWeb.LinkLive.Index do
     {:noreply,
      socket
      |> assign(:form, to_form(changeset))
+     |> apply_default_tags()
      |> push_event("focus-new-link-url", %{scroll: true})}
   end
 
@@ -911,8 +946,13 @@ defmodule LiminalWeb.LinkLive.Index do
          |> put_flash(:info, "Indexing retry queued")
          |> stream_insert(:links, updated_link)}
 
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Could not retry indexing")}
+      {:error, :reindex_busy} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "A reindex job is already running. Try again when it finishes."
+         )}
     end
   end
 
@@ -930,22 +970,6 @@ defmodule LiminalWeb.LinkLive.Index do
       end
     else
       {:noreply, socket}
-    end
-  end
-
-  def handle_event("shuffle", _params, socket) do
-    scope = socket.assigns.current_scope
-
-    case Links.random_link(scope) do
-      {:error, :no_links} ->
-        {:noreply, put_flash(socket, :error, "No links to shuffle")}
-
-      {:ok, link} ->
-        if socket.assigns.auto_mark_viewed and is_nil(link.viewed_at) do
-          {:ok, _} = Links.mark_viewed(scope, link)
-        end
-
-        {:noreply, push_event(socket, "open-external-link", %{url: link.url})}
     end
   end
 
@@ -1124,16 +1148,42 @@ defmodule LiminalWeb.LinkLive.Index do
 
   defp focus_url_aria_keyshortcuts(platform) do
     mod = shortcut_mod_aria(platform)
-    "#{mod}+K #{mod}+V"
+    "J #{mod}+V"
   end
 
   defp paste_aria_keyshortcuts(platform), do: "#{shortcut_mod_aria(platform)}+V"
 
+  defp focus_search_aria_keyshortcuts, do: "F"
+
+  defp random_aria_keyshortcuts, do: "R"
+
   defp tag_toggle_aria_keyshortcuts(platform, index),
     do: "#{shortcut_mod_aria(platform)}+Shift+#{index}"
 
+  defp save_note_aria_keyshortcuts(platform), do: "#{save_note_mod_aria(platform)}+Enter"
+
+  defp save_note_mod_aria(:mac), do: "Meta"
+  defp save_note_mod_aria(:linux), do: "Control"
+  defp save_note_mod_aria(:windows), do: "Control"
+
+  defp apply_default_tags(socket) do
+    user = socket.assigns.current_scope.user
+
+    with true <- user.default_tags_enabled,
+         tag_id when not is_nil(tag_id) <- user.default_tag_id,
+         tag_id <- normalize_tag_id(tag_id),
+         true <- Enum.any?(socket.assigns.tags, &(normalize_tag_id(&1.id) == tag_id)) do
+      assign(socket, :selected_tag_ids, [tag_id])
+    else
+      _ -> socket
+    end
+  end
+
+  defp normalize_tag_id(id), do: to_string(id)
+
   defp toggle_selected_tag(socket, tag_id) do
-    selected = socket.assigns.selected_tag_ids
+    tag_id = normalize_tag_id(tag_id)
+    selected = Enum.map(socket.assigns.selected_tag_ids, &normalize_tag_id/1)
 
     updated =
       if tag_id in selected do

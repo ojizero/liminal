@@ -13,6 +13,11 @@ const usesModKey = (event) => {
   return event.metaKey
 }
 
+const usesNoteSubmitModKey = (event) => {
+  if (/mac/i.test(platform)) return event.metaKey
+  return event.ctrlKey
+}
+
 const detectShortcutPlatform = () => {
   if (/mac/i.test(platform)) return "mac"
   if (/win/i.test(platform)) return "windows"
@@ -84,10 +89,36 @@ const LinkShortcuts = {
       if (event.repeat) return
 
       const key = event.key?.toLowerCase()
-      if (key === "k" && usesModKey(event)) {
-        event.preventDefault()
-        this.pushEvent("shortcut_focus_new_link", {})
-        return
+      if (key === "enter" && usesNoteSubmitModKey(event) && !event.shiftKey && !event.altKey) {
+        if (event.target?.id === "link_note") {
+          event.preventDefault()
+          document.querySelector("#link-form")?.requestSubmit()
+          return
+        }
+      }
+
+      if (!isEditableTarget(event.target)) {
+        if (key === "r" && !usesModKey(event) && !event.shiftKey && !event.altKey) {
+          event.preventDefault()
+          document.querySelector("#random-link")?.click()
+          return
+        }
+
+        if (key === "f" && !usesModKey(event) && !event.shiftKey && !event.altKey) {
+          event.preventDefault()
+          const searchInput = document.querySelector("#link-search-input")
+          if (searchInput) {
+            searchInput.focus()
+            searchInput.select?.()
+          }
+          return
+        }
+
+        if (key === "j" && !usesModKey(event) && !event.shiftKey && !event.altKey) {
+          event.preventDefault()
+          this.pushEvent("shortcut_focus_new_link", {})
+          return
+        }
       }
 
       const digit = parseDigitShortcut(event)
@@ -199,15 +230,18 @@ const LinkShortcuts = {
       }
     })
 
-    this.handleEvent("open-external-link", ({url}) => {
-      if (url) {
-        window.open(url, "_blank", "noopener,noreferrer")
-      }
-    })
+    this.onUrlFocus = () => {
+      this.pushEvent("focus_new_link", {})
+    }
+
+    this.urlInput = document.querySelector("#link_url")
+    this.urlInput?.addEventListener("focus", this.onUrlFocus)
   },
 
   destroyed() {
     window.removeEventListener("keydown", this.onKeyDown, true)
+
+    this.urlInput?.removeEventListener("focus", this.onUrlFocus)
 
     if (this.globalPasteEnabled) {
       window.removeEventListener("paste", this.onPaste, true)

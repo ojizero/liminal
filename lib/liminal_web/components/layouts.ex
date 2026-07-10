@@ -35,7 +35,7 @@ defmodule LiminalWeb.Layouts do
 
   attr :active_nav, :atom,
     default: nil,
-    doc: "highlights the matching item in the user menu (:links or :admin)"
+    doc: "highlights the matching item in the user menu (:links, :admin, or :settings)"
 
   slot :inner_block, required: true
 
@@ -90,7 +90,7 @@ defmodule LiminalWeb.Layouts do
                 <%= if Scope.admin?(@current_scope) do %>
                   <li>
                     <.link
-                      navigate={~p"/admin/users"}
+                      navigate={~p"/admin"}
                       class={[@active_nav == :admin && "menu-active"]}
                       aria-current={@active_nav == :admin && "page"}
                     >
@@ -102,7 +102,11 @@ defmodule LiminalWeb.Layouts do
                   <hr class="border-base-content/10" />
                 </li>
                 <li>
-                  <.link navigate={~p"/users/settings"}>
+                  <.link
+                    navigate={~p"/users/settings"}
+                    class={[@active_nav == :settings && "menu-active"]}
+                    aria-current={@active_nav == :settings && "page"}
+                  >
                     <.icon name="hero-cog-6-tooth" class="size-4" /> Settings
                   </.link>
                 </li>
@@ -146,6 +150,43 @@ defmodule LiminalWeb.Layouts do
   end
 
   @doc """
+  Shared navigation for the admin area.
+  """
+  attr :active, :atom, required: true, values: [:dashboard, :users]
+
+  def admin_nav(assigns) do
+    ~H"""
+    <nav aria-label="Admin sections" class="border-b border-base-300">
+      <div class="flex gap-1">
+        <.link
+          navigate={~p"/admin"}
+          class={[
+            "border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+            @active == :dashboard && "border-primary text-primary",
+            @active != :dashboard &&
+              "border-transparent text-base-content/60 hover:text-base-content"
+          ]}
+          aria-current={@active == :dashboard && "page"}
+        >
+          Overview
+        </.link>
+        <.link
+          navigate={~p"/admin/users"}
+          class={[
+            "border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+            @active == :users && "border-primary text-primary",
+            @active != :users && "border-transparent text-base-content/60 hover:text-base-content"
+          ]}
+          aria-current={@active == :users && "page"}
+        >
+          Users
+        </.link>
+      </div>
+    </nav>
+    """
+  end
+
+  @doc """
   Shows the flash group with standard titles and content.
 
   ## Examples
@@ -157,34 +198,65 @@ defmodule LiminalWeb.Layouts do
 
   def flash_group(assigns) do
     ~H"""
-    <div id={@id} aria-live="polite">
+    <div id={@id} aria-live="polite" phx-hook="ConnectionStatus" class="contents">
       <.flash kind={:info} flash={@flash} />
       <.flash kind={:error} flash={@flash} />
 
       <.flash
         id="client-error"
         kind={:error}
+        flash={@flash}
         autoclose={false}
-        title={gettext("We can't find the internet")}
+        title={gettext("Connection lost")}
         phx-disconnected={show(".phx-client-error #client-error") |> JS.remove_attribute("hidden")}
         phx-connected={hide("#client-error") |> JS.set_attribute({"hidden", ""})}
         hidden
       >
-        {gettext("Attempting to reconnect")}
-        <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
+        <span id="client-error-message" class="flex items-center gap-1">
+          <span data-role="message">{gettext("Reconnecting…")}</span>
+          <span data-role="spinner">
+            <.icon name="hero-arrow-path" class="size-3 motion-safe:animate-spin" />
+          </span>
+        </span>
+        <:actions>
+          <button type="button" id="client-error-retry" class="btn btn-xs btn-ghost mt-2 hidden">
+            {gettext("Retry now")}
+          </button>
+        </:actions>
       </.flash>
 
       <.flash
         id="server-error"
         kind={:error}
+        flash={@flash}
         autoclose={false}
-        title={gettext("Something went wrong!")}
+        title={gettext("Something went wrong")}
         phx-disconnected={show(".phx-server-error #server-error") |> JS.remove_attribute("hidden")}
         phx-connected={hide("#server-error") |> JS.set_attribute({"hidden", ""})}
         hidden
       >
-        {gettext("Attempting to reconnect")}
-        <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
+        <span id="server-error-message" class="flex items-center gap-1">
+          <span data-role="message">{gettext("Reconnecting…")}</span>
+          <span data-role="spinner">
+            <.icon name="hero-arrow-path" class="size-3 motion-safe:animate-spin" />
+          </span>
+        </span>
+        <:actions>
+          <button type="button" id="server-error-retry" class="btn btn-xs btn-ghost mt-2 hidden">
+            {gettext("Retry now")}
+          </button>
+        </:actions>
+      </.flash>
+
+      <.flash
+        id="connection-restored"
+        kind={:info}
+        flash={@flash}
+        autoclose={false}
+        title={gettext("Back online")}
+        hidden
+      >
+        {gettext("Your session was restored.")}
       </.flash>
     </div>
     """

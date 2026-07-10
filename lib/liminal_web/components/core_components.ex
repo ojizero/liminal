@@ -51,6 +51,7 @@ defmodule LiminalWeb.CoreComponents do
   attr :rest, :global, doc: "the arbitrary HTML attributes to add to the flash container"
 
   slot :inner_block, doc: "the optional inner block that renders the flash message"
+  slot :actions, doc: "optional actions rendered below the message"
 
   def flash(assigns) do
     assigns = assign_new(assigns, :id, fn -> "flash-#{assigns.kind}" end)
@@ -73,9 +74,10 @@ defmodule LiminalWeb.CoreComponents do
       ]}>
         <.icon :if={@kind == :info} name="hero-information-circle" class="size-5 shrink-0" />
         <.icon :if={@kind == :error} name="hero-exclamation-circle" class="size-5 shrink-0" />
-        <div>
+        <div class="min-w-0">
           <p :if={@title} class="font-semibold">{@title}</p>
-          <p>{msg}</p>
+          <div>{msg}</div>
+          {render_slot(@actions)}
         </div>
         <div class="flex-1" />
         <button type="button" class="group self-start cursor-pointer" aria-label={gettext("close")}>
@@ -307,18 +309,21 @@ defmodule LiminalWeb.CoreComponents do
     <div class={["fieldset mb-2", @fieldset_class]}>
       <label for={@id}>
         <span :if={@label} class="label mb-1">{@label}</span>
-        <textarea
-          id={@id}
-          name={@name}
-          class={[
-            @class || "w-full textarea",
-            @has_errors && (@error_class || "textarea-error"),
-            @has_errors && "validator"
-          ]}
-          aria-invalid={@aria_invalid}
-          aria-describedby={@aria_describedby}
-          {@rest}
-        >{Phoenix.HTML.Form.normalize_value("textarea", @value)}</textarea>
+        <div class={[@suffix != [] && "relative"]}>
+          <textarea
+            id={@id}
+            name={@name}
+            class={[
+              @class || "w-full textarea",
+              @has_errors && (@error_class || "textarea-error"),
+              @has_errors && "validator"
+            ]}
+            aria-invalid={@aria_invalid}
+            aria-describedby={@aria_describedby}
+            {@rest}
+          >{Phoenix.HTML.Form.normalize_value("textarea", @value)}</textarea>
+          {render_slot(@suffix)}
+        </div>
       </label>
       <.field_errors errors={@errors} id={@error_id} />
     </div>
@@ -390,6 +395,7 @@ defmodule LiminalWeb.CoreComponents do
 
   Use `level={2}` for section headings when the page already has an `h1`.
   """
+  attr :id, :string, default: nil
   attr :level, :integer, default: 1, values: [1, 2]
   slot :inner_block, required: true
   slot :subtitle
@@ -403,11 +409,11 @@ defmodule LiminalWeb.CoreComponents do
     ]}>
       <div class="min-w-0">
         <%= if @level == 1 do %>
-          <h1 class="text-lg font-semibold leading-8">
+          <h1 id={@id} class="text-lg font-semibold leading-8">
             {render_slot(@inner_block)}
           </h1>
         <% else %>
-          <h2 class="text-lg font-semibold leading-8">
+          <h2 id={@id} class="text-lg font-semibold leading-8">
             {render_slot(@inner_block)}
           </h2>
         <% end %>
@@ -419,6 +425,29 @@ defmodule LiminalWeb.CoreComponents do
         {render_slot(@actions)}
       </div>
     </header>
+    """
+  end
+
+  @doc """
+  Renders a consistent surface for grouped page content.
+  """
+  attr :id, :string, default: nil
+  attr :class, :any, default: nil
+  attr :rest, :global
+  slot :inner_block, required: true
+
+  def panel(assigns) do
+    ~H"""
+    <section
+      id={@id}
+      class={[
+        "rounded-xl border border-base-300 bg-base-200/70 p-5 shadow-sm sm:p-6",
+        @class
+      ]}
+      {@rest}
+    >
+      {render_slot(@inner_block)}
+    </section>
     """
   end
 

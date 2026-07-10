@@ -1,19 +1,25 @@
 defmodule LiminalWeb.UserLive.SettingsTest do
-  use LiminalWeb.ConnCase
+  use LiminalWeb.ConnCase, async: false
 
   alias Liminal.Accounts
   import Phoenix.LiveViewTest
   import Liminal.AccountsFixtures
 
+  setup :ensure_reindex_started!
+
   describe "Settings page" do
     test "renders settings page", %{conn: conn} do
-      {:ok, _lv, html} =
+      {:ok, view, _html} =
         conn
         |> log_in_user(user_fixture())
         |> live(~p"/users/settings")
 
-      assert html =~ "Save Password"
-      assert html =~ "Change Username"
+      assert has_element?(view, "#settings-page")
+      assert has_element?(view, "#account-security")
+      assert has_element?(view, "#username-settings #username_form")
+      assert has_element?(view, "#password-settings #password_form")
+      assert has_element?(view, "#preferences-settings #settings_form")
+      assert has_element?(view, "#user-menu a[aria-current='page']", "Settings")
     end
 
     test "redirects if user is not logged in", %{conn: conn} do
@@ -227,6 +233,69 @@ defmodule LiminalWeb.UserLive.SettingsTest do
     end
   end
 
+  describe "reindex links" do
+    setup %{conn: conn} do
+      user = user_fixture()
+      scope = Liminal.Accounts.Scope.for_user(user)
+      %{conn: log_in_user(conn, user), user: user, scope: scope}
+    end
+
+    test "renders reindex controls on settings page", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      assert has_element?(view, "#user-reindex")
+      assert has_element?(view, "#user-reindex-failed-btn")
+      assert has_element?(view, "#user-reindex-all-btn")
+    end
+
+    test "starts a user-scoped failed reindex job", %{conn: conn, scope: scope} do
+      import Ecto.Query
+
+      tag = Liminal.LinksFixtures.tag_fixture(scope)
+
+      {:ok, link1} =
+        Liminal.Links.create_link(scope, %{url: "https://user-fail-one.example.com"}, [tag.id])
+
+      {:ok, link2} =
+        Liminal.Links.create_link(scope, %{url: "https://user-fail-two.example.com"}, [tag.id])
+
+      now = DateTime.utc_now(:second)
+
+      for link <- [link1, link2] do
+        Liminal.Repo.update_all(
+          from(l in Liminal.Links.Link, where: l.id == ^link.id),
+          set: [index_attempt_count: 1, index_last_attempted_at: now]
+        )
+      end
+
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      view |> element("#user-reindex-failed-btn") |> render_click()
+
+      assert has_element?(view, "#user-reindex-status", "Running")
+      assert has_element?(view, "#user-reindex-failed-btn[disabled]")
+      assert has_element?(view, "#user-reindex-all-btn[disabled]")
+    end
+
+    test "user can cancel their own reindex job", %{conn: conn, scope: scope} do
+      tag = Liminal.LinksFixtures.tag_fixture(scope)
+
+      {:ok, _} =
+        Liminal.Links.create_link(scope, %{url: "https://user-cancel.example.com"}, [tag.id])
+
+      {:ok, _} =
+        Liminal.Links.create_link(scope, %{url: "https://user-cancel-2.example.com"}, [tag.id])
+
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      view |> element("#user-reindex-all-btn") |> render_click()
+      assert has_element?(view, "#user-reindex-status", "Running")
+
+      view |> element("#user-reindex-cancel-btn") |> render_click()
+      refute has_element?(view, "#user-reindex-status", "Running")
+    end
+  end
+
   describe "preferences form" do
     setup %{conn: conn} do
       user = user_fixture()
@@ -262,6 +331,69 @@ defmodule LiminalWeb.UserLive.SettingsTest do
       |> render_change()
 
       assert Accounts.get_user!(user.id).auto_mark_viewed_on_open == false
+    end
+
+    test "renders default tag preference controls", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      assert has_element?(
+               view,
+               "#settings_form input[type=checkbox][name='user[default_tags_enabled]']"
+             )
+
+      refute render(view) =~ "Default tag"
+    end
+
+    test "enabling default tags requires selecting a tag", %{conn: conn, user: user} do
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      view
+      |> element("#settings_form")
+      |> render_change(%{"user" => %{"default_tags_enabled" => "true"}})
+
+      refute Accounts.get_user!(user.id).default_tags_enabled
+    end
+
+    test "enabling default tags persists the chosen tag", %{conn: conn, user: user} do
+      scope = Liminal.Accounts.Scope.for_user(user)
+      [tag | _] = Liminal.Links.list_tags(scope)
+
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      view
+      |> element("#settings_form")
+      |> render_change(%{"user" => %{"default_tags_enabled" => "true"}})
+
+      view
+      |> element("#settings_form")
+      |> render_change(%{
+        "user" => %{"default_tags_enabled" => "true", "default_tag_id" => to_string(tag.id)}
+      })
+
+      updated = Accounts.get_user!(user.id)
+      assert updated.default_tags_enabled
+      assert updated.default_tag_id == tag.id
+    end
+
+    test "disabling default tags clears the stored tag", %{conn: conn, user: user} do
+      scope = Liminal.Accounts.Scope.for_user(user)
+      [tag | _] = Liminal.Links.list_tags(scope)
+
+      {:ok, _} =
+        Accounts.update_user_settings(user, %{
+          default_tags_enabled: true,
+          default_tag_id: tag.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      view
+      |> form("#settings_form", user: %{default_tags_enabled: "false"})
+      |> render_change()
+
+      updated = Accounts.get_user!(user.id)
+      refute updated.default_tags_enabled
+      assert is_nil(updated.default_tag_id)
     end
   end
 

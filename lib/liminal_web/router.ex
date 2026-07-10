@@ -45,6 +45,7 @@ defmodule LiminalWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     get "/assets/:user_id/:filename", AssetController, :show
+    get "/links/random", LinkController, :random
 
     live_session :require_authenticated_user,
       on_mount: [{LiminalWeb.UserAuth, :require_authenticated}] do
@@ -65,6 +66,7 @@ defmodule LiminalWeb.Router do
 
     live_session :require_admin,
       on_mount: [{LiminalWeb.UserAuth, :require_admin}] do
+      live "/", DashboardLive, :index
       live "/users", UserLive.Index, :index
       live "/users/new", UserLive.Index, :new
     end

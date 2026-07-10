@@ -281,6 +281,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       refute has_element?(view, "#link-url-paste-shortcut")
       refute has_element?(view, "#link-url-focus-shortcut")
+      refute has_element?(view, "#link-search-focus-shortcut")
+      refute has_element?(view, "#random-link-shortcut")
 
       view
       |> element("#link-shortcuts")
@@ -291,10 +293,15 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       assert has_element?(view, "#link-url-paste-shortcut kbd", "⌘")
       assert has_element?(view, "#link-url-paste-shortcut kbd", "V")
-      assert has_element?(view, "#link-url-focus-shortcut kbd", "⌘")
-      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
-      assert has_element?(view, "#link_url[aria-keyshortcuts='Meta+K Meta+V']")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "J")
+      assert has_element?(view, "#link-search-focus-shortcut kbd", "F")
+      assert has_element?(view, "#random-link-shortcut kbd", "R")
+      assert has_element?(view, "#link_url[aria-keyshortcuts='J Meta+V']")
+      assert has_element?(view, "#link-search-input[aria-keyshortcuts='F']")
+      assert has_element?(view, "#random-link[aria-keyshortcuts='R']")
       assert has_element?(view, "#new-link-tag-1[aria-keyshortcuts='Meta+Shift+1']")
+      assert has_element?(view, "#link_note[aria-keyshortcuts='Meta+Enter']")
+      refute has_element?(view, "#link-note-save-shortcut")
       refute has_element?(view, "#link-url-paste-from-clipboard")
       refute render(view) =~ "Super"
       refute render(view) =~ "Ctrl"
@@ -310,7 +317,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       html = render(view)
       assert html =~ "Super"
       assert html =~ "Shift"
-      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "J")
+      assert has_element?(view, "#link_note[aria-keyshortcuts='Control+Enter']")
       refute html =~ "⌘"
 
       view
@@ -323,10 +331,12 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       html = render(view)
       assert html =~ "Ctrl"
       assert html =~ "Shift"
-      assert has_element?(view, "#link-url-focus-shortcut kbd", "K")
+      assert has_element?(view, "#link-url-focus-shortcut kbd", "J")
       assert has_element?(view, "#link-url-paste-shortcut kbd", "V")
-      assert has_element?(view, "#link_url[aria-keyshortcuts='Control+K Control+V']")
+      assert has_element?(view, "#link_url[aria-keyshortcuts='J Control+V']")
       assert has_element?(view, "#new-link-tag-1[aria-keyshortcuts='Control+Shift+1']")
+      assert has_element?(view, "#link_note[aria-keyshortcuts='Control+Enter']")
+      refute has_element?(view, "#link-note-save-shortcut")
       refute html =~ "Super"
     end
 
@@ -345,6 +355,9 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       refute has_element?(view, "#link-url-paste-shortcut")
       refute has_element?(view, "#link-url-focus-shortcut")
+      refute has_element?(view, "#link-search-focus-shortcut")
+      refute has_element?(view, "#random-link-shortcut")
+      refute has_element?(view, "#link-note-save-shortcut")
       refute render(view) =~ "1..9"
       assert has_element?(view, "#link-url-paste-from-clipboard[disabled]")
       refute has_element?(view, "#link-url-paste-from-clipboard:not([disabled])")
@@ -525,6 +538,102 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> render_submit()
 
       assert has_element?(view, "#links", "https://example.com/shortcut-hook")
+    end
+
+    test "paste shortcut prepopulates default tag when enabled", %{conn: conn, scope: scope} do
+      [tag | _] = Liminal.Links.list_tags(scope)
+
+      {:ok, _} =
+        Liminal.Accounts.update_user_settings(scope.user, %{
+          default_tags_enabled: true,
+          default_tag_id: tag.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_paste_link", %{"url" => "https://example.com/default-tag-paste"})
+
+      assert has_element?(
+               view,
+               "button[phx-click='toggle_tag'][phx-value-id='#{tag.id}'].badge-primary"
+             )
+
+      view
+      |> form("#link-form", link: %{url: "https://example.com/default-tag-paste"})
+      |> render_submit()
+
+      assert render(view) =~ "Link added"
+    end
+
+    test "focus shortcut prepopulates default tag when enabled", %{conn: conn, scope: scope} do
+      [tag | _] = Liminal.Links.list_tags(scope)
+
+      {:ok, _} =
+        Liminal.Accounts.update_user_settings(scope.user, %{
+          default_tags_enabled: true,
+          default_tag_id: tag.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_focus_new_link", %{})
+
+      assert has_element?(
+               view,
+               "button[phx-click='toggle_tag'][phx-value-id='#{tag.id}'].badge-primary"
+             )
+    end
+
+    test "focus on new link url prepopulates default tag when enabled", %{
+      conn: conn,
+      scope: scope
+    } do
+      [tag | _] = Liminal.Links.list_tags(scope)
+
+      {:ok, _} =
+        Liminal.Accounts.update_user_settings(scope.user, %{
+          default_tags_enabled: true,
+          default_tag_id: tag.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("focus_new_link", %{})
+
+      assert has_element?(
+               view,
+               "button[phx-click='toggle_tag'][phx-value-id='#{tag.id}'].badge-primary"
+             )
+    end
+
+    test "default tag is not prepopulated when preference is disabled", %{
+      conn: conn,
+      scope: scope
+    } do
+      [tag | _] = Liminal.Links.list_tags(scope)
+
+      {:ok, _} =
+        Liminal.Accounts.update_user_settings(scope.user, %{
+          default_tags_enabled: false,
+          default_tag_id: tag.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("shortcut_paste_link", %{"url" => "https://example.com/no-default-tag"})
+
+      refute has_element?(
+               view,
+               "button[phx-click='toggle_tag'][phx-value-id='#{tag.id}'].badge-primary"
+             )
     end
 
     test "edit a link", %{conn: conn, scope: scope} do
@@ -868,7 +977,41 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       refute has_element?(view, "#links", "Visible Link")
     end
 
-    test "search submit preserves active query when submit payload is empty", %{
+    test "search submit preserves query and filter", %{conn: conn, scope: scope} do
+      _matching =
+        link_fixture(scope, %{
+          title: "Phoenix LiveView Guide",
+          url: "https://example.com/phoenix"
+        })
+
+      _other = link_fixture(scope, %{title: "Unrelated", url: "https://example.com/other"})
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view |> element("button[phx-click='filter'][phx-value-filter='all']") |> render_click()
+
+      view
+      |> form("#link-search-form", query: "phoenix")
+      |> render_change()
+
+      assert has_element?(view, "#links", "Phoenix LiveView Guide")
+      refute has_element?(view, "#links", "Unrelated")
+
+      view
+      |> form("#link-search-form", query: "phoenix")
+      |> render_submit()
+
+      assert has_element?(view, "#link-search-input[value='phoenix']")
+
+      assert has_element?(
+               view,
+               "button[phx-click='filter'][phx-value-filter='all'][aria-pressed]"
+             )
+
+      assert has_element?(view, "#links", "Phoenix LiveView Guide")
+      refute has_element?(view, "#links", "Unrelated")
+    end
+
+    test "empty search submit preserves active query (iOS return key)", %{
       conn: conn,
       scope: scope
     } do
@@ -1362,63 +1505,42 @@ defmodule LiminalWeb.LinkLive.IndexTest do
     end
   end
 
-  describe "shuffle" do
+  describe "random" do
     setup :register_and_log_in_user
 
-    test "renders shuffle control in the page header", %{conn: conn} do
+    test "renders random control as a link in the page header", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
-      assert has_element?(view, "#shuffle-link[phx-click='shuffle']", "Shuffle")
+      assert has_element?(
+               view,
+               "#random-link[href='/links/random'][target='_blank']",
+               "Random"
+             )
     end
 
-    test "shows an error when there are no links to shuffle", %{conn: conn} do
+    test "random control exposes R shortcut in aria-keyshortcuts", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
-      view |> element("#shuffle-link") |> render_click()
+      refute has_element?(view, "#random-link[aria-keyshortcuts]")
 
-      assert render(view) =~ "No links to shuffle"
-    end
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "mac",
+        "show_keyboard_shortcut_hints" => true
+      })
 
-    test "opens a random saved link", %{conn: conn, scope: scope} do
-      url = "https://shuffle.example.com"
-      _link = link_fixture(scope, %{url: url})
+      assert has_element?(view, "#random-link[aria-keyshortcuts='R']")
+      assert has_element?(view, "#random-link-shortcut kbd", "R")
 
-      {:ok, view, _html} = live(conn, ~p"/")
+      view
+      |> element("#link-shortcuts")
+      |> render_hook("set_shortcut_platform", %{
+        "platform" => "windows",
+        "show_keyboard_shortcut_hints" => true
+      })
 
-      view |> element("#shuffle-link") |> render_click()
-
-      assert_push_event(view, "open-external-link", %{url: ^url})
-    end
-
-    test "marks the link viewed when auto mark on open is enabled", %{conn: conn} do
-      user = Liminal.AccountsFixtures.user_fixture()
-      {:ok, user} = Liminal.Accounts.update_user_settings(user, %{auto_mark_viewed_on_open: true})
-      scope = Liminal.Accounts.Scope.for_user(user)
-      url = "https://shuffle-mark.example.com"
-
-      link = link_fixture(scope, %{url: url, title: "Shuffle Mark"})
-
-      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/")
-
-      view |> element("#shuffle-link") |> render_click()
-
-      assert_push_event(view, "open-external-link", %{url: ^url})
-      assert Liminal.Links.get_link!(scope, link.id).viewed_at
-    end
-
-    test "does not mark the link viewed when auto mark on open is disabled", %{
-      conn: conn,
-      scope: scope
-    } do
-      url = "https://shuffle-skip.example.com"
-      link = link_fixture(scope, %{url: url})
-
-      {:ok, view, _html} = live(conn, ~p"/")
-
-      view |> element("#shuffle-link") |> render_click()
-
-      assert_push_event(view, "open-external-link", %{url: ^url})
-      refute Liminal.Links.get_link!(scope, link.id).viewed_at
+      assert has_element?(view, "#random-link[aria-keyshortcuts='R']")
     end
   end
 
