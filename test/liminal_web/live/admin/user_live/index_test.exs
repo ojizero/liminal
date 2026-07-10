@@ -32,7 +32,14 @@ defmodule LiminalWeb.Admin.UserLive.IndexTest do
 
     test "renders Users header", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/admin/users")
+      assert has_element?(view, "#admin-users-page")
       assert has_element?(view, "header", "Users")
+
+      assert has_element?(
+               view,
+               "nav[aria-label='Admin sections'] a[aria-current='page']",
+               "Users"
+             )
     end
 
     test "lists users with role and status badges", %{conn: conn} do
@@ -57,6 +64,7 @@ defmodule LiminalWeb.Admin.UserLive.IndexTest do
       {:ok, view, _html} = live(conn, ~p"/admin/users")
 
       view |> element("a", "Invite User") |> render_click()
+      assert has_element?(view, "#invite-user-panel")
       assert has_element?(view, "#admin-invite-user-form")
 
       view

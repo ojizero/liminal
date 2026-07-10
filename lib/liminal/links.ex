@@ -7,8 +7,9 @@ defmodule Liminal.Links do
 
   require Logger
 
+  alias Liminal.Accounts.Scope
   alias Liminal.Repo
-  alias Liminal.Links.{Tag, Link, LinkTag, TextSearch}
+  alias Liminal.Links.{Tag, Link, LinkTag, TextSearch, Reindex, Stats}
 
   ## PubSub
 
@@ -234,6 +235,130 @@ defmodule Liminal.Links do
   @doc false
   def list_unindexed_links(opts \\ []), do: list_index_retry_candidates(opts)
 
+  ## Stats
+
+  @doc "Returns instance-wide link statistics. Admin only."
+  def instance_stats(scope) do
+    ensure_admin!(scope)
+    Stats.instance_stats()
+  end
+
+  @doc "Returns per-user link statistics."
+  def user_stats(scope) do
+    Stats.user_stats(scope)
+  end
+
+  ## Reindex
+
+  @doc """
+  Returns link IDs for a reindex job scope.
+
+  ## Scopes
+
+    * `{:link, link_id}`
+    * `{:user, user_id, mode}` where `mode` is `:all` or `:failed`
+    * `{:instance, mode}` where `mode` is `:all` or `:failed`
+  """
+  def list_reindex_link_ids({:link, link_id}) do
+    [link_id]
+  end
+
+  def list_reindex_link_ids({:user, user_id, :failed}) do
+    reindex_failed_link_ids_query()
+    |> where([l], l.user_id == ^user_id)
+    |> Repo.all()
+  end
+
+  def list_reindex_link_ids({:user, user_id, :all}) do
+    from(l in Link, where: l.user_id == ^user_id, select: l.id, order_by: [asc: l.inserted_at])
+    |> Repo.all()
+  end
+
+  def list_reindex_link_ids({:instance, :failed}) do
+    reindex_failed_link_ids_query() |> Repo.all()
+  end
+
+  def list_reindex_link_ids({:instance, :all}) do
+    from(l in Link, select: l.id, order_by: [asc: l.inserted_at])
+    |> Repo.all()
+  end
+
+  defp reindex_failed_link_ids_query do
+    from(l in Link,
+      where:
+        is_nil(l.indexed_at) and
+          (not is_nil(l.index_gave_up_at) or l.index_attempt_count > 0),
+      select: l.id,
+      order_by: [asc: l.inserted_at]
+    )
+  end
+
+  @doc """
+  Resets a link so it can be reindexed.
+  """
+  def prepare_link_for_reindex(%Link{} = link, :all) do
+    if link.image_path do
+      Liminal.Links.ImageDownloader.delete(link.image_path)
+    end
+
+    attrs =
+      %{
+        indexed_at: nil,
+        description: nil,
+        favicon_url: nil,
+        image_path: nil,
+        duration_seconds: nil
+      }
+      |> Map.merge(index_retry_reset_attrs())
+
+    link
+    |> Link.metadata_changeset(attrs)
+    |> Repo.update()
+  end
+
+  def prepare_link_for_reindex(%Link{} = link, :failed) do
+    reset_index_retry(link)
+  end
+
+  @doc "Queues a single link for metadata indexing."
+  def queue_index(link_id, user_id) do
+    spawn_index_task(link_id, user_id)
+  end
+
+  @doc "Returns the current reindex job state."
+  def reindex_status do
+    Reindex.status()
+  end
+
+  @doc "Starts an instance-wide reindex job. Admin only."
+  def start_instance_reindex(scope, mode) when mode in [:all, :failed] do
+    ensure_admin!(scope)
+    Reindex.start_job({:instance, mode}, requested_by: scope.user.id)
+  end
+
+  @doc "Starts a user-scoped reindex job for the current user."
+  def start_user_reindex(scope, mode) when mode in [:all, :failed] do
+    Reindex.start_job({:user, scope.user.id, mode}, requested_by: scope.user.id)
+  end
+
+  @doc "Cancels the current reindex job when permitted."
+  def cancel_reindex(scope) do
+    status = Reindex.status()
+
+    if can_cancel_reindex?(scope, status) do
+      Reindex.cancel()
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  @doc false
+  def can_cancel_reindex?(scope, %{active: true, requested_by: requested_by}) do
+    Scope.admin?(scope) or scope.user.id == requested_by
+  end
+
+  def can_cancel_reindex?(_scope, _status), do: false
+
   @doc """
   Gets a single link by id, scoped to the user, with preloaded tags.
 
@@ -403,15 +528,15 @@ defmodule Liminal.Links do
   end
 
   @doc """
-  Resets retry state and re-queues indexing for a link.
+  Resets retry state and re-queues indexing for a link via the reindex coordinator.
   """
   def retry_indexing(scope, link) do
     user_id = scope.user.id
     ^user_id = link.user_id
 
-    with {:ok, updated_link} <- reset_index_retry(link) do
-      spawn_index_task(updated_link.id, user_id)
-      {:ok, updated_link}
+    case Reindex.start_job({:link, link.id}, requested_by: user_id) do
+      {:ok, _} -> {:ok, get_link!(scope, link.id)}
+      {:error, :already_running} -> {:error, :reindex_busy}
     end
   end
 
@@ -809,5 +934,9 @@ defmodule Liminal.Links do
     Enum.reduce(index_retry_reset_attrs(), changeset, fn {field, value}, cs ->
       Ecto.Changeset.put_change(cs, field, value)
     end)
+  end
+
+  defp ensure_admin!(scope) do
+    unless Scope.admin?(scope), do: raise("admin required")
   end
 end

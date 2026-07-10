@@ -35,7 +35,7 @@ defmodule LiminalWeb.Layouts do
 
   attr :active_nav, :atom,
     default: nil,
-    doc: "highlights the matching item in the user menu (:links or :admin)"
+    doc: "highlights the matching item in the user menu (:links, :admin, or :settings)"
 
   slot :inner_block, required: true
 
@@ -90,7 +90,7 @@ defmodule LiminalWeb.Layouts do
                 <%= if Scope.admin?(@current_scope) do %>
                   <li>
                     <.link
-                      navigate={~p"/admin/users"}
+                      navigate={~p"/admin"}
                       class={[@active_nav == :admin && "menu-active"]}
                       aria-current={@active_nav == :admin && "page"}
                     >
@@ -102,7 +102,11 @@ defmodule LiminalWeb.Layouts do
                   <hr class="border-base-content/10" />
                 </li>
                 <li>
-                  <.link navigate={~p"/users/settings"}>
+                  <.link
+                    navigate={~p"/users/settings"}
+                    class={[@active_nav == :settings && "menu-active"]}
+                    aria-current={@active_nav == :settings && "page"}
+                  >
                     <.icon name="hero-cog-6-tooth" class="size-4" /> Settings
                   </.link>
                 </li>
@@ -142,6 +146,43 @@ defmodule LiminalWeb.Layouts do
     <div class="mx-auto max-w-sm w-full space-y-4">
       {render_slot(@inner_block)}
     </div>
+    """
+  end
+
+  @doc """
+  Shared navigation for the admin area.
+  """
+  attr :active, :atom, required: true, values: [:dashboard, :users]
+
+  def admin_nav(assigns) do
+    ~H"""
+    <nav aria-label="Admin sections" class="border-b border-base-300">
+      <div class="flex gap-1">
+        <.link
+          navigate={~p"/admin"}
+          class={[
+            "border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+            @active == :dashboard && "border-primary text-primary",
+            @active != :dashboard &&
+              "border-transparent text-base-content/60 hover:text-base-content"
+          ]}
+          aria-current={@active == :dashboard && "page"}
+        >
+          Overview
+        </.link>
+        <.link
+          navigate={~p"/admin/users"}
+          class={[
+            "border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+            @active == :users && "border-primary text-primary",
+            @active != :users && "border-transparent text-base-content/60 hover:text-base-content"
+          ]}
+          aria-current={@active == :users && "page"}
+        >
+          Users
+        </.link>
+      </div>
+    </nav>
     """
   end
 

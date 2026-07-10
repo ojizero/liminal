@@ -937,8 +937,13 @@ defmodule LiminalWeb.LinkLive.Index do
          |> put_flash(:info, "Indexing retry queued")
          |> stream_insert(:links, updated_link)}
 
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Could not retry indexing")}
+      {:error, :reindex_busy} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "A reindex job is already running. Try again when it finishes."
+         )}
     end
   end
 
