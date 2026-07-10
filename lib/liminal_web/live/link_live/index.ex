@@ -41,14 +41,23 @@ defmodule LiminalWeb.LinkLive.Index do
         </:actions>
       </.header>
 
-      <form phx-change="search" phx-submit="search" id="link-search-form" role="search" class="mb-4">
+      <form
+        phx-change="search"
+        phx-submit="search_submit"
+        id="link-search-form"
+        role="search"
+        class="mb-4"
+      >
         <p id="link-search-hint" class="sr-only">
           Filters links by title, note, description, or URL. Typos are allowed.
         </p>
         <.input
           id="link-search-input"
           name="query"
-          type="search"
+          type="text"
+          inputmode="search"
+          enterkeyhint="search"
+          autocomplete="off"
           label="Search"
           value={@search_query}
           placeholder="Title, note, description, or URL…"
@@ -1015,7 +1024,18 @@ defmodule LiminalWeb.LinkLive.Index do
   end
 
   def handle_event("search", %{"query" => query}, socket) do
-    {:noreply, socket |> assign(:search_query, query) |> refetch_links()}
+    {:noreply, apply_search_query(socket, query)}
+  end
+
+  def handle_event("search_submit", %{"query" => query}, socket) do
+    # iOS Safari clears `type="search"` inputs on Return before LiveView reads
+    # the value. We use `type="text"` and ignore empty submit payloads so an
+    # accidental submit does not wipe an active search.
+    if query in [nil, ""] do
+      {:noreply, socket}
+    else
+      {:noreply, apply_search_query(socket, query)}
+    end
   end
 
   def handle_event("sort", %{"sort" => sort_str}, socket) do
@@ -1248,6 +1268,10 @@ defmodule LiminalWeb.LinkLive.Index do
   defp duplicate_pending_tags(tags, pending_tag_ids) do
     pending = MapSet.new(pending_tag_ids)
     Enum.filter(tags, fn tag -> tag.id in pending end)
+  end
+
+  defp apply_search_query(socket, query) do
+    socket |> assign(:search_query, query) |> refetch_links()
   end
 
   defp refetch_links(socket) do
