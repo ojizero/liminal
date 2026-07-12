@@ -122,7 +122,7 @@ const LinkShortcuts = {
       }
 
       const digit = parseDigitShortcut(event)
-      if (digit && event.shiftKey && usesModKey(event) && !event.altKey) {
+      if (digit && event.shiftKey && event.ctrlKey && !event.altKey) {
         event.preventDefault()
         this.pushEvent("shortcut_toggle_tag_by_index", {index: digit})
       }
