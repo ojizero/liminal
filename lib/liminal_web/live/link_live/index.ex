@@ -260,10 +260,10 @@ defmodule LiminalWeb.LinkLive.Index do
                     class="flex items-center gap-0.5"
                   >
                     <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                      Ctrl
+                      {tag_toggle_ctrl_label(@shortcut_platform)}
                     </kbd>
                     <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                      Shift
+                      {tag_toggle_shift_label(@shortcut_platform)}
                     </kbd>
                     <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
                       1..9
@@ -1137,6 +1137,12 @@ defmodule LiminalWeb.LinkLive.Index do
   defp random_aria_keyshortcuts, do: "R"
 
   defp tag_toggle_aria_keyshortcuts(index), do: "Control+Shift+#{index}"
+
+  defp tag_toggle_ctrl_label(:mac), do: "⌃"
+  defp tag_toggle_ctrl_label(_platform), do: "Ctrl"
+
+  defp tag_toggle_shift_label(:mac), do: "⇧"
+  defp tag_toggle_shift_label(_platform), do: "Shift"
 
   defp save_note_aria_keyshortcuts(platform), do: "#{save_note_mod_aria(platform)}+Enter"
 

@@ -304,7 +304,10 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       refute has_element?(view, "#link-note-save-shortcut")
       refute has_element?(view, "#link-url-paste-from-clipboard")
       refute render(view) =~ "Super"
-      assert render(view) =~ "Ctrl"
+      assert render(view) =~ "⌃"
+      assert render(view) =~ "⇧"
+      refute render(view) =~ ~r/<kbd[^>]*>\s*Ctrl\s*<\/kbd>/
+      refute render(view) =~ ~r/<kbd[^>]*>\s*Shift\s*<\/kbd>/
       refute render(view) =~ "Mod"
 
       view
