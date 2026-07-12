@@ -555,14 +555,12 @@ defmodule LiminalWeb.CoreComponents do
     )
   end
 
-  @shortcut_kbd_base "kbd kbd-xs inline-flex items-center justify-center text-base-content/45 border-base-content/15 bg-base-100/80"
-  @shortcut_kbd_text_class "#{@shortcut_kbd_base} min-h-0 h-5 px-1.5"
-  @shortcut_kbd_symbol_class "#{@shortcut_kbd_base} kbd-mod-symbol min-h-0 h-5"
+  @shortcut_kbd_class "kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80"
 
   @doc """
   Renders a keyboard shortcut hint.
 
-  On macOS, modifier keys use U+2303 (⌃) and U+21E7 (⇧) in square keycaps.
+  On macOS, modifier keys use U+2303 (⌃) and U+21E7 (⇧).
   On other platforms, `label` is shown as plain text.
   """
   attr :platform, :atom, default: nil
@@ -577,15 +575,16 @@ defmodule LiminalWeb.CoreComponents do
     assigns =
       assigns
       |> assign(:symbol?, symbol?)
-      |> assign(
-        :class,
-        assigns[:class] ||
-          if(symbol?, do: @shortcut_kbd_symbol_class, else: @shortcut_kbd_text_class)
-      )
+      |> assign(:class, assigns[:class] || @shortcut_kbd_class)
       |> assign(:aria_label, mod_aria_label(assigns.mod))
 
     ~H"""
-    <kbd class={@class} data-shortcut-mod={@mod} aria-label={@aria_label} {@rest}>
+    <kbd
+      class={[@class, @symbol? && "kbd-mod-symbol"]}
+      data-shortcut-mod={@mod}
+      aria-label={@aria_label}
+      {@rest}
+    >
       <%= cond do %>
         <% @symbol? -> %>
           {mac_mod_symbol(@mod)}

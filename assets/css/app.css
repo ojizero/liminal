@@ -110,13 +110,8 @@
 
 /* This file is for your main application CSS */
 
-/* Modifier-only kbd hints (macOS U+2303 ⌃ / U+21E7 ⇧): square keycap, system glyph */
+/* macOS modifier glyphs (U+2303 / U+21E7) — font only; sizing comes from daisyUI kbd */
 .kbd-mod-symbol {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro",
     "Helvetica Neue", Arial, sans-serif;
-  font-size: 0.75rem;
-  line-height: 1;
-  min-width: 1.25rem;
-  width: 1.25rem;
-  padding-inline: 0;
 }
