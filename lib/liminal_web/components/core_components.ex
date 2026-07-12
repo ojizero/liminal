@@ -555,12 +555,14 @@ defmodule LiminalWeb.CoreComponents do
     )
   end
 
-  @shortcut_kbd_class "kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80 inline-flex items-center justify-center"
+  @shortcut_kbd_base "kbd kbd-xs inline-flex items-center justify-center text-base-content/45 border-base-content/15 bg-base-100/80"
+  @shortcut_kbd_text_class "#{@shortcut_kbd_base} min-h-0 h-5 px-1.5"
+  @shortcut_kbd_symbol_class "#{@shortcut_kbd_base} kbd-mod-symbol min-h-0 h-5"
 
   @doc """
   Renders a keyboard shortcut hint.
 
-  On macOS, modifier keys use SVG icons that match the system keycap symbols.
+  On macOS, modifier keys render as SVG icons sized for daisyUI `kbd` keycaps.
   On other platforms, `label` is shown as plain text.
   """
   attr :platform, :atom, default: nil
@@ -570,38 +572,44 @@ defmodule LiminalWeb.CoreComponents do
   attr :rest, :global
 
   def shortcut_kbd(assigns) do
+    symbol? = assigns.platform == :mac and assigns.mod in [:control, :shift]
+
     assigns =
-      assign(
-        assigns,
+      assigns
+      |> assign(:symbol?, symbol?)
+      |> assign(
         :class,
-        assigns[:class] || @shortcut_kbd_class
+        assigns[:class] ||
+          if(symbol?, do: @shortcut_kbd_symbol_class, else: @shortcut_kbd_text_class)
       )
+      |> assign(:aria_label, mod_aria_label(assigns.mod))
 
     ~H"""
-    <kbd class={@class} data-shortcut-mod={@mod} {@rest}>
+    <kbd class={@class} data-shortcut-mod={@mod} aria-label={@aria_label} {@rest}>
       <%= cond do %>
-        <% @platform == :mac and @mod == :control -> %>
+        <% @symbol? and @mod == :control -> %>
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 12 10"
-            class="size-3.5"
+            viewBox="0 0 16 10"
             aria-hidden="true"
             fill="currentColor"
           >
-            <path d="M6 1.5 10.25 7.5H1.75L6 1.5Z" />
+            <%!-- macOS UP ARROWHEAD (⌃): wide flat base, outward-curving sides --%>
+            <path d="M8 1C10.5 1 13.25 4.75 13.75 7.25L13.75 8.75H2.25L2.25 7.25C2.75 4.75 5.5 1 8 1Z" />
           </svg>
-        <% @platform == :mac and @mod == :shift -> %>
+        <% @symbol? and @mod == :shift -> %>
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 12 12"
-            class="size-3.5"
+            viewBox="0 0 16 12"
             aria-hidden="true"
             fill="none"
             stroke="currentColor"
-            stroke-width="1.25"
+            stroke-width="1.35"
             stroke-linejoin="round"
+            stroke-linecap="round"
           >
-            <path d="M6 2 10 7.25H7.5V10H4.5V7.25H2L6 2Z" />
+            <%!-- macOS UPWARDS WHITE ARROW (⇧): outlined up arrow with stem --%>
+            <path d="M8 1.75 12.25 6.5H9.75V10.25H6.25V6.5H3.75L8 1.75Z" />
           </svg>
         <% true -> %>
           {@label}
@@ -609,6 +617,10 @@ defmodule LiminalWeb.CoreComponents do
     </kbd>
     """
   end
+
+  defp mod_aria_label(:control), do: "Control"
+  defp mod_aria_label(:shift), do: "Shift"
+  defp mod_aria_label(_), do: nil
 
   @doc """
   Translates an error message using gettext.
