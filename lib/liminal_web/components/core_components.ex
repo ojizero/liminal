@@ -555,53 +555,6 @@ defmodule LiminalWeb.CoreComponents do
     )
   end
 
-  @shortcut_kbd_class "kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80"
-
-  @doc """
-  Renders a keyboard shortcut hint.
-
-  On macOS, modifier keys use U+2303 (⌃) and U+21E7 (⇧).
-  On other platforms, `label` is shown as plain text.
-  """
-  attr :platform, :atom, default: nil
-  attr :mod, :atom, default: nil
-  attr :label, :string, default: nil
-  attr :class, :string, default: nil
-  attr :rest, :global
-
-  def shortcut_kbd(assigns) do
-    symbol? = assigns.platform == :mac and assigns.mod in [:control, :shift]
-
-    assigns =
-      assigns
-      |> assign(:symbol?, symbol?)
-      |> assign(:class, assigns[:class] || @shortcut_kbd_class)
-      |> assign(:aria_label, mod_aria_label(assigns.mod))
-
-    ~H"""
-    <kbd
-      class={[@class, @symbol? && "kbd-mod-symbol"]}
-      data-shortcut-mod={@mod}
-      aria-label={@aria_label}
-      {@rest}
-    >
-      <%= cond do %>
-        <% @symbol? -> %>
-          {mac_mod_symbol(@mod)}
-        <% true -> %>
-          {@label}
-      <% end %>
-    </kbd>
-    """
-  end
-
-  defp mod_aria_label(:control), do: "Control"
-  defp mod_aria_label(:shift), do: "Shift"
-  defp mod_aria_label(_), do: nil
-
-  defp mac_mod_symbol(:control), do: <<0x2303::utf8>>
-  defp mac_mod_symbol(:shift), do: <<0x21E7::utf8>>
-
   @doc """
   Translates an error message using gettext.
   """

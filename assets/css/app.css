@@ -110,7 +110,7 @@
 
 /* This file is for your main application CSS */
 
-/* macOS modifier glyphs (U+2303 / U+21E7) — font only; sizing comes from daisyUI kbd */
+/* macOS modifier glyphs (U+2303 / U+21E7) — font only; sizing matches other kbd hints */
 .kbd-mod-symbol {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro",
     "Helvetica Neue", Arial, sans-serif;
