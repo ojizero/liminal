@@ -562,7 +562,7 @@ defmodule LiminalWeb.CoreComponents do
   @doc """
   Renders a keyboard shortcut hint.
 
-  On macOS, modifier keys render as SVG icons sized for daisyUI `kbd` keycaps.
+  On macOS, modifier keys use U+2303 (⌃) and U+21E7 (⇧) in square keycaps.
   On other platforms, `label` is shown as plain text.
   """
   attr :platform, :atom, default: nil
@@ -587,34 +587,8 @@ defmodule LiminalWeb.CoreComponents do
     ~H"""
     <kbd class={@class} data-shortcut-mod={@mod} aria-label={@aria_label} {@rest}>
       <%= cond do %>
-        <% @symbol? and @mod == :control -> %>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 16 10"
-            aria-hidden="true"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.35"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <%!-- macOS UP ARROWHEAD (⌃): two strokes meeting at the top --%>
-            <path d="M2.5 8.5 8 1.5 13.5 8.5" />
-          </svg>
-        <% @symbol? and @mod == :shift -> %>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 16 12"
-            aria-hidden="true"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.35"
-            stroke-linejoin="round"
-            stroke-linecap="round"
-          >
-            <%!-- macOS UPWARDS WHITE ARROW (⇧): outlined up arrow with stem --%>
-            <path d="M8 1.75 12.25 6.5H9.75V10.25H6.25V6.5H3.75L8 1.75Z" />
-          </svg>
+        <% @symbol? -> %>
+          {mac_mod_symbol(@mod)}
         <% true -> %>
           {@label}
       <% end %>
@@ -625,6 +599,9 @@ defmodule LiminalWeb.CoreComponents do
   defp mod_aria_label(:control), do: "Control"
   defp mod_aria_label(:shift), do: "Shift"
   defp mod_aria_label(_), do: nil
+
+  defp mac_mod_symbol(:control), do: <<0x2303::utf8>>
+  defp mac_mod_symbol(:shift), do: <<0x21E7::utf8>>
 
   @doc """
   Translates an error message using gettext.

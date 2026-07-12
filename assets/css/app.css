@@ -110,18 +110,13 @@
 
 /* This file is for your main application CSS */
 
-/* Modifier-only kbd hints (macOS ⌃ / ⇧ SVGs): square keycap, icon centered in daisyUI kbd chrome */
+/* Modifier-only kbd hints (macOS U+2303 ⌃ / U+21E7 ⇧): square keycap, system glyph */
 .kbd-mod-symbol {
-  font-size: 0;
-  line-height: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro",
+    "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.75rem;
+  line-height: 1;
   min-width: 1.25rem;
   width: 1.25rem;
   padding-inline: 0;
-}
-
-.kbd-mod-symbol svg {
-  display: block;
-  width: 0.8125rem;
-  height: 0.8125rem;
-  flex-shrink: 0;
 }
