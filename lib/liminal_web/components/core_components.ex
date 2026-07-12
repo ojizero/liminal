@@ -592,10 +592,14 @@ defmodule LiminalWeb.CoreComponents do
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 16 10"
             aria-hidden="true"
-            fill="currentColor"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.35"
+            stroke-linecap="round"
+            stroke-linejoin="round"
           >
-            <%!-- macOS UP ARROWHEAD (⌃): wide flat base, outward-curving sides --%>
-            <path d="M8 1C10.5 1 13.25 4.75 13.75 7.25L13.75 8.75H2.25L2.25 7.25C2.75 4.75 5.5 1 8 1Z" />
+            <%!-- macOS UP ARROWHEAD (⌃): two strokes meeting at the top --%>
+            <path d="M2.5 8.5 8 1.5 13.5 8.5" />
           </svg>
         <% @symbol? and @mod == :shift -> %>
           <svg
