@@ -259,11 +259,23 @@ defmodule LiminalWeb.LinkLive.Index do
                     :if={@shortcut_platform && @show_keyboard_shortcut_hints}
                     class="flex items-center gap-0.5"
                   >
-                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                      {shortcut_mod_label(@shortcut_platform)}
+                    <kbd
+                      class={[
+                        "kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80",
+                        @shortcut_platform == :mac && "kbd-mod-symbol"
+                      ]}
+                      data-shortcut-mod="control"
+                    >
+                      {tag_toggle_ctrl_label(@shortcut_platform)}
                     </kbd>
-                    <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
-                      {shortcut_shift_label(@shortcut_platform)}
+                    <kbd
+                      class={[
+                        "kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80",
+                        @shortcut_platform == :mac && "kbd-mod-symbol"
+                      ]}
+                      data-shortcut-mod="shift"
+                    >
+                      {tag_toggle_shift_label(@shortcut_platform)}
                     </kbd>
                     <kbd class="kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80">
                       1..9
@@ -283,9 +295,7 @@ defmodule LiminalWeb.LinkLive.Index do
                       data-shortcut-index={idx}
                       aria-pressed={tag.id in @selected_tag_ids}
                       aria-label={"#{tag.name}, expires in #{tag.expires_in_days} days"}
-                      aria-keyshortcuts={
-                        @shortcut_platform && tag_toggle_aria_keyshortcuts(@shortcut_platform, idx)
-                      }
+                      aria-keyshortcuts={@shortcut_platform && tag_toggle_aria_keyshortcuts(idx)}
                       class={[
                         "badge badge-sm cursor-pointer select-none transition-colors",
                         if(tag.id in @selected_tag_ids,
@@ -1070,22 +1080,7 @@ defmodule LiminalWeb.LinkLive.Index do
 
   defp maybe_handle_shortcut_keydown(socket, _params), do: {:noreply, socket}
 
-  defp mod_key_active?(params) do
-    platform = String.downcase(params["platform"] || "")
-    ctrl_key = params["ctrlKey"] == true
-    meta_key = params["metaKey"] == true
-
-    cond do
-      String.contains?(platform, "win") ->
-        ctrl_key
-
-      String.contains?(platform, "mac") ->
-        meta_key
-
-      true ->
-        meta_key or ctrl_key
-    end
-  end
+  defp mod_key_active?(params), do: params["ctrlKey"] == true
 
   defp parse_digit_shortcut(_key, <<"Digit", digit::binary-size(1)>>)
        when digit in ["1", "2", "3", "4", "5", "6", "7", "8", "9"] do
@@ -1138,10 +1133,6 @@ defmodule LiminalWeb.LinkLive.Index do
   defp shortcut_mod_label(:linux), do: "Super"
   defp shortcut_mod_label(:windows), do: "Ctrl"
 
-  defp shortcut_shift_label(:mac), do: "Shift"
-  defp shortcut_shift_label(:linux), do: "Shift"
-  defp shortcut_shift_label(:windows), do: "Shift"
-
   defp shortcut_mod_aria(:mac), do: "Meta"
   defp shortcut_mod_aria(:linux), do: "Meta"
   defp shortcut_mod_aria(:windows), do: "Control"
@@ -1157,8 +1148,13 @@ defmodule LiminalWeb.LinkLive.Index do
 
   defp random_aria_keyshortcuts, do: "R"
 
-  defp tag_toggle_aria_keyshortcuts(platform, index),
-    do: "#{shortcut_mod_aria(platform)}+Shift+#{index}"
+  defp tag_toggle_aria_keyshortcuts(index), do: "Control+Shift+#{index}"
+
+  defp tag_toggle_ctrl_label(:mac), do: <<0x2303::utf8>>
+  defp tag_toggle_ctrl_label(_platform), do: "Ctrl"
+
+  defp tag_toggle_shift_label(:mac), do: <<0x21E7::utf8>>
+  defp tag_toggle_shift_label(_platform), do: "Shift"
 
   defp save_note_aria_keyshortcuts(platform), do: "#{save_note_mod_aria(platform)}+Enter"
 

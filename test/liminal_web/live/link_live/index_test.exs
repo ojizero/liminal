@@ -299,12 +299,15 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#link_url[aria-keyshortcuts='J Meta+V']")
       assert has_element?(view, "#link-search-input[aria-keyshortcuts='F']")
       assert has_element?(view, "#random-link[aria-keyshortcuts='R']")
-      assert has_element?(view, "#new-link-tag-1[aria-keyshortcuts='Meta+Shift+1']")
+      assert has_element?(view, "#new-link-tag-1[aria-keyshortcuts='Control+Shift+1']")
       assert has_element?(view, "#link_note[aria-keyshortcuts='Meta+Enter']")
       refute has_element?(view, "#link-note-save-shortcut")
       refute has_element?(view, "#link-url-paste-from-clipboard")
       refute render(view) =~ "Super"
-      refute render(view) =~ "Ctrl"
+      assert has_element?(view, ~s|[data-shortcut-mod="control"]|, "⌃")
+      assert has_element?(view, ~s|[data-shortcut-mod="shift"]|, "⇧")
+      refute render(view) =~ ~r/<kbd[^>]*>\s*Ctrl\s*<\/kbd>/
+      refute render(view) =~ ~r/<kbd[^>]*>\s*Shift\s*<\/kbd>/
       refute render(view) =~ "Mod"
 
       view
@@ -316,8 +319,10 @@ defmodule LiminalWeb.LinkLive.IndexTest do
 
       html = render(view)
       assert html =~ "Super"
+      assert html =~ "Ctrl"
       assert html =~ "Shift"
       assert has_element?(view, "#link-url-focus-shortcut kbd", "J")
+      assert has_element?(view, "#new-link-tag-1[aria-keyshortcuts='Control+Shift+1']")
       assert has_element?(view, "#link_note[aria-keyshortcuts='Control+Enter']")
       refute html =~ "⌘"
 
@@ -448,7 +453,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert render(view) =~ "Clipboard does not contain a link"
     end
 
-    test "mod+shift+digit shortcut toggles new-link tag selection", %{conn: conn} do
+    test "ctrl+shift+digit shortcut toggles new-link tag selection", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
       view
@@ -456,8 +461,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> render_hook("handle_shortcut_keydown", %{
         "key" => "1",
         "code" => "Digit1",
-        "metaKey" => true,
-        "ctrlKey" => false,
+        "metaKey" => false,
+        "ctrlKey" => true,
         "shiftKey" => true,
         "altKey" => false,
         "repeat" => false,
@@ -482,8 +487,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> render_hook("handle_shortcut_keydown", %{
         "key" => "1",
         "code" => "Numpad1",
-        "metaKey" => true,
-        "ctrlKey" => false,
+        "metaKey" => false,
+        "ctrlKey" => true,
         "shiftKey" => true,
         "altKey" => false,
         "repeat" => false,
@@ -508,8 +513,8 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       |> render_hook("handle_shortcut_keydown", %{
         "key" => "!",
         "code" => "Digit1",
-        "metaKey" => true,
-        "ctrlKey" => false,
+        "metaKey" => false,
+        "ctrlKey" => true,
         "shiftKey" => true,
         "altKey" => false,
         "repeat" => false,
