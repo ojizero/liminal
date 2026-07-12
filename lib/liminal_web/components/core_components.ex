@@ -555,6 +555,61 @@ defmodule LiminalWeb.CoreComponents do
     )
   end
 
+  @shortcut_kbd_class "kbd kbd-xs min-h-0 h-5 px-1.5 text-base-content/45 border-base-content/15 bg-base-100/80 inline-flex items-center justify-center"
+
+  @doc """
+  Renders a keyboard shortcut hint.
+
+  On macOS, modifier keys use SVG icons that match the system keycap symbols.
+  On other platforms, `label` is shown as plain text.
+  """
+  attr :platform, :atom, default: nil
+  attr :mod, :atom, default: nil
+  attr :label, :string, default: nil
+  attr :class, :string, default: nil
+  attr :rest, :global
+
+  def shortcut_kbd(assigns) do
+    assigns =
+      assign(
+        assigns,
+        :class,
+        assigns[:class] || @shortcut_kbd_class
+      )
+
+    ~H"""
+    <kbd class={@class} data-shortcut-mod={@mod} {@rest}>
+      <%= cond do %>
+        <% @platform == :mac and @mod == :control -> %>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 12 10"
+            class="size-3.5"
+            aria-hidden="true"
+            fill="currentColor"
+          >
+            <path d="M6 1.5 10.25 7.5H1.75L6 1.5Z" />
+          </svg>
+        <% @platform == :mac and @mod == :shift -> %>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 12 12"
+            class="size-3.5"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.25"
+            stroke-linejoin="round"
+          >
+            <path d="M6 2 10 7.25H7.5V10H4.5V7.25H2L6 2Z" />
+          </svg>
+        <% true -> %>
+          {@label}
+      <% end %>
+    </kbd>
+    """
+  end
+
   @doc """
   Translates an error message using gettext.
   """
