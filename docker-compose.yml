@@ -14,13 +14,16 @@ services:
       - PUID=${PUID:-911}
       - PGID=${PGID:-911}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
-      - DATABASE_PATH=/data/liminal.db
+      - DATABASE_PATH=${DATABASE_PATH:-/data/liminal.db}
       - PHX_SERVER=true
       - PHX_HOST=${PHX_HOST:-localhost}
-      # - PHX_CHECK_ORIGINS=//domain2.com,//domain3.com
+      - PHX_CHECK_ORIGINS
       - PORT=${PORT:-4000}
       - POOL_SIZE=${POOL_SIZE:-5}
       - SIGNUPS_ENABLED=${SIGNUPS_ENABLED:-false}
+      - AUTO_MIGRATE=${AUTO_MIGRATE:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-warning}
+      - DNS_CLUSTER_QUERY
     restart: unless-stopped
 
 volumes:

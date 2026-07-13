@@ -1,194 +1,100 @@
 # Liminal
 
-A self-hosted link manager and bookmarking app built with Phoenix LiveView and SQLite. Save links, tag them with expiring labels, and let the app automatically fetch metadata and clean up after itself.
+Liminal is a self-hosted, multi-user link manager built with Phoenix LiveView and SQLite.
 
 ## Features
 
-- **Link saving with metadata extraction** — paste a URL and the app fetches the title, description, favicon, and preview image automatically
-- **Expiring tags** — tag links with labels like "read later" or "watch later", each with a configurable expiration (e.g. 14 days). Expired tags and orphaned links are cleaned up automatically
-- **Filtering and sorting** — filter by viewed/unviewed status and tags, sort by date added or expiration
-- **Masonry layout** — responsive card grid that adapts from 1 to 3 columns
-- **Multi-user with admin roles** — user registration, invitation-based onboarding, admin panel for user management
-- **Real-time updates** — PubSub-powered live updates across browser tabs
-- **Dark/light themes** — Catppuccin Latte (light) and Mocha (dark)
+- Saves links with notes and fetches titles, descriptions, favicons, preview images, and video duration.
+- Searches titles, notes, descriptions, and URLs; filters by tag and viewed state; sorts by creation or expiration.
+- Uses expiring tags for workflows such as “read later.” The janitor removes expired tag assignments, viewed links past their grace period, and links left without tags.
+- Detects duplicate URLs and offers to merge tag assignments.
+- Opens a random saved link and provides keyboard shortcuts for common actions.
+- Supports per-user defaults, automatic “viewed” marking, statistics, and metadata reindexing.
+- Provides admin dashboards, invitation links, account controls, and instance-wide reindexing.
+- Updates open sessions through PubSub and supports system, light, and dark themes.
 
-## Tech stack
+## Stack
 
-- **Elixir / Phoenix 1.8** with LiveView
-- **SQLite** via `ecto_sqlite3`
-- **Tailwind CSS v4** with daisyUI
-- **Docker** for deployment
+- Elixir 1.20, Erlang/OTP 29, Phoenix 1.8, and LiveView
+- SQLite through `ecto_sqlite3`
+- Tailwind CSS v4 and daisyUI
+- Docker for production packaging
 
-## Getting started
+## Local development
 
-### Prerequisites
-
-- Elixir ~> 1.20 and Erlang/OTP 27+
-
-### Local development
+[mise](https://mise.jdx.dev/) is the supported toolchain manager. `.mise.toml` pins Erlang 29.0.2, Elixir 1.20.2-otp-29, and the GitHub CLI.
 
 ```bash
-mix setup      # Install deps, create DB, run migrations, build assets
-mix phx.server # Start the server at localhost:4000
+mise install
+mix setup
+mix phx.server
 ```
 
-[mise](https://mise.jdx.dev/) with shell activation is required for local development. Git commit hooks for Conventional Commits are configured automatically when you enter the project directory or run `mise install`. See [Commit messages](#commit-messages) below.
+Open `http://localhost:4000`. Use `iex -S mix phx.server` when an IEx shell is needed.
 
-Local development state is stored under `data.local/`:
+Local state is stored in `data.local/`:
 
-- `data.local/liminal_dev.db` - local development SQLite database
-- `data.local/assets/` - downloaded link preview images, served at `/assets/<file>`
+- `liminal_dev.db`: development database
+- `assets/<user_id>/`: downloaded previews, served to their owner at `/assets/<user_id>/<filename>`
 
-Or inside IEx:
+For sample users and links, run `mix run priv/repo/demo_seed.exs`. Development-only diagnostics are available at `/dev/dashboard` and `/dev/mailbox`.
 
-```bash
-iex -S mix phx.server
-```
+## Authentication
 
-### First-time setup
+Liminal uses usernames and passwords, not email addresses. Usernames contain 3–30 letters, numbers, or underscores; passwords contain 12–72 characters.
 
-When no admin account exists, the registration page is open — the first user to sign up becomes the admin. After that, new signups are controlled by the `SIGNUPS_ENABLED` environment variable, or admins can invite users from the admin panel.
+When no admin exists, `/users/register` creates the first admin even if public signup is disabled. After bootstrap:
+
+- `SIGNUPS_ENABLED=true` opens public registration.
+- An admin can create an account at `/admin/users/new` and copy the generated password-setup link.
+- Password-reset and invitation links are shared manually; production email delivery is not configured.
 
 ## Deployment
 
-### Docker Compose
+Docker Compose builds the application from the checked-out source:
 
 ```bash
 cp .env.example .env
-# Edit .env — at minimum set SECRET_KEY_BASE
-# Generate one with: mix phx.gen.secret
-
-docker compose up -d
+# Set SECRET_KEY_BASE in .env:
+#   mix phx.gen.secret
+# or
+#   openssl rand -base64 64 | tr -d '\n'
+docker compose up -d --build
 ```
 
-### Persistent data
+The named `liminal_data` volume contains both `/data/liminal.db` and `/data/assets`. Losing this volume loses application data. Preview files are stored under a compile-time `ASSETS_DIR` (default `/data/assets`) and served through the authenticated `AssetController`; `ASSETS_DIR` is not a runtime variable.
 
-The container keeps all of its state under `/data`, which the Compose file mounts
-as the named volume `liminal_data`:
+Production hostname, reverse-proxy, persistence, backup, and environment-variable details are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-| Path | Contents |
-|---|---|
-| `/data/liminal.db` | SQLite database (set via `DATABASE_PATH`) |
-| `/data/assets/` | Downloaded link preview images, served at `/assets/<file>` |
+> [!WARNING]
+> Liminal fetches user-supplied URLs and discovered preview URLs from the server. Deploy it only for trusted users and restrict container egress if the host can reach private services or cloud metadata endpoints.
 
-Mounting `/data` is required: without it, the database and preview images are
-lost when the container is recreated. To use a host directory instead of the
-named volume, replace the volume entry in `docker-compose.yml`:
-
-```yaml
-volumes:
-  - ./data:/data
-```
-
-The preview image directory (`/data/assets`) is configured at **image build
-time**, not at runtime — `Plug.Static` freezes the serving path when the release
-is compiled, so it cannot be changed by an environment variable on a running
-container. The published image defaults to `/data/assets`. To build with a
-different path:
+## Development workflow
 
 ```bash
-docker build --build-arg ASSETS_DIR=/custom/path .
+mix test                         # Create/migrate the test DB and run tests
+mix test --failed                # Re-run failures
+mix test test/path_test.exs      # Run one test file
+mix precommit                    # Compile strictly, prune unused locks, format, test
+mise run ci                      # Run CI's non-mutating format, compile, and test checks
+mix ecto.reset                   # Recreate the development database
+mix assets.deploy                # Build production assets
 ```
 
-The custom path must live under a writable mounted volume so images survive
-restarts.
+See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for commit and pull-request rules and [docs/RELEASE.md](docs/RELEASE.md) for the maintainer release process.
 
-### Environment variables
+## Architecture
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `SECRET_KEY_BASE` | Yes | — | Secret for signing cookies/sessions. Generate with `mix phx.gen.secret` |
-| `PUID` | No | `911` | UID for the container process. Match your host user (`id -u`) to avoid permission issues with mounted volumes |
-| `PGID` | No | `911` | GID for the container process. Match your host group (`id -g`) |
-| `DATABASE_PATH` | Yes | — | Path to the SQLite database file |
-| `PHX_HOST` | No | `example.com` | Hostname for URL generation |
-| `PHX_CHECK_ORIGINS` | No | — | Comma-separated additional allowed origins for LiveView WebSocket connections (e.g. `//domain2.com,//domain3.com`). `PHX_HOST` is always included automatically |
-| `PORT` | No | `4000` | Server port |
-| `POOL_SIZE` | No | `5` | SQLite connection pool size |
-| `SIGNUPS_ENABLED` | No | `false` | Whether public registration is open |
-| `AUTO_MIGRATE` | No | `true` | Automatically create database and run migrations on startup |
-| `LOG_LEVEL` | No | `warning` | Log verbosity: `debug`, `info`, `notice`, `warning`, `error`, `critical`, `alert`, `emergency` |
+- `lib/liminal/accounts.ex` and `lib/liminal/accounts/`: users, sessions, invitations, and authorization scopes
+- `lib/liminal/links.ex` and `lib/liminal/links/`: links, tags, search, metadata indexing, retries, cleanup, statistics, and reindex jobs
+- `lib/liminal_web/live/link_live/`: main dashboard and tag-management routes
+- `lib/liminal_web/live/tag_live/`: tag LiveComponent embedded in the dashboard
+- `lib/liminal_web/live/user_live/`: registration, login, password reset, and settings
+- `lib/liminal_web/live/admin/`: instance statistics and user administration
+- `lib/liminal_web/controllers/`: sessions, random-link redirect, and authorized preview serving
 
-## Development
-
-### Useful commands
-
-```bash
-mix precommit              # Compile (warnings as errors), format, and test
-mix test                   # Run the test suite
-mix test --failed          # Re-run only previously failed tests
-mix test test/path_test.exs # Run a specific test file
-mise run changelog         # Preview release notes for the current VERSION
-```
-
-### Commit messages
-
-This project uses [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). Every commit subject must match:
-
-```
-<type>[optional scope][optional !]: <description>
-```
-
-Examples:
-
-```
-feat(links): add fuzzy search across title and URL
-fix: stabilize flaky SQLite tests
-feat!: drop legacy bookmark import API
-chore(release): version 1.11.0
-```
-
-**Enforcement**
-
-- A `commit-msg` Git hook validates each commit locally (`mise run verify-commit`)
-- CI checks all commits in a pull request since the base branch (`mise run verify-commits`)
-- Hooks are configured automatically when you enter the project or run `mise install` (requires [mise](https://mise.jdx.dev/) with shell activation)
-
-**Allowed types** — custom types such as `security` or `deps` are rejected:
-
-| Type | Use for |
-|------|---------|
-| `feat` | New feature |
-| `fix` | Bug fix |
-| `docs` | Documentation only |
-| `style` | Formatting, no logic change |
-| `refactor` | Code change that is neither feat nor fix |
-| `perf` | Performance improvement |
-| `test` | Tests only |
-| `build` | Build system or dependencies |
-| `ci` | CI configuration |
-| `chore` | Other maintenance (use `chore(release):` for version bumps) |
-| `revert` | Revert a prior commit |
-
-**Breaking changes** — append `!` after the type or scope (e.g. `feat!: …`, `feat(api)!: …`), or add a `BREAKING CHANGE:` footer in the commit body.
-
-**Release notes** — generated from commits between the previous release tag and `HEAD` when `VERSION` is bumped. Preview with `mise run changelog`. Included: all Conventional Commit types (`feat`, `fix`, `perf`, `revert`, `refactor`, `docs`, `build`, `chore`, `ci`, `style`, `test`) and breaking changes. Excluded: `chore(release):` commits and merge commits.
-
-### Project structure
-
-```
-lib/
-├── liminal/                  # Business logic (contexts)
-│   ├── accounts.ex           # User management
-│   ├── accounts/             # User schema, tokens
-│   ├── links.ex              # Link & tag CRUD
-│   └── links/                # Link, Tag, Indexer, Janitor, MetadataParser
-└── liminal_web/              # Web layer
-    ├── router.ex             # Routes and pipelines
-    ├── user_auth.ex          # Auth plugs and hooks
-    ├── live/                 # LiveView modules
-    │   ├── link_live/        # Main links dashboard
-    │   ├── tag_live/         # Tag management
-    │   ├── user_live/        # Login, registration, settings
-    │   └── admin/            # Admin user management
-    └── components/           # Shared UI components
-```
-
-### Background workers
-
-- **Janitor** — runs every 5 minutes to clean up expired tags and orphaned links, and triggers indexing for unindexed links
-- **Indexer** — fetches metadata (title, description, favicon, preview image) from saved URLs via async tasks
+The indexer fetches metadata asynchronously when a link is created. `Liminal.Links.Janitor` runs every five minutes to clean up and retry eligible failed indexing. `Liminal.Links.Reindex` serializes user and instance reindex jobs into rate-limited batches.
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+[MIT](LICENSE)
