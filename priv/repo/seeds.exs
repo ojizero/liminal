@@ -2,10 +2,13 @@
 #
 #     mix run priv/repo/seeds.exs
 #
-# Inside the script, you can read and write to any of your
-# repositories directly:
+# In `:dev`, this loads the demo dataset used for local development and
+# feature demos. See AGENTS.md → "Dev seed data".
 #
-#     Liminal.Repo.insert!(%Liminal.SomeSchema{})
+# Re-seed only the demo data (idempotent for users; rebuilds their links):
 #
-# We recommend using the bang functions (`insert!`, `update!`
-# and so on) as they will fail if something goes wrong.
+#     mix run priv/repo/demo_seed.exs
+
+if Mix.env() == :dev do
+  Code.require_file("demo_seed.exs", __DIR__)
+end
