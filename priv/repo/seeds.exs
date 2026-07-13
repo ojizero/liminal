@@ -2,13 +2,11 @@
 #
 #     mix run priv/repo/seeds.exs
 #
-# In `:dev`, this loads the demo dataset used for local development and
-# feature demos. See AGENTS.md → "Dev seed data".
+# Loads the demo dataset used for local development and feature demos.
+# See AGENTS.md → "Dev seed data".
 #
-# Re-seed only the demo data (idempotent for users; rebuilds their links):
+# Re-seed anytime (idempotent for users; rebuilds their links):
 #
 #     mix run priv/repo/demo_seed.exs
 
-if Mix.env() == :dev do
-  Code.require_file("demo_seed.exs", __DIR__)
-end
+Code.require_file("demo_seed.exs", __DIR__)

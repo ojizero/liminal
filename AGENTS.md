@@ -530,7 +530,7 @@ And **never** do this:
 
 ### Dev seed data
 
-Demo data is loaded automatically in `:dev` by `mix ecto.setup` / `mix setup` (`priv/repo/seeds.exs` → `priv/repo/demo_seed.exs`). Re-seed anytime with:
+Demo data is loaded automatically by `mix ecto.setup` / `mix setup` (`priv/repo/seeds.exs` → `priv/repo/demo_seed.exs`). Re-seed anytime with:
 
 ```bash
 mix run priv/repo/demo_seed.exs

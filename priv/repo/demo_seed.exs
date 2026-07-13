@@ -1,6 +1,6 @@
 # Demo / local-development seed data for Liminal.
 #
-# Loaded automatically by `mix ecto.setup` / `mix setup` in `:dev` (via seeds.exs).
+# Loaded automatically by `mix ecto.setup` / `mix setup` (via seeds.exs).
 # Re-run anytime (rebuilds seeded users' links/tags):
 #
 #     mix run priv/repo/demo_seed.exs
