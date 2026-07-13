@@ -59,8 +59,7 @@ defmodule LiminalWeb.ReindexComponents do
               class="progress progress-primary w-full"
               value={@reindex.processed}
               max={max(@reindex.total, 1)}
-            >
-            </progress>
+            ></progress>
             <p class="text-sm text-base-content/70">
               {@reindex.processed} of {@reindex.total} processed
               <span :if={@reindex.remaining > 0}>

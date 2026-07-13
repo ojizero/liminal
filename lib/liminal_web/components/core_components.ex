@@ -111,6 +111,7 @@ defmodule LiminalWeb.CoreComponents do
   """
   attr :rest, :global,
     include: ~w(href navigate patch method download name value disabled type target rel)
+
   attr :class, :any, default: nil
   attr :variant, :string, values: ~w(primary soft ghost), default: "ghost"
   slot :inner_block, required: true
