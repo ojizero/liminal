@@ -90,6 +90,7 @@ defmodule Liminal.MixProject do
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind liminal", "esbuild liminal"],
       "assets.deploy": [
+        "compile",
         "tailwind liminal --minify",
         "esbuild liminal --minify",
         "phx.digest"
