@@ -1,18 +1,35 @@
 # Deployment
 
-## Container setup
+## Build from source
 
 `docker-compose.yml` builds the current checkout and mounts the named `liminal_data` volume at `/data`.
 
 ```bash
 cp .env.example .env
-# Set SECRET_KEY_BASE and PHX_HOST.
+# Set SECRET_KEY_BASE.
+# For remote access, set PHX_HOST=links.example.com.
 docker compose up -d --build
 ```
 
 For a bind mount, replace the service volume with `./data:/data`. Set `PUID` and `PGID` to the host owner of that directory.
 
-The release workflow also publishes versioned and `latest` images to Docker Hub and `ghcr.io/<owner>/<repository>`. Published coordinates depend on repository configuration; inspect the GitHub release before deploying one.
+## Deploy a published image
+
+Each release publishes versioned images to `ghcr.io/ojizero/liminal` and the Docker Hub account configured by the maintainer. Prefer a version tag over `latest`.
+
+```bash
+cp .env.example .env
+# Set SECRET_KEY_BASE and the public PHX_HOST in .env.
+docker run -d \
+  --name liminal \
+  --restart unless-stopped \
+  --env-file .env \
+  -p 4000:4000 \
+  -v liminal_data:/data \
+  ghcr.io/ojizero/liminal:1.11.1
+```
+
+Replace `1.11.1` with the intended release. Confirm available tags on the [GitHub releases page](https://github.com/ojizero/liminal/releases).
 
 ## Persistent data
 
@@ -53,6 +70,17 @@ The release listens on HTTP inside the container. Terminate TLS at a reverse pro
 
 Production forces HTTPS and trusts `X-Forwarded-Proto`. Missing that header causes redirects for non-local hosts. `localhost` and `127.0.0.1` are excluded from forced HTTPS for local checks.
 
+`PHX_HOST=localhost` is only suitable for same-machine access. A remote deployment must set its public hostname or LiveView origin checks and generated URLs will be wrong.
+
+## Upgrading
+
+Back up `/data`, then:
+
+- Source build: pull the intended revision and run `docker compose up -d --build`.
+- Published image: pull the versioned image, stop and remove the old container, then recreate it with the same environment, port, and `liminal_data` volume.
+
+Leave `AUTO_MIGRATE=true`; startup applies pending migrations before the HTTP endpoint starts. This repository does not provide a separate release migration command.
+
 ## Environment variables
 
 | Variable | Required | Default | Purpose |
@@ -60,7 +88,7 @@ Production forces HTTPS and trusts `X-Forwarded-Proto`. Missing that header caus
 | `SECRET_KEY_BASE` | Yes | — | Signs and encrypts cookies and sessions |
 | `DATABASE_PATH` | Yes in a release | `/data/liminal.db` in Compose | SQLite file path |
 | `PHX_SERVER` | Yes for a release | `true` in the image | Enables the HTTP endpoint |
-| `PHX_HOST` | No | `example.com`; `localhost` in Compose | Public hostname and primary LiveView origin |
+| `PHX_HOST` | Yes for remote production | `example.com`; `localhost` in Compose | Public hostname and primary LiveView origin |
 | `PHX_CHECK_ORIGINS` | No | — | Comma-separated additional scheme-relative origins |
 | `PORT` | No | `4000` | HTTP listen port |
 | `POOL_SIZE` | No | `5` | SQLite connection pool size |
@@ -76,7 +104,7 @@ Boolean variables are enabled only by the literal value `true`.
 ## Operations and security
 
 - The Docker health check verifies that the BEAM release process is alive; it does not make an HTTP readiness request.
-- Automatic migrations run before the supervision tree starts. Disable them only when migrations are managed separately.
+- Automatic migrations run during application startup before the HTTP endpoint accepts traffic.
 - SQLite and a single serialized reindex worker make this deployment model suitable for small instances, not horizontal write scaling.
 - Saved pages, oEmbed endpoints, and preview images cause outbound HTTP requests. The application does not block private or link-local destinations. Use trusted accounts and network-level egress controls.
 - User deletion removes database records but does not currently remove that user's preview directory. Monitor and clean orphaned directories under `assets/`.

@@ -1,4 +1,4 @@
-# Contributor guide
+# Implementation guide
 
 This file records repository-specific implementation rules for human and automated contributors. Setup, commands, and pull-request policy are in [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md).
 

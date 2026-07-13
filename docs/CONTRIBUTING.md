@@ -24,11 +24,12 @@ This compiles with warnings as errors, removes unused lock entries, formats the 
 
 `mise run ci` mirrors the Test & Lint job without modifying formatting: it installs dependencies, checks formatting, compiles with warnings as errors, and runs tests.
 
-Pull requests to `main` run three checks:
+Every pull request to `main` verifies:
 
 1. Every commit follows Conventional Commits.
-2. A changed `VERSION` is not behind the latest GitHub release.
-3. `mise run ci` passes.
+2. `mise run ci` passes.
+
+A pull request that changes `VERSION` also verifies that it is not behind the latest GitHub release.
 
 ## Commit messages
 
@@ -51,14 +52,6 @@ feat!: remove legacy bookmark import
 
 Append `!` or add a `BREAKING CHANGE:` footer for breaking changes. Use `chore(release): version X.Y.Z` only for a release version bump.
 
-## Test conventions
-
-- Test changed behavior at the narrowest useful level and run the affected flow end to end.
-- Use `start_supervised!/1` for test processes.
-- Synchronize processes with monitors, messages, or `_ = :sys.get_state(pid)`; do not use sleeps.
-- LiveView tests should target stable element IDs with `element/2` and `has_element?/2`, not raw HTML strings.
-- Use `Req.Test` for outbound HTTP behavior.
-
 Useful commands:
 
 ```bash
@@ -71,4 +64,4 @@ mix run priv/repo/demo_seed.exs
 
 ## Project rules
 
-Repository-specific implementation guidance is in [`AGENTS.md`](../AGENTS.md). It applies to human and automated contributors.
+Repository-specific implementation and test guidance is in [`AGENTS.md`](../AGENTS.md). It applies to human and automated contributors.
