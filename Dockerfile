@@ -2,7 +2,7 @@
 
 # Build arguments for easy version pinning
 ARG ELIXIR_VERSION=1.20.2
-ARG OTP_VERSION=29.0.2
+ARG OTP_VERSION=29.0.3
 ARG DEBIAN_VERSION=bookworm-20260623-slim
 
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"

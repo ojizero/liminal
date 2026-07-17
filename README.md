@@ -23,7 +23,8 @@ A self-hosted link manager and bookmarking app built with Phoenix LiveView and S
 
 ### Prerequisites
 
-- Elixir ~> 1.20 and Erlang/OTP 27+
+- [mise](https://mise.jdx.dev/) with the Elixir and Erlang/OTP versions pinned in
+  `.mise.toml`
 
 ### Local development
 
@@ -32,7 +33,7 @@ mix setup      # Install deps, create DB, run migrations, build assets
 mix phx.server # Start the server at localhost:4000
 ```
 
-[mise](https://mise.jdx.dev/) with shell activation is required for local development. Git commit hooks for Conventional Commits are configured automatically when you enter the project directory or run `mise install`. See [Commit messages](#commit-messages) below.
+mise with shell activation is required for local development. Git commit hooks for Conventional Commits are configured automatically when you enter the project directory or run `mise install`. See [Commit messages](#commit-messages) below.
 
 Local development state is stored under `data.local/`:
 

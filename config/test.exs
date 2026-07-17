@@ -26,12 +26,6 @@ config :liminal, LiminalWeb.Endpoint,
   secret_key_base: "WPUolrHEwoVbyNFNBvmBlpktdMiRg6yHyDxX1DIck/tv1vLpTd2COU47dHVLWdjK",
   server: false
 
-# In test we don't send emails
-config :liminal, Liminal.Mailer, adapter: Swoosh.Adapters.Test
-
-# Disable swoosh api client as it is only required for production adapters
-config :swoosh, :api_client, false
-
 # Don't start the Janitor GenServer during tests
 config :liminal, start_janitor: false
 config :liminal, start_reindex: false
