@@ -27,7 +27,7 @@ defmodule Liminal.Accounts.UserToken do
     {token, %UserToken{token: token, context: "session", user_id: user.id, authenticated_at: dt}}
   end
 
-  @doc false
+  @doc "Builds the query used to validate and load a session token."
   def verify_session_token_query(token) do
     query =
       from token in by_token_and_context_query(token, "session"),
@@ -39,19 +39,19 @@ defmodule Liminal.Accounts.UserToken do
     {:ok, query}
   end
 
-  @doc false
+  @doc "Returns a query for a user's tokens in the given contexts."
   def by_user_and_contexts_query(user, contexts) do
     from t in UserToken, where: t.user_id == ^user.id and t.context in ^contexts
   end
 
-  @doc false
+  @doc "Builds a reset-password token and encoded token pair."
   def build_reset_password_token(user) do
     token = :crypto.strong_rand_bytes(@rand_size)
     encoded = Base.url_encode64(token, padding: false)
     {encoded, %UserToken{token: token, context: "reset_password", user_id: user.id}}
   end
 
-  @doc false
+  @doc "Builds the query used to validate and load a reset-password token."
   def verify_reset_password_token_query(encoded_token) do
     case Base.url_decode64(encoded_token, padding: false) do
       {:ok, token} ->

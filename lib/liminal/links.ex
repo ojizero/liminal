@@ -38,7 +38,7 @@ defmodule Liminal.Links do
 
   ## Default tags
 
-  @doc false
+  @doc "Creates default tags for a new user."
   def create_default_tags(user_id) do
     now = DateTime.utc_now(:second)
 
@@ -234,7 +234,7 @@ defmodule Liminal.Links do
     |> Repo.all()
   end
 
-  @doc false
+  @doc "Legacy alias for `list_index_retry_candidates/1`."
   def list_unindexed_links(opts \\ []), do: list_index_retry_candidates(opts)
 
   ## Stats
@@ -356,20 +356,20 @@ defmodule Liminal.Links do
     end
   end
 
-  @doc false
+  @doc "Returns whether the current scope can cancel the active reindex job."
   def can_cancel_reindex?(scope, %{active: true, requested_by: requested_by}) do
     Scope.admin?(scope) or scope.user.id == requested_by
   end
 
   def can_cancel_reindex?(_scope, _status), do: false
 
-  @doc false
+  @doc "Fetches a user's link by id with tags preloaded; raises when missing."
   def get_link!(scope, id) do
     Repo.get_by!(Link, id: id, user_id: scope.user.id)
     |> Repo.preload(link_tags: :tag)
   end
 
-  @doc false
+  @doc "Finds a user's link by exact URL, or `nil` if none exists."
   def find_link_by_url(scope, url) when is_binary(url) do
     from(l in Link,
       where: l.user_id == ^scope.user.id and l.url == ^url,
@@ -442,7 +442,7 @@ defmodule Liminal.Links do
     end
   end
 
-  @doc false
+  @doc "Returns a link changeset for create/edit forms."
   def change_link(link, attrs \\ %{}) do
     Link.changeset(link, attrs)
   end
@@ -508,7 +508,7 @@ defmodule Liminal.Links do
     end
   end
 
-  @doc false
+  @doc "Resets indexing retry fields for a link."
   def reset_index_retry(%Link{} = link) do
     case link |> Link.index_retry_changeset(index_retry_reset_attrs()) |> Repo.update() do
       {:ok, updated_link} ->
@@ -536,7 +536,7 @@ defmodule Liminal.Links do
 
   ## Viewed state
 
-  @doc false
+  @doc "Marks a link as viewed now."
   def mark_viewed(scope, link) do
     user_id = scope.user.id
     ^user_id = link.user_id
@@ -552,7 +552,7 @@ defmodule Liminal.Links do
     end
   end
 
-  @doc false
+  @doc "Clears the viewed timestamp on a link."
   def mark_unviewed(scope, link) do
     user_id = scope.user.id
     ^user_id = link.user_id

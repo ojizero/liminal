@@ -96,13 +96,13 @@ defmodule Liminal.Accounts.User do
     end
   end
 
-  @doc false
+  @doc "Marks a user as confirmed by setting `confirmed_at`."
   def confirm_changeset(user) do
     now = DateTime.utc_now(:second)
     change(user, confirmed_at: now)
   end
 
-  @doc false
+  @doc "Registration changeset combining username, password, and confirmation."
   def registration_changeset(user, attrs, opts \\ []) do
     user
     |> username_changeset(attrs, opts)
@@ -134,7 +134,7 @@ defmodule Liminal.Accounts.User do
     |> confirm_changeset()
   end
 
-  @doc false
+  @doc "Settings changeset for user-configurable preferences."
   def settings_changeset(user, attrs) do
     user
     |> cast(attrs, [:auto_mark_viewed_on_open, :default_tags_enabled, :default_tag_id])
@@ -179,7 +179,7 @@ defmodule Liminal.Accounts.User do
     end
   end
 
-  @doc false
+  @doc "Role changeset restricted to `admin` or `user`."
   def role_changeset(user, attrs) do
     user
     |> cast(attrs, [:role])
@@ -187,9 +187,9 @@ defmodule Liminal.Accounts.User do
     |> validate_inclusion(:role, ~w(admin user))
   end
 
-  @doc false
+  @doc "Changeset that disables a user account."
   def disable_changeset(user), do: change(user, disabled_at: DateTime.utc_now(:second))
 
-  @doc false
+  @doc "Changeset that re-enables a disabled user account."
   def enable_changeset(user), do: change(user, disabled_at: nil)
 end

@@ -19,7 +19,7 @@ defmodule Liminal.Accounts do
 
   ## Database getters
 
-  @doc false
+  @doc "Returns a user by username or `nil`."
   def get_user_by_username(username) when is_binary(username) do
     Repo.get_by(User, username: username)
   end
@@ -39,7 +39,7 @@ defmodule Liminal.Accounts do
     end
   end
 
-  @doc false
+  @doc "Fetches a user by id and raises when missing."
   def get_user!(id), do: Repo.get!(User, id)
 
   ## User registration
@@ -99,19 +99,19 @@ defmodule Liminal.Accounts do
 
   def sudo_mode?(_user, _minutes), do: false
 
-  @doc false
+  @doc "Returns a username changeset for forms."
   def change_user_username(user, attrs \\ %{}, opts \\ []) do
     User.username_changeset(user, attrs, opts)
   end
 
-  @doc false
+  @doc "Updates a user's username."
   def update_user_username(user, attrs) do
     user
     |> User.username_changeset(attrs)
     |> Repo.update()
   end
 
-  @doc false
+  @doc "Returns a password changeset for forms."
   def change_user_password(user, attrs \\ %{}, opts \\ []) do
     User.password_changeset(user, attrs, opts)
   end
@@ -125,12 +125,12 @@ defmodule Liminal.Accounts do
     |> update_user_and_delete_all_tokens()
   end
 
-  @doc false
+  @doc "Returns a settings changeset for user preferences."
   def change_user_settings(user, attrs \\ %{}) do
     User.settings_changeset(user, attrs)
   end
 
-  @doc false
+  @doc "Updates user preference settings."
   def update_user_settings(user, attrs) do
     user
     |> User.settings_changeset(attrs)
@@ -139,7 +139,7 @@ defmodule Liminal.Accounts do
 
   ## Session
 
-  @doc false
+  @doc "Creates and persists a session token."
   def generate_user_session_token(user) do
     {token, user_token} = UserToken.build_session_token(user)
     Repo.insert!(user_token)
@@ -154,7 +154,7 @@ defmodule Liminal.Accounts do
     Repo.one(query)
   end
 
-  @doc false
+  @doc "Deletes a persisted session token."
   def delete_user_session_token(token) do
     Repo.delete_all(from(UserToken, where: [token: ^token, context: "session"]))
     :ok
@@ -319,7 +319,7 @@ defmodule Liminal.Accounts do
     end
   end
 
-  @doc false
+  @doc "Clears the cached admin-exists flag (used in tests)."
   def reset_admin_cache do
     :persistent_term.erase(@admin_cache_key)
   end

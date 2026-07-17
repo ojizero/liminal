@@ -10,7 +10,7 @@ defmodule Liminal.Accounts.Scope do
 
   defstruct user: nil
 
-  @doc false
+  @doc "Builds a scope for an authenticated user, or `nil` for anonymous callers."
   def for_user(%User{} = user) do
     %__MODULE__{user: user}
   end
