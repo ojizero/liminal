@@ -110,13 +110,18 @@
 
 /* This file is for your main application CSS */
 
-/* Defer the initial connecting toast so fast joins do not flicker. */
+/* Initial connecting toast: visible only while the main LiveView has not
+   joined and is not already in an error/reconnect state. Prefer CSS over the
+   hidden attribute so reconnect DOM patches cannot briefly re-show it. */
 #lv-connecting {
   opacity: 0;
   animation: lv-connecting-reveal 0s linear 0.35s forwards;
 }
 
-/* Prefer disconnect/error toasts over the initial connecting toast. */
+[data-phx-main].phx-connected #lv-connecting,
+[data-phx-main].phx-error #lv-connecting,
+[data-phx-main].phx-client-error #lv-connecting,
+[data-phx-main].phx-server-error #lv-connecting,
 body:has(.phx-client-error) #lv-connecting,
 body:has(.phx-server-error) #lv-connecting {
   display: none;
