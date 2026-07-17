@@ -528,6 +528,47 @@ And **never** do this:
 - **mise** manages Erlang, Elixir, and GitHub CLI versions (see `.mise.toml`). Assets use the standalone binaries managed by the Mix `esbuild` and `tailwind` dependencies. Run `mise install` after version bumps.
 - See the README for `mix setup`, `mix phx.server`, and `mix precommit` usage.
 
+### Dev seed data
+
+Demo data is loaded automatically by `mix ecto.setup` / `mix setup` (`priv/repo/seeds.exs` → `priv/repo/demo_seed.exs`). Re-seed anytime with:
+
+```bash
+mix run priv/repo/demo_seed.exs
+```
+
+Re-seeding is idempotent for users and **rebuilds** links/custom tags for seeded accounts. The indexer is disabled during seed so no outbound fetches run. Shared password for password-bearing accounts: `liminaldev123!`
+
+#### Accounts
+
+| Username | Password | Role | Purpose |
+|----------|----------|------|---------|
+| `admin` | `liminaldev123!` | admin | Admin panel, user mgmt, instance stats |
+| `demo` | `liminaldev123!` | user | **Primary** feature/demo library (use this first) |
+| `alice` | `liminaldev123!` | user | Settings prefs: `auto_mark_viewed_on_open` + default tag `reading list` |
+| `disabled` | `liminaldev123!` | user | Disabled account (cannot sign in; visible in admin user list) |
+| `invited` | _(none)_ | user | Invite / set-password flow (created via `invite_user`) |
+
+#### Tags (beyond per-user defaults)
+
+Registration always creates: `saved for later` (30d), `read later` (14d), `watch later` (30d).
+
+| User | Extra tags |
+|------|------------|
+| `demo` | `inbox` (7d), `side project` (90d) |
+| `alice` | `reading list` (21d) — also her default tag |
+
+#### Link scenarios on `demo`
+
+Use these when demos/tests need a known state instead of hand-crafting data:
+
+- Indexed + unviewed cards (default filter) with notes, multi-tags, and video durations (`youtube.com`, `vimeo.com`)
+- One viewed link (`news.ycombinator.com`) — ephemeral in `:dev` because `config/dev.exs` sets `:viewed_grace_seconds` to `5`
+- Expiring soon (~12h) and about-to-expire (~3d) for stats / sort demos
+- Index states that survive while the server runs: pending and failed both defer `index_next_attempt_at` by 7 days; gave-up has `index_gave_up_at` set
+- Mixed real + `*.example.com` URLs for domain stats
+
+`alice` and `admin` each have a small separate library for multi-user isolation demos. To demo viewed filters without racing the janitor, mark links viewed in the UI or temporarily raise `:viewed_grace_seconds`.
+
 ## Conventions and practices
 
 ### Conventional Commits
