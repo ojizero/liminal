@@ -110,6 +110,31 @@
 
 /* This file is for your main application CSS */
 
+/* Defer the initial connecting toast so fast joins do not flicker. */
+#lv-connecting {
+  opacity: 0;
+  animation: lv-connecting-reveal 0s linear 0.35s forwards;
+}
+
+/* Prefer disconnect/error toasts over the initial connecting toast. */
+body:has(.phx-client-error) #lv-connecting,
+body:has(.phx-server-error) #lv-connecting {
+  display: none;
+}
+
+@keyframes lv-connecting-reveal {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #lv-connecting {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 /* macOS modifier glyphs (U+2303 / U+21E7) — font only; sizing matches other kbd hints */
 .kbd-mod-symbol {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro",

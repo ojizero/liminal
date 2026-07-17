@@ -202,6 +202,25 @@ defmodule LiminalWeb.Layouts do
       <.flash kind={:info} flash={@flash} />
       <.flash kind={:error} flash={@flash} />
 
+      <%!-- Visible on dead render; hidden once the LiveView socket joins.
+           Intentionally has no phx-disconnected show — reconnect UX uses
+           #client-error / #server-error instead. --%>
+      <.flash
+        id="lv-connecting"
+        kind={:info}
+        flash={@flash}
+        autoclose={false}
+        title={gettext("Connecting")}
+        phx-connected={hide("#lv-connecting") |> JS.set_attribute({"hidden", ""})}
+      >
+        <span class="flex items-center gap-1">
+          <span>{gettext("Establishing live connection…")}</span>
+          <span>
+            <.icon name="hero-arrow-path" class="size-3 motion-safe:animate-spin" />
+          </span>
+        </span>
+      </.flash>
+
       <.flash
         id="client-error"
         kind={:error}
