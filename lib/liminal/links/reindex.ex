@@ -11,19 +11,9 @@ defmodule Liminal.Links.Reindex do
   use GenServer
 
   alias Liminal.Links
-  alias Liminal.Links.Link
-  alias Liminal.Repo
+  alias Liminal.Links.{ReindexJob, ReindexRunner}
 
   @pubsub_topic "links:reindex"
-
-  @default_batch_size 3
-  @default_interval_ms 2_000
-
-  @type mode :: :all | :failed
-  @type job_scope ::
-          {:link, Ecto.UUID.t()}
-          | {:user, Ecto.UUID.t(), mode()}
-          | {:instance, mode()}
 
   ## Client API
 
@@ -69,17 +59,17 @@ defmodule Liminal.Links.Reindex do
 
   @impl true
   def init(_opts) do
-    {:ok, idle_state()}
+    {:ok, ReindexJob.idle_state()}
   end
 
   @impl true
   def handle_call(:active?, _from, state) do
-    {:reply, running?(state), state}
+    {:reply, ReindexJob.running?(state), state}
   end
 
   @impl true
   def handle_call(:status, _from, state) do
-    {:reply, public_status(state), state}
+    {:reply, ReindexJob.public_status(state), state}
   end
 
   @impl true
@@ -93,35 +83,7 @@ defmodule Liminal.Links.Reindex do
     total = length(link_ids)
     requested_by = Keyword.get(opts, :requested_by)
 
-    if total == 0 do
-      {:reply, {:ok, public_status(idle_state())}, idle_state()}
-    else
-      queue = :queue.from_list(link_ids)
-
-      job = %{
-        scope: scope,
-        mode: job_mode(scope),
-        requested_by: requested_by,
-        total: total,
-        processed: 0,
-        queue: queue,
-        timer_ref: nil,
-        started_at: DateTime.utc_now(:second)
-      }
-
-      state = %{idle_state() | active_job: job}
-
-      if total == 1 and match?({:link, _}, scope) do
-        {state, _} = process_batch(state)
-        finished_state = finish_job(state)
-        broadcast_progress(finished_state)
-        {:reply, {:ok, public_status(finished_state)}, finished_state}
-      else
-        broadcast_progress(state)
-        schedule_batch(state)
-        {:reply, {:ok, public_status(state)}, state}
-      end
-    end
+    reply_start_job(scope, total, requested_by, link_ids)
   end
 
   @impl true
@@ -131,153 +93,63 @@ defmodule Liminal.Links.Reindex do
 
   @impl true
   def handle_call(:cancel, _from, state) do
-    state = cancel_timer(state)
+    state = ReindexRunner.cancel_timer(state)
     cancelled = state.active_job
-    new_state = idle_state() |> put_last_job(cancelled, :cancelled)
+    new_state = ReindexJob.idle_state() |> ReindexJob.put_last_job(cancelled, :cancelled)
     broadcast_progress(new_state)
     {:reply, :ok, new_state}
   end
 
   @impl true
   def handle_info(:process_batch, %{active_job: %{} = _job} = state) do
-    {state, done?} = process_batch(state)
+    {state, done?} = ReindexRunner.process_batch(state)
+    {:noreply, after_batch(state, done?)}
+  end
 
-    if done? do
-      finished_state = finish_job(state)
-      broadcast_progress(finished_state)
-      {:noreply, finished_state}
-    else
-      broadcast_progress(state)
-      schedule_batch(%{state | active_job: %{state.active_job | timer_ref: nil}})
-      {:noreply, state}
+  defp reply_start_job(_scope, 0, _requested_by, _link_ids) do
+    idle = ReindexJob.idle_state()
+    {:reply, {:ok, ReindexJob.public_status(idle)}, idle}
+  end
+
+  defp reply_start_job(scope, total, requested_by, link_ids) do
+    job = ReindexJob.build(scope, total, requested_by, link_ids)
+    state = %{ReindexJob.idle_state() | active_job: job}
+
+    case ReindexJob.start_strategy(total, scope) do
+      :immediate ->
+        reply_immediate_start(state)
+
+      :scheduled ->
+        broadcast_progress(state)
+        scheduled = ReindexRunner.schedule_batch(state)
+        {:reply, {:ok, ReindexJob.public_status(scheduled)}, scheduled}
     end
   end
 
-  ## Internals
-
-  defp idle_state do
-    %{active_job: nil, last_job: nil}
+  defp reply_immediate_start(state) do
+    {state, _} = ReindexRunner.process_batch(state)
+    finished_state = ReindexRunner.finish_job(state)
+    broadcast_progress(finished_state)
+    {:reply, {:ok, ReindexJob.public_status(finished_state)}, finished_state}
   end
 
-  defp running?(%{active_job: nil}), do: false
-  defp running?(%{active_job: _}), do: true
-
-  defp job_mode({:link, _}), do: :failed
-  defp job_mode({:user, _, mode}) when mode in [:all, :failed], do: mode
-  defp job_mode({:instance, mode}) when mode in [:all, :failed], do: mode
-
-  defp process_batch(%{active_job: job} = state) do
-    batch_size = batch_size()
-    {link_ids, queue} = dequeue(job.queue, batch_size, [])
-
-    Enum.each(link_ids, fn link_id ->
-      case Repo.get(Link, link_id) do
-        nil ->
-          :ok
-
-        link ->
-          Links.prepare_link_for_reindex(link, job.mode)
-          Links.queue_index(link.id, link.user_id)
-      end
-    end)
-
-    updated_job = %{
-      job
-      | processed: job.processed + length(link_ids),
-        queue: queue
-    }
-
-    done? = :queue.is_empty(queue)
-    {%{state | active_job: updated_job}, done?}
+  defp after_batch(state, true) do
+    finished_state = ReindexRunner.finish_job(state)
+    broadcast_progress(finished_state)
+    finished_state
   end
 
-  defp finish_job(%{active_job: job}) do
-    idle_state() |> put_last_job(job, :completed)
-  end
-
-  defp put_last_job(state, job, outcome) do
-    %{
-      state
-      | last_job:
-          Map.merge(
-            Map.take(job, [:scope, :mode, :total, :processed, :started_at, :requested_by]),
-            %{outcome: outcome}
-          )
-    }
-  end
-
-  defp dequeue(queue, 0, acc), do: {Enum.reverse(acc), queue}
-
-  defp dequeue(queue, n, acc) do
-    case :queue.out(queue) do
-      {{:value, id}, rest} -> dequeue(rest, n - 1, [id | acc])
-      {:empty, _} -> {Enum.reverse(acc), queue}
-    end
-  end
-
-  defp schedule_batch(%{active_job: job} = state) do
-    ref = Process.send_after(self(), :process_batch, interval_ms())
-    %{state | active_job: %{job | timer_ref: ref}}
-  end
-
-  defp cancel_timer(%{active_job: %{timer_ref: ref} = job} = state) when is_reference(ref) do
-    Process.cancel_timer(ref)
-    %{state | active_job: %{job | timer_ref: nil}}
-  end
-
-  defp cancel_timer(state), do: state
-
-  defp public_status(%{active_job: nil, last_job: last_job}) do
-    %{
-      active: false,
-      status: :idle,
-      scope: nil,
-      mode: nil,
-      total: 0,
-      processed: 0,
-      remaining: 0,
-      started_at: nil,
-      requested_by: nil,
-      last_job: public_last_job(last_job)
-    }
-  end
-
-  defp public_status(%{active_job: job, last_job: last_job}) do
-    %{
-      active: true,
-      status: :running,
-      scope: job.scope,
-      mode: job.mode,
-      total: job.total,
-      processed: job.processed,
-      remaining: :queue.len(job.queue),
-      started_at: job.started_at,
-      requested_by: job.requested_by,
-      last_job: public_last_job(last_job)
-    }
-  end
-
-  defp public_last_job(nil), do: nil
-
-  defp public_last_job(job) do
-    Map.take(job, [:scope, :mode, :total, :processed, :started_at, :requested_by, :outcome])
+  defp after_batch(state, false) do
+    broadcast_progress(state)
+    ReindexRunner.schedule_batch(%{state | active_job: %{state.active_job | timer_ref: nil}})
+    state
   end
 
   defp broadcast_progress(state) do
     Phoenix.PubSub.broadcast(
       Liminal.PubSub,
       @pubsub_topic,
-      {:reindex_progress, public_status(state)}
+      {:reindex_progress, ReindexJob.public_status(state)}
     )
-  end
-
-  defp batch_size do
-    Application.get_env(:liminal, __MODULE__, [])
-    |> Keyword.get(:batch_size, @default_batch_size)
-  end
-
-  defp interval_ms do
-    Application.get_env(:liminal, __MODULE__, [])
-    |> Keyword.get(:interval_ms, @default_interval_ms)
   end
 end

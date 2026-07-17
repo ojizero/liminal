@@ -1,13 +1,14 @@
 defmodule LiminalWeb.UserLive.Settings do
   use LiminalWeb, :live_view
 
-  import LiminalWeb.ReindexComponents
-  import LiminalWeb.StatsComponents
-
-  on_mount {LiminalWeb.UserAuth, :require_sudo_mode}
+  import LiminalWeb.UserLive.SettingsComponents
 
   alias Liminal.Accounts
   alias Liminal.Links
+  alias LiminalWeb.ReindexHandlers
+  alias LiminalWeb.UserLive.SettingsHandlers
+
+  on_mount {LiminalWeb.UserAuth, :require_sudo_mode}
 
   @impl true
   def render(assigns) do
@@ -19,201 +20,16 @@ defmodule LiminalWeb.UserLive.Settings do
           <:subtitle>Manage your account, preferences, and saved-link maintenance.</:subtitle>
         </.header>
 
-        <section id="user-stats" aria-labelledby="user-stats-heading" class="space-y-4">
-          <.header id="user-stats-heading" level={2}>
-            Your link stats
-            <:subtitle>A snapshot of your saved links and how they are doing.</:subtitle>
-          </.header>
-          <.stats_grid stats={@stats} />
-        </section>
-
-        <.panel>
-          <.reindex_panel
-            id="user-reindex"
-            reindex={@reindex}
-            current_scope={@current_scope}
-            heading="Reindex your links"
-            description="Re-fetch metadata for your saved links. Only one reindex job can run at a time across the instance."
-            failed_confirm="Reindex your links that failed indexing? This runs in the background."
-            all_confirm="Reindex all of your saved links? Existing metadata will be cleared first."
-          />
-        </.panel>
-
-        <section id="account-security" aria-labelledby="account-security-heading" class="space-y-4">
-          <.header id="account-security-heading" level={2}>
-            Account & security
-            <:subtitle>Update the credentials you use to access Liminal.</:subtitle>
-          </.header>
-
-          <div class="grid gap-4 lg:grid-cols-2">
-            <.panel id="username-settings" class="space-y-4">
-              <div>
-                <h3 class="font-semibold">Username</h3>
-                <p class="text-sm text-base-content/60">Change how your account is identified.</p>
-              </div>
-              <.form
-                for={@username_form}
-                id="username_form"
-                phx-submit="update_username"
-                phx-change="validate_username"
-                class="space-y-3"
-              >
-                <.input
-                  field={@username_form[:username]}
-                  type="text"
-                  label="Username"
-                  autocomplete="username"
-                  spellcheck="false"
-                  required
-                />
-                <.button variant="primary" phx-disable-with="Changing…">Change Username</.button>
-              </.form>
-            </.panel>
-
-            <.panel id="password-settings" class="space-y-4">
-              <div>
-                <h3 class="font-semibold">Password</h3>
-                <p class="text-sm text-base-content/60">Choose a strong password for your account.</p>
-              </div>
-              <.form
-                for={@password_form}
-                id="password_form"
-                action={~p"/users/update-password"}
-                method="post"
-                phx-change="validate_password"
-                phx-submit="update_password"
-                phx-trigger-action={@trigger_submit}
-                class="space-y-3"
-              >
-                <input
-                  name={@password_form[:username].name}
-                  type="hidden"
-                  id="hidden_user_username"
-                  spellcheck="false"
-                  value={@current_username}
-                />
-                <.input
-                  field={@password_form[:password]}
-                  type="password"
-                  label="New password"
-                  autocomplete="new-password"
-                  spellcheck="false"
-                  required
-                />
-                <.input
-                  field={@password_form[:password_confirmation]}
-                  type="password"
-                  label="Confirm new password"
-                  autocomplete="new-password"
-                  spellcheck="false"
-                />
-                <.button variant="primary" phx-disable-with="Saving…">
-                  Save Password
-                </.button>
-              </.form>
-            </.panel>
-          </div>
-        </section>
-
-        <.panel id="preferences-settings" class="space-y-4">
-          <.header level={2}>
-            Preferences
-            <:subtitle>Tweak how Liminal behaves for you.</:subtitle>
-          </.header>
-
-          <.form
-            for={@settings_form}
-            id="settings_form"
-            phx-change="update_settings"
-            class="max-w-2xl"
-          >
-            <.input
-              field={@settings_form[:auto_mark_viewed_on_open]}
-              type="checkbox"
-              label="Mark links as viewed when opened"
-              class="toggle toggle-primary"
-            />
-            <p class="-mt-1 text-sm text-base-content/60">
-              When enabled, opening a link automatically marks it as viewed.
-            </p>
-
-            <.input
-              field={@settings_form[:default_tags_enabled]}
-              type="checkbox"
-              label="Preselect a default tag for new links"
-              class="toggle toggle-primary mt-4"
-            />
-            <p class="-mt-1 text-sm text-base-content/60">
-              When enabled, your chosen tag is selected automatically when you add a new link.
-            </p>
-
-            <div :if={default_tags_enabled?(@settings_form)} class="mt-3 max-w-sm">
-              <.input
-                field={@settings_form[:default_tag_id]}
-                type="select"
-                label="Default tag"
-                prompt="Choose a tag…"
-                options={default_tag_options(@tags)}
-                required
-              />
-            </div>
-          </.form>
-        </.panel>
-
-        <section id="account-actions" aria-labelledby="account-actions-heading" class="space-y-4">
-          <.header id="account-actions-heading" level={2}>
-            Account actions
-            <:subtitle>Review access and permanent account changes.</:subtitle>
-          </.header>
-
-          <div class="grid gap-4 md:grid-cols-2">
-            <.panel
-              :if={@current_scope.user.role == "admin"}
-              id="admin-role-settings"
-              class="space-y-4"
-            >
-              <div>
-                <h3 class="font-semibold">Admin role</h3>
-                <p class="text-sm text-base-content/60">
-                  You are currently an admin. You can step down to become a normal user.
-                </p>
-              </div>
-              <.button
-                id="become-normal-user-btn"
-                variant="ghost"
-                class="btn-sm hover:text-warning"
-                phx-click="become_normal_user"
-                data-confirm="Are you sure? You will need another admin to restore your privileges."
-              >
-                Become normal user
-              </.button>
-            </.panel>
-
-            <.panel
-              id="danger-zone-settings"
-              class={[
-                "space-y-4 border-error/25 bg-error/5",
-                @current_scope.user.role != "admin" && "md:col-span-2"
-              ]}
-            >
-              <div>
-                <h3 class="font-semibold text-error">Danger zone</h3>
-                <p class="text-sm text-base-content/60">
-                  Permanently delete your account and all associated data.
-                </p>
-              </div>
-              <.button
-                id="delete-account-btn"
-                variant="ghost"
-                class="btn-sm text-error hover:bg-error/10 hover:text-error"
-                phx-click="delete_account"
-                data-confirm="Are you absolutely sure? This will permanently delete your account and all your data."
-              >
-                Delete my account
-              </.button>
-            </.panel>
-          </div>
-        </section>
+        <.stats_section stats={@stats} />
+        <.reindex_section reindex={@reindex} current_scope={@current_scope} />
+        <.credentials_section
+          username_form={@username_form}
+          password_form={@password_form}
+          current_username={@current_username}
+          trigger_submit={@trigger_submit}
+        />
+        <.preferences_section settings_form={@settings_form} tags={@tags} />
+        <.account_actions_section current_scope={@current_scope} />
       </div>
     </Layouts.app>
     """
@@ -247,18 +63,10 @@ defmodule LiminalWeb.UserLive.Settings do
 
   @impl true
   def handle_info({:reindex_progress, reindex}, socket) do
-    scope = socket.assigns.current_scope
-
     socket =
       socket
       |> assign(:reindex, reindex)
-      |> then(fn socket ->
-        if reindex.active do
-          socket
-        else
-          assign(socket, :stats, Links.user_stats(scope))
-        end
-      end)
+      |> SettingsHandlers.refresh_stats_on_idle(reindex)
 
     {:noreply, socket}
   end
@@ -266,167 +74,40 @@ defmodule LiminalWeb.UserLive.Settings do
   @impl true
   def handle_event("validate_username", params, socket) do
     %{"user" => user_params} = params
-
-    username_form =
-      socket.assigns.current_scope.user
-      |> Accounts.change_user_username(user_params, validate_unique: false)
-      |> Map.put(:action, :validate)
-      |> to_form()
-
-    {:noreply, assign(socket, username_form: username_form)}
+    SettingsHandlers.validate_username(socket, user_params)
   end
 
   def handle_event("update_username", %{"user" => user_params}, socket) do
-    user = socket.assigns.current_scope.user
-    true = Accounts.sudo_mode?(user)
-
-    case Accounts.update_user_username(user, user_params) do
-      {:ok, updated_user} ->
-        {:noreply,
-         socket
-         |> assign(:current_username, updated_user.username)
-         |> assign(:username_form, to_form(Accounts.change_user_username(updated_user, %{})))
-         |> put_flash(:info, "Username updated successfully.")}
-
-      {:error, changeset} ->
-        {:noreply, assign(socket, :username_form, to_form(changeset, action: :insert))}
-    end
+    SettingsHandlers.update_username(socket, user_params)
   end
 
   def handle_event("validate_password", params, socket) do
     %{"user" => user_params} = params
-
-    password_form =
-      socket.assigns.current_scope.user
-      |> Accounts.change_user_password(user_params, hash_password: false)
-      |> Map.put(:action, :validate)
-      |> to_form()
-
-    {:noreply, assign(socket, password_form: password_form)}
+    SettingsHandlers.validate_password(socket, user_params)
   end
 
   def handle_event("update_password", params, socket) do
     %{"user" => user_params} = params
-    user = socket.assigns.current_scope.user
-    true = Accounts.sudo_mode?(user)
-
-    case Accounts.change_user_password(user, user_params) do
-      %{valid?: true} = changeset ->
-        {:noreply, assign(socket, trigger_submit: true, password_form: to_form(changeset))}
-
-      changeset ->
-        {:noreply, assign(socket, password_form: to_form(changeset, action: :insert))}
-    end
+    SettingsHandlers.update_password(socket, user_params)
   end
 
   def handle_event("update_settings", %{"user" => user_params}, socket) do
-    user = socket.assigns.current_scope.user
-
-    case Accounts.update_user_settings(user, user_params) do
-      {:ok, updated_user} ->
-        # Preserve virtual fields (e.g. authenticated_at) carried on the scope user.
-        scope_user = %{
-          user
-          | auto_mark_viewed_on_open: updated_user.auto_mark_viewed_on_open,
-            default_tags_enabled: updated_user.default_tags_enabled,
-            default_tag_id: updated_user.default_tag_id
-        }
-
-        scope = %{socket.assigns.current_scope | user: scope_user}
-
-        {:noreply,
-         socket
-         |> assign(:current_scope, scope)
-         |> assign(:settings_form, to_form(Accounts.change_user_settings(scope_user)))
-         |> put_flash(:info, "Preferences updated.")}
-
-      {:error, changeset} ->
-        {:noreply, assign(socket, :settings_form, to_form(changeset))}
-    end
+    SettingsHandlers.update_settings(socket, user_params)
   end
 
   def handle_event("delete_account", _params, socket) do
-    scope = socket.assigns.current_scope
-    true = Accounts.sudo_mode?(scope.user)
-
-    case Accounts.delete_own_account(scope) do
-      {:ok, _user} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Your account has been deleted.")
-         |> redirect(to: ~p"/users/log-in")}
-
-      {:error, :last_admin} ->
-        {:noreply,
-         put_flash(socket, :error, "You are the last admin and cannot delete your account.")}
-    end
+    SettingsHandlers.delete_account(socket)
   end
 
   def handle_event("become_normal_user", _params, socket) do
-    scope = socket.assigns.current_scope
-    true = Accounts.sudo_mode?(scope.user)
-
-    case Accounts.step_down_from_admin(scope) do
-      {:ok, _updated_user} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "You are now a normal user.")
-         |> redirect(to: ~p"/users/settings")}
-
-      {:error, :last_admin} ->
-        {:noreply, put_flash(socket, :error, "You are the last admin and cannot step down.")}
-    end
+    SettingsHandlers.become_normal_user(socket)
   end
 
   def handle_event("start_reindex", %{"mode" => mode}, socket) do
-    scope = socket.assigns.current_scope
-    mode = String.to_existing_atom(mode)
-
-    case Links.start_user_reindex(scope, mode) do
-      {:ok, reindex} ->
-        message =
-          if reindex.active do
-            "Reindex job started (#{reindex_scope_label(reindex.scope, reindex.mode)})."
-          else
-            "No links matched that reindex scope."
-          end
-
-        {:noreply,
-         socket
-         |> assign(:reindex, reindex)
-         |> put_flash(:info, message)}
-
-      {:error, :already_running} ->
-        {:noreply,
-         socket
-         |> assign(:reindex, Links.reindex_status())
-         |> put_flash(
-           :error,
-           "A reindex job is already running. Cancel it or wait for it to finish."
-         )}
-    end
+    ReindexHandlers.handle_start_reindex(socket, &Links.start_user_reindex/2, mode)
   end
 
   def handle_event("cancel_reindex", _params, socket) do
-    scope = socket.assigns.current_scope
-
-    case Links.cancel_reindex(scope) do
-      :ok ->
-        {:noreply,
-         socket
-         |> assign(:reindex, Links.reindex_status())
-         |> put_flash(:info, "Reindex job cancelled.")}
-
-      {:error, :unauthorized} ->
-        {:noreply, put_flash(socket, :error, "You cannot cancel this reindex job.")}
-    end
-  end
-
-  defp default_tags_enabled?(form) do
-    Phoenix.HTML.Form.normalize_value("checkbox", form[:default_tags_enabled].value)
-  end
-
-  defp default_tag_options(tags) do
-    Enum.map(tags, &{&1.name, &1.id})
+    ReindexHandlers.handle_cancel_reindex(socket)
   end
 end

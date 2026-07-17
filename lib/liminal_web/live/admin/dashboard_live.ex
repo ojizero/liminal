@@ -5,6 +5,7 @@ defmodule LiminalWeb.Admin.DashboardLive do
   import LiminalWeb.StatsComponents
 
   alias Liminal.Links
+  alias LiminalWeb.ReindexHandlers
 
   @impl true
   def render(assigns) do
@@ -57,48 +58,12 @@ defmodule LiminalWeb.Admin.DashboardLive do
 
   @impl true
   def handle_event("start_reindex", %{"mode" => mode}, socket) do
-    scope = socket.assigns.current_scope
-    mode = String.to_existing_atom(mode)
-
-    case Links.start_instance_reindex(scope, mode) do
-      {:ok, reindex} ->
-        message =
-          if reindex.active do
-            "Reindex job started (#{reindex_scope_label(reindex.scope, reindex.mode)})."
-          else
-            "No links matched that reindex scope."
-          end
-
-        {:noreply,
-         socket
-         |> assign(:reindex, reindex)
-         |> put_flash(:info, message)}
-
-      {:error, :already_running} ->
-        {:noreply,
-         socket
-         |> assign(:reindex, Links.reindex_status())
-         |> put_flash(
-           :error,
-           "A reindex job is already running. Cancel it or wait for it to finish."
-         )}
-    end
+    ReindexHandlers.handle_start_reindex(socket, &Links.start_instance_reindex/2, mode)
   end
 
   @impl true
   def handle_event("cancel_reindex", _params, socket) do
-    scope = socket.assigns.current_scope
-
-    case Links.cancel_reindex(scope) do
-      :ok ->
-        {:noreply,
-         socket
-         |> assign(:reindex, Links.reindex_status())
-         |> put_flash(:info, "Reindex job cancelled.")}
-
-      {:error, :unauthorized} ->
-        {:noreply, put_flash(socket, :error, "You cannot cancel this reindex job.")}
-    end
+    ReindexHandlers.handle_cancel_reindex(socket)
   end
 
   @impl true
