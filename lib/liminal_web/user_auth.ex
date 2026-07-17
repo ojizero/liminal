@@ -19,7 +19,7 @@ defmodule LiminalWeb.UserAuth do
 
   # How old the session token should be before a new one is issued. When a request is made
   # with a session token older than this value, then a new session token will be created
-  # and the session and remember-me cookies (if set) will be updated with the new token.
+  # and the session and remember-me cookies, when present, will be updated with the new token.
   # Lowering this value will result in more tokens being created by active users. Increasing
   # it will result in less time before a session token expires for a user to get issued a new
   # token. This can be set to a value greater than `@max_cookie_age_in_days` to disable
@@ -49,9 +49,9 @@ defmodule LiminalWeb.UserAuth do
     user_token = get_session(conn, :user_token)
     user_token && Accounts.delete_user_session_token(user_token)
 
-    if live_socket_id = get_session(conn, :live_socket_id) do
-      LiminalWeb.Endpoint.broadcast(live_socket_id, "disconnect", %{})
-    end
+    conn
+    |> get_session(:live_socket_id)
+    |> broadcast_live_socket_disconnect()
 
     conn
     |> renew_session(nil)
@@ -59,10 +59,16 @@ defmodule LiminalWeb.UserAuth do
     |> redirect(to: ~p"/")
   end
 
+  defp broadcast_live_socket_disconnect(nil), do: :ok
+
+  defp broadcast_live_socket_disconnect(live_socket_id) do
+    LiminalWeb.Endpoint.broadcast(live_socket_id, "disconnect", %{})
+  end
+
   @doc """
   Authenticates the user by looking into the session and remember me token.
 
-  Will reissue the session token if it is older than the configured age.
+  Reissues the session token once it is older than the configured age.
   """
   def fetch_current_scope_for_user(conn, _opts) do
     with {token, conn} <- ensure_user_token(conn),
@@ -76,7 +82,6 @@ defmodule LiminalWeb.UserAuth do
   end
 
   # Returns `{token, conn}` from the session or the remember-me cookie, else `nil`.
-  # Split into two clauses to eliminate the nested `if` in the original.
   defp ensure_user_token(conn) do
     case get_session(conn, :user_token) do
       nil ->
@@ -99,16 +104,17 @@ defmodule LiminalWeb.UserAuth do
     end
   end
 
-  # Reissue the session token if it is older than the configured reissue age.
+  # Reissue the session token once it is older than the configured reissue age.
   defp maybe_reissue_user_session_token(conn, user, token_inserted_at) do
     token_age = DateTime.diff(DateTime.utc_now(:second), token_inserted_at, :day)
-
-    if token_age >= @session_reissue_age_in_days do
-      create_or_extend_session(conn, user, %{})
-    else
-      conn
-    end
+    reissue_expired_user_session_token(conn, user, token_age >= @session_reissue_age_in_days)
   end
+
+  defp reissue_expired_user_session_token(conn, user, true) do
+    create_or_extend_session(conn, user, %{})
+  end
+
+  defp reissue_expired_user_session_token(conn, _user, false), do: conn
 
   # This function is the one responsible for creating session tokens
   # and storing them safely in the session and cookies. It may be called
@@ -128,7 +134,7 @@ defmodule LiminalWeb.UserAuth do
     |> maybe_write_remember_me_cookie(token, params, remember_me)
   end
 
-  # Do not renew session if the user is already logged in
+  # Do not renew session when the user is already logged in
   # to prevent CSRF errors or data being lost in tabs that are still open
   defp renew_session(conn, user) when conn.assigns.current_scope.user.id == user.id do
     conn
@@ -195,13 +201,13 @@ defmodule LiminalWeb.UserAuth do
   ## `on_mount` arguments
 
     * `:mount_current_scope` - Assigns current_scope
-      to socket assigns based on user_token, or nil if
+      to socket assigns based on user_token, or nil when
       there's no user_token or no matching user.
 
     * `:require_authenticated` - Authenticates the user from the session,
       and assigns the current_scope to socket assigns based
       on user_token.
-      Redirects to login page if there's no logged user.
+      Redirects to login page without a logged user.
 
   ## Examples
 
@@ -227,53 +233,75 @@ defmodule LiminalWeb.UserAuth do
 
   def on_mount(:require_authenticated, _params, session, socket) do
     socket = mount_current_scope(socket, session)
-
-    if socket.assigns.current_scope && socket.assigns.current_scope.user do
-      {:cont, socket}
-    else
-      halt_with_redirect(
-        socket,
-        unauthenticated_redirect_path(),
-        "You must log in to access this page."
-      )
-    end
+    require_authenticated_mount(socket)
   end
 
   def on_mount(:require_sudo_mode, _params, session, socket) do
     socket = mount_current_scope(socket, session)
-
-    if Accounts.sudo_mode?(socket.assigns.current_scope.user, -10) do
-      {:cont, socket}
-    else
-      halt_with_redirect(
-        socket,
-        ~p"/users/log-in",
-        "You must re-authenticate to access this page."
-      )
-    end
+    require_sudo_mount(socket, Accounts.sudo_mode?(socket.assigns.current_scope.user, -10))
   end
 
   def on_mount(:require_admin, _params, session, socket) do
     socket = mount_current_scope(socket, session)
+    require_admin_mount(socket)
+  end
 
-    if socket.assigns.current_scope && socket.assigns.current_scope.user &&
-         Scope.admin?(socket.assigns.current_scope) do
-      {:cont, socket}
-    else
-      halt_with_redirect(socket, ~p"/", "You are not authorized to access this page.")
-    end
+  defp require_sudo_mount(socket, true), do: {:cont, socket}
+
+  defp require_sudo_mount(socket, false) do
+    halt_with_redirect(
+      socket,
+      ~p"/users/log-in",
+      "You must re-authenticate to access this page."
+    )
+  end
+
+  defp require_authenticated_mount(
+         %{
+           assigns: %{current_scope: %Scope{user: %Accounts.User{}}}
+         } = socket
+       ) do
+    {:cont, socket}
+  end
+
+  defp require_authenticated_mount(socket) do
+    halt_with_redirect(
+      socket,
+      unauthenticated_redirect_path(),
+      "You must log in to access this page."
+    )
+  end
+
+  defp require_admin_mount(%{assigns: %{current_scope: %Scope{} = scope}} = socket) do
+    authorize_admin_mount(socket, Scope.admin?(scope))
+  end
+
+  defp require_admin_mount(socket) do
+    halt_with_redirect(socket, ~p"/", "You are not authorized to access this page.")
+  end
+
+  defp authorize_admin_mount(socket, true), do: {:cont, socket}
+
+  defp authorize_admin_mount(socket, false) do
+    halt_with_redirect(socket, ~p"/", "You are not authorized to access this page.")
   end
 
   defp mount_current_scope(socket, session) do
     Phoenix.Component.assign_new(socket, :current_scope, fn ->
-      {user, _} =
-        if user_token = session["user_token"] do
-          Accounts.get_user_by_session_token(user_token)
-        end || {nil, nil}
-
-      Scope.for_user(user)
+      session
+      |> user_from_session()
+      |> Scope.for_user()
     end)
   end
+
+  defp user_from_session(%{"user_token" => user_token}) do
+    case Accounts.get_user_by_session_token(user_token) do
+      {user, _token_inserted_at} -> user
+      nil -> nil
+    end
+  end
+
+  defp user_from_session(_session), do: nil
 
   # Puts a flash error and redirects the socket, returning `{:halt, socket}`.
   defp halt_with_redirect(socket, path, message) do
@@ -288,7 +316,10 @@ defmodule LiminalWeb.UserAuth do
   # Returns the redirect path for unauthenticated users:
   # login when admins exist, registration page on fresh install.
   defp unauthenticated_redirect_path do
-    if Accounts.any_admins?(), do: ~p"/users/log-in", else: ~p"/users/register"
+    case Accounts.any_admins?() do
+      true -> ~p"/users/log-in"
+      false -> ~p"/users/register"
+    end
   end
 
   @doc "Returns the path to redirect to after log in."
@@ -302,30 +333,39 @@ defmodule LiminalWeb.UserAuth do
   @doc """
   Plug for routes that require the user to be authenticated.
   """
+  def require_authenticated_user(
+        %{assigns: %{current_scope: %Scope{user: %Accounts.User{}}}} = conn,
+        _opts
+      ) do
+    conn
+  end
+
   def require_authenticated_user(conn, _opts) do
-    if conn.assigns.current_scope && conn.assigns.current_scope.user do
-      conn
-    else
-      conn
-      |> put_flash(:error, "You must log in to access this page.")
-      |> maybe_store_return_to()
-      |> redirect(to: unauthenticated_redirect_path())
-      |> halt()
-    end
+    conn
+    |> put_flash(:error, "You must log in to access this page.")
+    |> maybe_store_return_to()
+    |> redirect(to: unauthenticated_redirect_path())
+    |> halt()
   end
 
   @doc """
   Plug for routes that require the user to be an admin.
   """
-  def require_admin_user(conn, _opts) do
-    if Scope.admin?(conn.assigns.current_scope) do
-      conn
-    else
-      conn
-      |> put_flash(:error, "You are not authorized to access this page.")
-      |> redirect(to: ~p"/")
-      |> halt()
-    end
+  def require_admin_user(%{assigns: %{current_scope: %Scope{} = scope}} = conn, _opts) do
+    authorize_admin_user(conn, Scope.admin?(scope))
+  end
+
+  def require_admin_user(conn, _opts), do: deny_admin_user(conn)
+
+  defp authorize_admin_user(conn, true), do: conn
+
+  defp authorize_admin_user(conn, false), do: deny_admin_user(conn)
+
+  defp deny_admin_user(conn) do
+    conn
+    |> put_flash(:error, "You are not authorized to access this page.")
+    |> redirect(to: ~p"/")
+    |> halt()
   end
 
   defp maybe_store_return_to(%{method: "GET"} = conn) do

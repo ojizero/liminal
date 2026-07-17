@@ -65,8 +65,7 @@ defmodule LiminalWeb.UserLive.SettingsHandlers do
 
     case Accounts.change_user_password(user, user_params) do
       %{valid?: true} = changeset ->
-        {:noreply,
-         assign(socket, trigger_submit: true, password_form: to_form(changeset))}
+        {:noreply, assign(socket, trigger_submit: true, password_form: to_form(changeset))}
 
       changeset ->
         {:noreply, assign(socket, password_form: to_form(changeset, action: :insert))}
@@ -127,8 +126,7 @@ defmodule LiminalWeb.UserLive.SettingsHandlers do
          |> redirect(to: ~p"/users/settings")}
 
       {:error, :last_admin} ->
-        {:noreply,
-         put_flash(socket, :error, "You are the last admin and cannot step down.")}
+        {:noreply, put_flash(socket, :error, "You are the last admin and cannot step down.")}
     end
   end
 end
