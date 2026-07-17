@@ -10,8 +10,7 @@ defmodule Liminal.Links.Reindex do
 
   use GenServer
 
-  alias Liminal.Links
-  alias Liminal.Links.Link
+  alias Liminal.Links.{Indexing, Link}
   alias Liminal.Repo
 
   @pubsub_topic "links:reindex"
@@ -89,7 +88,7 @@ defmodule Liminal.Links.Reindex do
 
   @impl true
   def handle_call({:start_job, scope, opts}, _from, _state) do
-    link_ids = Links.list_reindex_link_ids(scope)
+    link_ids = Indexing.list_reindex_link_ids(scope)
     total = length(link_ids)
     requested_by = Keyword.get(opts, :requested_by)
 
@@ -176,8 +175,8 @@ defmodule Liminal.Links.Reindex do
           :ok
 
         link ->
-          Links.prepare_link_for_reindex(link, job.mode)
-          Links.queue_index(link.id, link.user_id)
+          Indexing.prepare_link_for_reindex(link, job.mode)
+          Indexing.queue_index(link.id, link.user_id)
       end
     end)
 
