@@ -26,12 +26,6 @@ config :liminal, LiminalWeb.Endpoint,
     ]
   ]
 
-# Configure Swoosh API Client
-config :swoosh, api_client: Swoosh.ApiClient.Req
-
-# Disable Swoosh Local Memory Storage
-config :swoosh, local: false
-
 # Log level is controlled at runtime via the LOG_LEVEL env var (default: warning)
 
 # Runtime production configuration, including reading

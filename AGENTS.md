@@ -525,7 +525,7 @@ And **never** do this:
 
 ## Development environment
 
-- **mise** manages Erlang/Elixir/Node versions (see `.mise.toml`). Run `mise install` after version bumps.
+- **mise** manages Erlang, Elixir, and GitHub CLI versions (see `.mise.toml`). Assets use the standalone binaries managed by the Mix `esbuild` and `tailwind` dependencies. Run `mise install` after version bumps.
 - See the README for `mix setup`, `mix phx.server`, and `mix precommit` usage.
 
 ### Dev seed data
