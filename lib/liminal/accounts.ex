@@ -1,6 +1,6 @@
 defmodule Liminal.Accounts do
   @moduledoc """
-  The Accounts context.
+  User accounts, authentication, sessions, and admin-only user management.
   """
 
   import Ecto.Query, warn: false
@@ -19,33 +19,13 @@ defmodule Liminal.Accounts do
 
   ## Database getters
 
-  @doc """
-  Gets a user by username.
-
-  ## Examples
-
-      iex> get_user_by_username("johndoe")
-      %User{}
-
-      iex> get_user_by_username("unknown")
-      nil
-
-  """
+  @doc "Returns a user by username or `nil`."
   def get_user_by_username(username) when is_binary(username) do
     Repo.get_by(User, username: username)
   end
 
   @doc """
-  Gets a user by username and password.
-
-  ## Examples
-
-      iex> get_user_by_username_and_password("johndoe", "correct_password")
-      %User{}
-
-      iex> get_user_by_username_and_password("johndoe", "invalid_password")
-      nil
-
+  Returns the user when credentials match. Disabled accounts always return `nil`.
   """
   def get_user_by_username_and_password(username, password)
       when is_binary(username) and is_binary(password) do
@@ -59,35 +39,13 @@ defmodule Liminal.Accounts do
     end
   end
 
-  @doc """
-  Gets a single user.
-
-  Raises `Ecto.NoResultsError` if the User does not exist.
-
-  ## Examples
-
-      iex> get_user!(123)
-      %User{}
-
-      iex> get_user!(456)
-      ** (Ecto.NoResultsError)
-
-  """
+  @doc "Fetches a user by id and raises when missing."
   def get_user!(id), do: Repo.get!(User, id)
 
   ## User registration
 
   @doc """
-  Registers a user.
-
-  ## Examples
-
-      iex> register_user(%{field: value})
-      {:ok, %User{}}
-
-      iex> register_user(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Registers a user and creates their default tags in one transaction.
   """
   def register_user(attrs) do
     Repo.transact(fn ->
@@ -119,15 +77,7 @@ defmodule Liminal.Accounts do
   end
 
   @doc """
-  Returns an `%Ecto.Changeset{}` for changing the user registration.
-
-  This is used for form initialization and live validation, avoiding bcrypt hashing on keystroke.
-
-  ## Examples
-
-      iex> change_user_registration(user)
-      %Ecto.Changeset{data: %User{}}
-
+  Registration changeset for forms — skips password hashing so live validation stays fast.
   """
   def change_user_registration(user, attrs \\ %{}) do
     User.registration_changeset(user, attrs, hash_password: false)
@@ -149,67 +99,25 @@ defmodule Liminal.Accounts do
 
   def sudo_mode?(_user, _minutes), do: false
 
-  @doc """
-  Returns an `%Ecto.Changeset{}` for changing the user username.
-
-  See `Liminal.Accounts.User.username_changeset/3` for a list of supported options.
-
-  ## Examples
-
-      iex> change_user_username(user)
-      %Ecto.Changeset{data: %User{}}
-
-  """
+  @doc "Returns a username changeset for forms."
   def change_user_username(user, attrs \\ %{}, opts \\ []) do
     User.username_changeset(user, attrs, opts)
   end
 
-  @doc """
-  Updates the user username.
-
-  ## Examples
-
-      iex> update_user_username(user, %{username: "newname"})
-      {:ok, %User{}}
-
-      iex> update_user_username(user, %{username: "invalid"})
-      {:error, %Ecto.Changeset{}}
-
-  """
+  @doc "Updates a user's username."
   def update_user_username(user, attrs) do
     user
     |> User.username_changeset(attrs)
     |> Repo.update()
   end
 
-  @doc """
-  Returns an `%Ecto.Changeset{}` for changing the user password.
-
-  See `Liminal.Accounts.User.password_changeset/3` for a list of supported options.
-
-  ## Examples
-
-      iex> change_user_password(user)
-      %Ecto.Changeset{data: %User{}}
-
-  """
+  @doc "Returns a password changeset for forms."
   def change_user_password(user, attrs \\ %{}, opts \\ []) do
     User.password_changeset(user, attrs, opts)
   end
 
   @doc """
-  Updates the user password.
-
-  Returns a tuple with the updated user, as well as a list of expired tokens.
-
-  ## Examples
-
-      iex> update_user_password(user, %{password: ...})
-      {:ok, {%User{}, [...]}}
-
-      iex> update_user_password(user, %{password: "too short"})
-      {:error, %Ecto.Changeset{}}
-
+  Updates the password and invalidates all existing session tokens.
   """
   def update_user_password(user, attrs) do
     user
@@ -217,28 +125,12 @@ defmodule Liminal.Accounts do
     |> update_user_and_delete_all_tokens()
   end
 
-  @doc """
-  Returns an `%Ecto.Changeset{}` for changing the user's preferences.
-
-  ## Examples
-
-      iex> change_user_settings(user)
-      %Ecto.Changeset{data: %User{}}
-
-  """
+  @doc "Returns a settings changeset for user preferences."
   def change_user_settings(user, attrs \\ %{}) do
     User.settings_changeset(user, attrs)
   end
 
-  @doc """
-  Updates the user's preferences.
-
-  ## Examples
-
-      iex> update_user_settings(user, %{auto_mark_viewed_on_open: true})
-      {:ok, %User{}}
-
-  """
+  @doc "Updates user preference settings."
   def update_user_settings(user, attrs) do
     user
     |> User.settings_changeset(attrs)
@@ -247,9 +139,7 @@ defmodule Liminal.Accounts do
 
   ## Session
 
-  @doc """
-  Generates a session token.
-  """
+  @doc "Creates and persists a session token."
   def generate_user_session_token(user) do
     {token, user_token} = UserToken.build_session_token(user)
     Repo.insert!(user_token)
@@ -257,18 +147,14 @@ defmodule Liminal.Accounts do
   end
 
   @doc """
-  Gets the user with the given signed token.
-
-  If the token is valid `{user, token_inserted_at}` is returned, otherwise `nil` is returned.
+  Returns `{user, token_inserted_at}` when the session token is valid, else `nil`.
   """
   def get_user_by_session_token(token) do
     {:ok, query} = UserToken.verify_session_token_query(token)
     Repo.one(query)
   end
 
-  @doc """
-  Deletes the signed token with the given context.
-  """
+  @doc "Deletes a persisted session token."
   def delete_user_session_token(token) do
     Repo.delete_all(from(UserToken, where: [token: ^token, context: "session"]))
     :ok
@@ -433,7 +319,7 @@ defmodule Liminal.Accounts do
     end
   end
 
-  @doc false
+  @doc "Clears the cached admin-exists flag (used in tests)."
   def reset_admin_cache do
     :persistent_term.erase(@admin_cache_key)
   end

@@ -1,4 +1,9 @@
 defmodule Liminal.Links.ImageDownloader do
+  @moduledoc """
+  Fetches link preview images and stores them under the configured assets directory.
+
+  Content-type and size limits guard against storing non-images or filling disk.
+  """
   @max_image_size 5 * 1024 * 1024
   @allowed_content_types ~w(image/jpeg image/png image/gif image/webp image/svg+xml)
 

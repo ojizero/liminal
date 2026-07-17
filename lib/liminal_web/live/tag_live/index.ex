@@ -1,4 +1,5 @@
 defmodule LiminalWeb.TagLive.Index do
+  @moduledoc false
   use LiminalWeb, :live_component
 
   alias Liminal.Links

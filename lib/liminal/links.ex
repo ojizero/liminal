@@ -1,6 +1,8 @@
 defmodule Liminal.Links do
   @moduledoc """
-  The Links context — manages links, tags, and tagging for users.
+  Links, tags, and link-tag associations for a user.
+
+  Mutations broadcast on `"user_links:<user_id>"` so LiveViews stay in sync across tabs.
   """
 
   import Ecto.Query
@@ -36,7 +38,7 @@ defmodule Liminal.Links do
 
   ## Default tags
 
-  @doc false
+  @doc "Creates default tags for a new user."
   def create_default_tags(user_id) do
     now = DateTime.utc_now(:second)
 
@@ -232,7 +234,7 @@ defmodule Liminal.Links do
     |> Repo.all()
   end
 
-  @doc false
+  @doc "Legacy alias for `list_index_retry_candidates/1`."
   def list_unindexed_links(opts \\ []), do: list_index_retry_candidates(opts)
 
   ## Stats
@@ -295,6 +297,8 @@ defmodule Liminal.Links do
 
   @doc """
   Resets a link so it can be reindexed.
+
+  `:all` clears stored metadata and preview images; `:failed` only resets retry state.
   """
   def prepare_link_for_reindex(%Link{} = link, :all) do
     if link.image_path do
@@ -352,26 +356,20 @@ defmodule Liminal.Links do
     end
   end
 
-  @doc false
+  @doc "Returns whether the current scope can cancel the active reindex job."
   def can_cancel_reindex?(scope, %{active: true, requested_by: requested_by}) do
     Scope.admin?(scope) or scope.user.id == requested_by
   end
 
   def can_cancel_reindex?(_scope, _status), do: false
 
-  @doc """
-  Gets a single link by id, scoped to the user, with preloaded tags.
-
-  Raises `Ecto.NoResultsError` if not found.
-  """
+  @doc "Fetches a user's link by id with tags preloaded; raises when missing."
   def get_link!(scope, id) do
     Repo.get_by!(Link, id: id, user_id: scope.user.id)
     |> Repo.preload(link_tags: :tag)
   end
 
-  @doc """
-  Finds a link by URL for the given user, or `nil` if not found.
-  """
+  @doc "Finds a user's link by exact URL, or `nil` if none exists."
   def find_link_by_url(scope, url) when is_binary(url) do
     from(l in Link,
       where: l.user_id == ^scope.user.id and l.url == ^url,
@@ -444,9 +442,7 @@ defmodule Liminal.Links do
     end
   end
 
-  @doc """
-  Returns a changeset for tracking link changes.
-  """
+  @doc "Returns a link changeset for create/edit forms."
   def change_link(link, attrs \\ %{}) do
     Link.changeset(link, attrs)
   end
@@ -512,9 +508,7 @@ defmodule Liminal.Links do
     end
   end
 
-  @doc """
-  Resets indexing retry state for a link.
-  """
+  @doc "Resets indexing retry fields for a link."
   def reset_index_retry(%Link{} = link) do
     case link |> Link.index_retry_changeset(index_retry_reset_attrs()) |> Repo.update() do
       {:ok, updated_link} ->
@@ -542,9 +536,7 @@ defmodule Liminal.Links do
 
   ## Viewed state
 
-  @doc """
-  Marks a link as viewed with the current timestamp.
-  """
+  @doc "Marks a link as viewed now."
   def mark_viewed(scope, link) do
     user_id = scope.user.id
     ^user_id = link.user_id
@@ -560,9 +552,7 @@ defmodule Liminal.Links do
     end
   end
 
-  @doc """
-  Marks a link as unviewed by clearing the viewed_at timestamp.
-  """
+  @doc "Clears the viewed timestamp on a link."
   def mark_unviewed(scope, link) do
     user_id = scope.user.id
     ^user_id = link.user_id

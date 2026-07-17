@@ -1,8 +1,9 @@
 defmodule Liminal.Links.Janitor do
   @moduledoc """
-  Periodic GenServer that cleans up expired link_tags and orphaned links.
+  Periodic cleanup and index-retry scheduling.
 
-  Runs an immediate sweep on startup, then repeats every 5 minutes.
+  Orphaned links (no tags left) are deleted here rather than inline so tag
+  removal stays fast and expiry batching stays predictable.
   """
 
   use GenServer
