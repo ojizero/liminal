@@ -1,5 +1,10 @@
 defmodule Liminal.AssetPaths do
-  @moduledoc false
+  @moduledoc """
+  Resolves preview image paths on disk and as URL-relative segments.
+
+  In production the assets root is fixed at compile time (see README). Images are
+  stored per user under `<assets_dir>/<user_id>/`.
+  """
 
   @default_relative "assets"
 

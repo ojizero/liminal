@@ -3,7 +3,7 @@
 #     mix run priv/repo/seeds.exs
 #
 # Loads the demo dataset used for local development and feature demos.
-# See AGENTS.md → "Dev seed data".
+# See README → "Demo data".
 #
 # Re-seed anytime (idempotent for users; rebuilds their links):
 #

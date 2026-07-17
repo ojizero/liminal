@@ -1,8 +1,7 @@
 defmodule Liminal.Links.MetadataParser do
   @moduledoc """
-  Extracts metadata (title, description, favicon URL, image URL) from raw HTML using regex.
-
-  This module is pure -- no side effects, no HTTP calls.
+  Extracts page metadata from raw HTML via regex — kept separate from HTTP so
+  parsing stays pure and testable without network calls.
   """
 
   @type metadata :: %{

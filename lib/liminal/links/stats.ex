@@ -1,6 +1,8 @@
 defmodule Liminal.Links.Stats do
   @moduledoc """
   Instance-wide and per-user link statistics for dashboards.
+
+  Expiring-soon thresholds are fixed here so UI and admin reports stay consistent.
   """
 
   import Ecto.Query

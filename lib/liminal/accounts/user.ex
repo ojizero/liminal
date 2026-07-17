@@ -19,15 +19,9 @@ defmodule Liminal.Accounts.User do
   end
 
   @doc """
-  A user changeset for registering or changing the username.
+  Username changeset. Pass `validate_unique: false` during live validation to skip DB checks.
 
-  It requires the username to change otherwise an error is added.
-
-  ## Options
-
-    * `:validate_unique` - Set to false if you don't want to validate the
-      uniqueness of the username, useful when displaying live validations.
-      Defaults to `true`.
+  Requires the username field to actually change on updates.
   """
   def username_changeset(user, attrs, opts \\ []) do
     user
@@ -63,19 +57,9 @@ defmodule Liminal.Accounts.User do
   end
 
   @doc """
-  A user changeset for changing the password.
+  Password changeset. Pass `hash_password: false` on LiveView forms to avoid bcrypt on every keystroke.
 
-  It is important to validate the length of the password, as long passwords may
-  be very expensive to hash for certain algorithms.
-
-  ## Options
-
-    * `:hash_password` - Hashes the password so it can be stored securely
-      in the database and ensures the password field is cleared to prevent
-      leaks in the logs. If password hashing is not needed and clearing the
-      password field is not desired (like when using this changeset for
-      validations on a LiveView form), this option can be set to `false`.
-      Defaults to `true`.
+  Length is capped at 72 bytes because bcrypt truncates beyond that.
   """
   def password_changeset(user, attrs, opts \\ []) do
     user
@@ -112,19 +96,13 @@ defmodule Liminal.Accounts.User do
     end
   end
 
-  @doc """
-  Confirms the account by setting `confirmed_at`.
-  """
+  @doc false
   def confirm_changeset(user) do
     now = DateTime.utc_now(:second)
     change(user, confirmed_at: now)
   end
 
-  @doc """
-  A user changeset for registration.
-
-  It validates username, password, and confirms the account.
-  """
+  @doc false
   def registration_changeset(user, attrs, opts \\ []) do
     user
     |> username_changeset(attrs, opts)
@@ -133,10 +111,7 @@ defmodule Liminal.Accounts.User do
   end
 
   @doc """
-  Verifies the password.
-
-  If there is no user or the user doesn't have a password, we call
-  `Bcrypt.no_user_verify/0` to avoid timing attacks.
+  Uses `Bcrypt.no_user_verify/0` when no password is stored to reduce timing leaks.
   """
   def valid_password?(%Liminal.Accounts.User{hashed_password: hashed_password}, password)
       when is_binary(hashed_password) and byte_size(password) > 0 do
@@ -149,10 +124,7 @@ defmodule Liminal.Accounts.User do
   end
 
   @doc """
-  A user changeset for inviting users (admin-created, no password).
-
-  Validates username, casts role, and confirms the account.
-  The invited user sets their password later via a reset link.
+  Admin invite flow — no password yet; the user sets one via reset link.
   """
   def invite_changeset(user, attrs) do
     user
@@ -162,9 +134,7 @@ defmodule Liminal.Accounts.User do
     |> confirm_changeset()
   end
 
-  @doc """
-  A user changeset for changing user-controlled preferences.
-  """
+  @doc false
   def settings_changeset(user, attrs) do
     user
     |> cast(attrs, [:auto_mark_viewed_on_open, :default_tags_enabled, :default_tag_id])
@@ -209,9 +179,7 @@ defmodule Liminal.Accounts.User do
     end
   end
 
-  @doc """
-  A user changeset for changing the role.
-  """
+  @doc false
   def role_changeset(user, attrs) do
     user
     |> cast(attrs, [:role])
@@ -219,13 +187,9 @@ defmodule Liminal.Accounts.User do
     |> validate_inclusion(:role, ~w(admin user))
   end
 
-  @doc """
-  Returns a changeset that disables the user by setting `disabled_at`.
-  """
+  @doc false
   def disable_changeset(user), do: change(user, disabled_at: DateTime.utc_now(:second))
 
-  @doc """
-  Returns a changeset that enables the user by clearing `disabled_at`.
-  """
+  @doc false
   def enable_changeset(user), do: change(user, disabled_at: nil)
 end
