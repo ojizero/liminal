@@ -75,17 +75,27 @@ defmodule LiminalWeb.UserAuth do
     end
   end
 
+  # Returns `{token, conn}` from the session or the remember-me cookie, else `nil`.
+  # Split into two clauses to eliminate the nested `if` in the original.
   defp ensure_user_token(conn) do
-    if token = get_session(conn, :user_token) do
-      {token, conn}
-    else
-      conn = fetch_cookies(conn, signed: [@remember_me_cookie])
+    case get_session(conn, :user_token) do
+      nil ->
+        conn
+        |> fetch_cookies(signed: [@remember_me_cookie])
+        |> ensure_user_token_from_cookie()
 
-      if token = conn.cookies[@remember_me_cookie] do
-        {token, conn |> put_token_in_session(token) |> put_session(:user_remember_me, true)}
-      else
+      token ->
+        {token, conn}
+    end
+  end
+
+  defp ensure_user_token_from_cookie(conn) do
+    case conn.cookies[@remember_me_cookie] do
+      nil ->
         nil
-      end
+
+      token ->
+        {token, conn |> put_token_in_session(token) |> put_session(:user_remember_me, true)}
     end
   end
 
@@ -221,15 +231,11 @@ defmodule LiminalWeb.UserAuth do
     if socket.assigns.current_scope && socket.assigns.current_scope.user do
       {:cont, socket}
     else
-      redirect_path =
-        if Accounts.any_admins?(), do: ~p"/users/log-in", else: ~p"/users/register"
-
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
-        |> Phoenix.LiveView.redirect(to: redirect_path)
-
-      {:halt, socket}
+      halt_with_redirect(
+        socket,
+        unauthenticated_redirect_path(),
+        "You must log in to access this page."
+      )
     end
   end
 
@@ -239,12 +245,11 @@ defmodule LiminalWeb.UserAuth do
     if Accounts.sudo_mode?(socket.assigns.current_scope.user, -10) do
       {:cont, socket}
     else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You must re-authenticate to access this page.")
-        |> Phoenix.LiveView.redirect(to: ~p"/users/log-in")
-
-      {:halt, socket}
+      halt_with_redirect(
+        socket,
+        ~p"/users/log-in",
+        "You must re-authenticate to access this page."
+      )
     end
   end
 
@@ -255,12 +260,7 @@ defmodule LiminalWeb.UserAuth do
          Scope.admin?(socket.assigns.current_scope) do
       {:cont, socket}
     else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You are not authorized to access this page.")
-        |> Phoenix.LiveView.redirect(to: ~p"/")
-
-      {:halt, socket}
+      halt_with_redirect(socket, ~p"/", "You are not authorized to access this page.")
     end
   end
 
@@ -273,6 +273,22 @@ defmodule LiminalWeb.UserAuth do
 
       Scope.for_user(user)
     end)
+  end
+
+  # Puts a flash error and redirects the socket, returning `{:halt, socket}`.
+  defp halt_with_redirect(socket, path, message) do
+    socket =
+      socket
+      |> Phoenix.LiveView.put_flash(:error, message)
+      |> Phoenix.LiveView.redirect(to: path)
+
+    {:halt, socket}
+  end
+
+  # Returns the redirect path for unauthenticated users:
+  # login when admins exist, registration page on fresh install.
+  defp unauthenticated_redirect_path do
+    if Accounts.any_admins?(), do: ~p"/users/log-in", else: ~p"/users/register"
   end
 
   @doc "Returns the path to redirect to after log in."
@@ -290,13 +306,10 @@ defmodule LiminalWeb.UserAuth do
     if conn.assigns.current_scope && conn.assigns.current_scope.user do
       conn
     else
-      redirect_path =
-        if Accounts.any_admins?(), do: ~p"/users/log-in", else: ~p"/users/register"
-
       conn
       |> put_flash(:error, "You must log in to access this page.")
       |> maybe_store_return_to()
-      |> redirect(to: redirect_path)
+      |> redirect(to: unauthenticated_redirect_path())
       |> halt()
     end
   end

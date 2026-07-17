@@ -1,18 +1,36 @@
 defmodule Liminal.Accounts do
   @moduledoc """
-  User accounts, authentication, sessions, and admin-only user management.
+  Public façade for the Accounts domain.
+
+  All implementation lives in focused sub-modules:
+
+    * `Liminal.Accounts.Registration` — sign-up, first-admin bootstrap, invite
+    * `Liminal.Accounts.Credentials`  — sudo mode, username/password/settings
+    * `Liminal.Accounts.Sessions`     — session token lifecycle
+    * `Liminal.Accounts.ResetPasswords` — admin-issued reset tokens
+    * `Liminal.Accounts.Admin`        — user management (enable/disable/promote…)
+    * `Liminal.Accounts.AdminCache`   — persistent-term cache for admin-exists flag
+
+  This module re-exports every public function so callers keep a stable API.
   """
 
   import Ecto.Query, warn: false
+
   alias Liminal.Repo
 
-  alias Liminal.Accounts.{Scope, User, UserToken}
+  alias Liminal.Accounts.{
+    Admin,
+    AdminCache,
+    Credentials,
+    Registration,
+    ResetPasswords,
+    Sessions,
+    User
+  }
 
-  @admin_cache_key {__MODULE__, :has_admins}
+  ## Configuration
 
-  @doc """
-  Returns whether public signups are enabled via configuration.
-  """
+  @doc "Returns whether public signups are enabled via configuration."
   def signups_enabled? do
     Application.get_env(:liminal, :signups_enabled, false)
   end
@@ -42,358 +60,74 @@ defmodule Liminal.Accounts do
   @doc "Fetches a user by id and raises when missing."
   def get_user!(id), do: Repo.get!(User, id)
 
-  ## User registration
+  ## Registration — delegates to Liminal.Accounts.Registration
+
+  defdelegate register_user(attrs), to: Registration
+  defdelegate register_admin(attrs), to: Registration
+  defdelegate invite_user(scope, attrs), to: Registration
+
+  @doc "Registration changeset for forms — skips password hashing for live validation."
+  def change_user_registration(user, attrs \\ %{}),
+    do: Registration.change_user_registration(user, attrs)
+
+  @doc "Returns an `%Ecto.Changeset{}` for the invite user form."
+  def change_invite_user(attrs \\ %{}),
+    do: Registration.change_invite_user(attrs)
+
+  ## Credentials — delegates to Liminal.Accounts.Credentials
+
+  defdelegate update_user_username(user, attrs), to: Credentials
+  defdelegate update_user_password(user, attrs), to: Credentials
+  defdelegate update_user_settings(user, attrs), to: Credentials
 
   @doc """
-  Registers a user and creates their default tags in one transaction.
+  Returns `true` if the user authenticated within `minutes` minutes.
+  Default window is 20 minutes.
   """
-  def register_user(attrs) do
-    Repo.transact(fn ->
-      with {:ok, user} <- Repo.insert(User.registration_changeset(%User{}, attrs)),
-           :ok <- Liminal.Links.create_default_tags(user.id) do
-        {:ok, user}
-      end
-    end)
-  end
-
-  @doc """
-  Registers the first admin user during initial instance setup.
-  Only succeeds if no admin users exist yet. Raises if admins already exist.
-  """
-  def register_admin(attrs) do
-    if any_admins?(), do: raise("cannot register admin: admin users already exist")
-
-    Repo.transact(fn ->
-      with {:ok, user} <-
-             %User{}
-             |> User.registration_changeset(attrs)
-             |> Ecto.Changeset.put_change(:role, "admin")
-             |> Repo.insert(),
-           :ok <- Liminal.Links.create_default_tags(user.id) do
-        :persistent_term.put(@admin_cache_key, true)
-        {:ok, user}
-      end
-    end)
-  end
-
-  @doc """
-  Registration changeset for forms — skips password hashing so live validation stays fast.
-  """
-  def change_user_registration(user, attrs \\ %{}) do
-    User.registration_changeset(user, attrs, hash_password: false)
-  end
-
-  ## Settings
-
-  @doc """
-  Checks whether the user is in sudo mode.
-
-  The user is in sudo mode when the last authentication was done no further
-  than 20 minutes ago. The limit can be given as second argument in minutes.
-  """
-  def sudo_mode?(user, minutes \\ -20)
-
-  def sudo_mode?(%User{authenticated_at: ts}, minutes) when is_struct(ts, DateTime) do
-    DateTime.after?(ts, DateTime.utc_now() |> DateTime.add(minutes, :minute))
-  end
-
-  def sudo_mode?(_user, _minutes), do: false
+  def sudo_mode?(user, minutes \\ -20),
+    do: Credentials.sudo_mode?(user, minutes)
 
   @doc "Returns a username changeset for forms."
-  def change_user_username(user, attrs \\ %{}, opts \\ []) do
-    User.username_changeset(user, attrs, opts)
-  end
-
-  @doc "Updates a user's username."
-  def update_user_username(user, attrs) do
-    user
-    |> User.username_changeset(attrs)
-    |> Repo.update()
-  end
+  def change_user_username(user, attrs \\ %{}, opts \\ []),
+    do: Credentials.change_user_username(user, attrs, opts)
 
   @doc "Returns a password changeset for forms."
-  def change_user_password(user, attrs \\ %{}, opts \\ []) do
-    User.password_changeset(user, attrs, opts)
-  end
-
-  @doc """
-  Updates the password and invalidates all existing session tokens.
-  """
-  def update_user_password(user, attrs) do
-    user
-    |> User.password_changeset(attrs)
-    |> update_user_and_delete_all_tokens()
-  end
+  def change_user_password(user, attrs \\ %{}, opts \\ []),
+    do: Credentials.change_user_password(user, attrs, opts)
 
   @doc "Returns a settings changeset for user preferences."
-  def change_user_settings(user, attrs \\ %{}) do
-    User.settings_changeset(user, attrs)
-  end
+  def change_user_settings(user, attrs \\ %{}),
+    do: Credentials.change_user_settings(user, attrs)
 
-  @doc "Updates user preference settings."
-  def update_user_settings(user, attrs) do
-    user
-    |> User.settings_changeset(attrs)
-    |> Repo.update()
-  end
+  ## Sessions — delegates to Liminal.Accounts.Sessions
 
-  ## Session
+  defdelegate generate_user_session_token(user), to: Sessions
+  defdelegate get_user_by_session_token(token), to: Sessions
+  defdelegate delete_user_session_token(token), to: Sessions
 
-  @doc "Creates and persists a session token."
-  def generate_user_session_token(user) do
-    {token, user_token} = UserToken.build_session_token(user)
-    Repo.insert!(user_token)
-    token
-  end
+  ## Admin — delegates to Liminal.Accounts.Admin
 
-  @doc """
-  Returns `{user, token_inserted_at}` when the session token is valid, else `nil`.
-  """
-  def get_user_by_session_token(token) do
-    {:ok, query} = UserToken.verify_session_token_query(token)
-    Repo.one(query)
-  end
+  defdelegate list_users(scope), to: Admin
+  defdelegate disable_user(scope, user), to: Admin
+  defdelegate enable_user(scope, user), to: Admin
+  defdelegate delete_user(scope, user), to: Admin
+  defdelegate promote_user(scope, user), to: Admin
+  defdelegate demote_user(scope, user), to: Admin
+  defdelegate delete_own_account(scope), to: Admin
+  defdelegate step_down_from_admin(scope), to: Admin
 
-  @doc "Deletes a persisted session token."
-  def delete_user_session_token(token) do
-    Repo.delete_all(from(UserToken, where: [token: ^token, context: "session"]))
-    :ok
-  end
+  ## AdminCache — delegates to Liminal.Accounts.AdminCache
 
-  ## Admin functions
+  defdelegate any_admins?(), to: AdminCache
+  defdelegate reset_admin_cache(), to: AdminCache
 
-  @doc """
-  Lists all users. Requires admin scope.
-  """
-  def list_users(scope) do
-    ensure_admin!(scope)
-    Repo.all(from u in User, order_by: [asc: u.username])
-  end
+  ## ResetPasswords — delegates to Liminal.Accounts.ResetPasswords
 
-  @doc """
-  Returns an `%Ecto.Changeset{}` for the invite user form.
-  """
-  def change_invite_user(attrs \\ %{}) do
-    User.invite_changeset(%User{}, attrs)
-  end
+  defdelegate generate_reset_password_token(scope, user), to: ResetPasswords
+  defdelegate get_user_by_reset_password_token(encoded_token), to: ResetPasswords
+  defdelegate reset_user_password(user, attrs), to: ResetPasswords
 
-  @doc """
-  Invites a user (admin-created, no password). Requires admin scope.
-
-  Creates the user with username and role only, generates a reset password
-  token so the invited user can set their password. Returns `{:ok, {user, encoded_token}}`.
-
-  Also creates default tags for the new user. Rolls back
-  the transaction if any step fails.
-  """
-  def invite_user(scope, attrs) do
-    ensure_admin!(scope)
-
-    Repo.transact(fn ->
-      with {:ok, user} <- Repo.insert(User.invite_changeset(%User{}, attrs)),
-           :ok <- Liminal.Links.create_default_tags(user.id) do
-        {encoded_token, user_token} = UserToken.build_reset_password_token(user)
-        Repo.insert!(user_token)
-        {:ok, {user, encoded_token}}
-      end
-    end)
-  end
-
-  @doc """
-  Disables a user. Requires admin scope. Cannot disable admins.
-  """
-  def disable_user(scope, user) do
-    ensure_admin!(scope)
-    ensure_not_admin!(user)
-    Repo.update(User.disable_changeset(user))
-  end
-
-  @doc """
-  Enables a user. Requires admin scope. Cannot enable admins.
-  """
-  def enable_user(scope, user) do
-    ensure_admin!(scope)
-    ensure_not_admin!(user)
-    Repo.update(User.enable_changeset(user))
-  end
-
-  @doc """
-  Deletes a user. Requires admin scope. Cannot delete admins.
-  """
-  def delete_user(scope, user) do
-    ensure_admin!(scope)
-    ensure_not_admin!(user)
-    Repo.delete(user)
-  end
-
-  @doc """
-  Promotes a user to admin. Requires admin scope. Cannot promote existing admins.
-  """
-  def promote_user(scope, user) do
-    ensure_admin!(scope)
-    ensure_not_admin!(user)
-
-    case Repo.update(User.role_changeset(user, %{role: "admin"})) do
-      {:ok, user} ->
-        :persistent_term.put(@admin_cache_key, true)
-        {:ok, user}
-
-      error ->
-        error
-    end
-  end
-
-  @doc """
-  Demotes an admin user to a normal user. Requires admin scope.
-  Cannot demote yourself (use settings page) or the last admin.
-
-  Returns `{:error, :self_demotion}` if trying to demote yourself,
-  `{:error, :not_admin}` if the target is not an admin,
-  or `{:error, :last_admin}` if they are the last admin.
-  """
-  def demote_user(scope, user) do
-    ensure_admin!(scope)
-
-    cond do
-      user.id == scope.user.id -> {:error, :self_demotion}
-      user.role != "admin" -> {:error, :not_admin}
-      admin_count() <= 1 -> {:error, :last_admin}
-      true -> Repo.update(User.role_changeset(user, %{role: "user"}))
-    end
-  end
-
-  @doc """
-  Deletes the current user's own account.
-
-  Returns `{:error, :last_admin}` if the user is the last admin.
-  """
-  def delete_own_account(scope) do
-    user = scope.user
-
-    cond do
-      user.role == "admin" and admin_count() <= 1 ->
-        {:error, :last_admin}
-
-      :otherwise ->
-        Repo.delete(user)
-    end
-  end
-
-  @doc """
-  Steps down the current admin user to a normal user.
-
-  Returns `{:error, :last_admin}` if the user is the last admin,
-  or `{:error, :not_admin}` if the user is not an admin.
-  """
-  def step_down_from_admin(scope) do
-    user = scope.user
-
-    cond do
-      user.role != "admin" -> {:error, :not_admin}
-      admin_count() <= 1 -> {:error, :last_admin}
-      true -> Repo.update(User.role_changeset(user, %{role: "user"}))
-    end
-  end
-
-  # Counts the number of admin users in the system.
-  # Note: not locked within a transaction — concurrent step-down/delete
-  # could leave zero admins. Acceptable for a small app with few admins.
-  defp admin_count do
-    Repo.one(from u in User, where: u.role == "admin", select: count(u.id))
-  end
-
-  @doc """
-  Returns true if at least one admin user exists in the system.
-  Used to determine if first-time setup is needed.
-  """
-  def any_admins? do
-    with :not_set <- :persistent_term.get(@admin_cache_key, :not_set) do
-      Repo.exists?(from u in User, where: u.role == "admin")
-      |> tap(fn
-        true = _admin? ->
-          :persistent_term.put(@admin_cache_key, true)
-
-        false = _no_admin? ->
-          :noop
-      end)
-    end
-  end
-
-  @doc "Clears the cached admin-exists flag (used in tests)."
-  def reset_admin_cache do
-    :persistent_term.erase(@admin_cache_key)
-  end
-
-  @doc """
-  Generates a reset password token for a user. Requires admin scope.
-  Cannot generate tokens for admins.
-
-  Deletes any existing reset password tokens for the user before
-  generating a new one.
-
-  Returns the encoded token string.
-  """
-  def generate_reset_password_token(scope, user) do
-    ensure_admin!(scope)
-    ensure_not_admin!(user)
-
-    Repo.delete_all(UserToken.by_user_and_contexts_query(user, ["reset_password"]))
-    {encoded_token, user_token} = UserToken.build_reset_password_token(user)
-    Repo.insert!(user_token)
-    encoded_token
-  end
-
-  @doc """
-  Gets the user with the given reset password token.
-
-  Returns the user if the token is valid and the user is not disabled,
-  otherwise returns `nil`.
-  """
-  def get_user_by_reset_password_token(encoded_token) do
-    with {:ok, query} <- UserToken.verify_reset_password_token_query(encoded_token) do
-      Repo.one(query)
-    else
-      _ -> nil
-    end
-  end
-
-  @doc """
-  Resets the user password using a reset password token flow.
-
-  Deletes all tokens for the user after a successful password reset.
-  """
-  def reset_user_password(user, attrs) do
-    user
-    |> User.password_changeset(attrs)
-    |> update_user_and_delete_all_tokens()
-  end
-
-  @doc """
-  Returns an `%Ecto.Changeset{}` for changing the user password via reset.
-  """
-  def change_reset_password(user, attrs \\ %{}) do
-    User.password_changeset(user, attrs, hash_password: false)
-  end
-
-  defp ensure_admin!(scope) do
-    unless Scope.admin?(scope), do: raise("admin required")
-  end
-
-  defp ensure_not_admin!(user) do
-    if user.role == "admin", do: raise("cannot modify admin user")
-  end
-
-  ## Token helper
-
-  defp update_user_and_delete_all_tokens(changeset) do
-    Repo.transact(fn ->
-      with {:ok, user} <- Repo.update(changeset) do
-        tokens_to_expire = Repo.all_by(UserToken, user_id: user.id)
-
-        Repo.delete_all(from(t in UserToken, where: t.id in ^Enum.map(tokens_to_expire, & &1.id)))
-
-        {:ok, {user, tokens_to_expire}}
-      end
-    end)
-  end
+  @doc "Returns a password changeset for the reset-password form."
+  def change_reset_password(user, attrs \\ %{}),
+    do: ResetPasswords.change_reset_password(user, attrs)
 end
