@@ -1,5 +1,5 @@
 ---
-description: Require demo videos for UI work using Cursor's embedded browser only
+description: Require UI demo videos via IDE browser or Cloud computer use
 alwaysApply: true
 ---
 
@@ -7,15 +7,29 @@ alwaysApply: true
 
 Whenever you work on UI/frontend, reproduce a UI bug, or showcase that a UI behaviour was fixed or introduced, you **must** produce a demo video before considering the task complete.
 
-## Approved tooling (only)
+## Approved tooling
 
-Record demos **exclusively** with Cursor's bundled embedded browser via the `cursor-ide-browser` MCP:
+Pick the highest-priority path available. Do not apologize or narrate a "fallback" — just use that path.
+
+### 1. Primary — `cursor-ide-browser` (required when available)
+
+When the `cursor-ide-browser` MCP is in the tool list, you **must** use it and you **must not** use computer use:
 
 - `browser_navigate`, `browser_tabs`, `browser_lock` / unlock
 - `browser_click`, `browser_type`, `browser_fill`, `browser_scroll`, and other interaction tools
 - `browser_snapshot`, `browser_take_screenshot`, `browser_cdp` (e.g. screencast or capture)
 
-**Forbidden:** installing or invoking any external recording stack — including Playwright, Puppeteer, ffmpeg wrappers, screen-capture CLI tools, browser extensions, or temporary npm/mix deps added solely for recording.
+### 2. Secondary — computer use + Cursor screen recorder (only when browser MCP is absent)
+
+Use computer use **only** when `cursor-ide-browser` is not available (typical for Cloud Agents). Never prefer computer use when the browser MCP is present, including on local/desktop machines where computer use may be disabled or unreliable.
+
+- Drive the desktop browser with mouse/keyboard (open the app, click through the flow)
+- Record with Cursor's screen recorder / attach demo artifacts produced by the Cloud Agent run
+
+**Forbidden in all environments:**
+
+- Computer use while `cursor-ide-browser` is available
+- Installing or invoking any external recording stack — including Playwright, Puppeteer, ffmpeg wrappers, screen-capture CLI tools, browser extensions, or temporary npm/mix deps added solely for recording.
 
 ## When a demo is required
 
