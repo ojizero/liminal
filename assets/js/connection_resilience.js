@@ -85,9 +85,27 @@ export function initConnectionResilience(liveSocket) {
     }
   }
 
-  // Phoenix marks the socket as unloaded on pagehide, then reloads on the next
-  // socket open — even when the page is still alive in a backgrounded tab.
-  // Clearing the flag on visibility restore lets LiveView rejoin in place.
+  // LiveView sets `unloaded = true` on every `pagehide`, then calls
+  // `location.reload()` from socket `onOpen` while that flag is set.
+  //
+  // Tab suspension race (the "odd restore"):
+  //   1. pagehide → unloaded=true, websocket drops
+  //   2. socket reconnects while the tab is still hidden
+  //   3. onOpen sees unloaded → full reload in the background
+  //   4. user returns to a mid-reload / dead-rendered page
+  //
+  // For ordinary hides (tab switch, minimize, mobile freeze without bfcache),
+  // clear the flag immediately so a background reconnect can rejoin in place.
+  // Keep it for bfcache entries (`persisted`) so LiveView's pageshow handler
+  // can intentionally reload the stale snapshot.
+  window.addEventListener("pagehide", (event) => {
+    captureScroll()
+    if (!event.persisted) {
+      liveSocket.unloaded = false
+    }
+  })
+
+  // Belt-and-suspenders for browsers that resume without a clean pagehide path.
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
       liveSocket.unloaded = false
@@ -96,7 +114,9 @@ export function initConnectionResilience(liveSocket) {
     }
   })
 
-  window.addEventListener("pagehide", captureScroll)
+  document.addEventListener("resume", () => {
+    liveSocket.unloaded = false
+  })
 
   if (sessionStorage.getItem(SCROLL_KEY)) {
     window.addEventListener("phx:page-loading-stop", restoreScroll, {once: true})
