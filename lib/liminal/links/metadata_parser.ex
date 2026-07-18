@@ -17,7 +17,11 @@ defmodule Liminal.Links.MetadataParser do
   The `base_url` is used to resolve relative favicon URLs to absolute ones.
   """
   @spec parse(String.t() | nil, String.t()) :: metadata()
-  def parse(html, base_url) when is_binary(html) and html != "" do
+  def parse(nil, _base_url), do: empty_metadata()
+
+  def parse("", _base_url), do: empty_metadata()
+
+  def parse(html, base_url) when is_binary(html) do
     %{
       title: extract_title(html),
       description: extract_description(html),
@@ -27,8 +31,10 @@ defmodule Liminal.Links.MetadataParser do
   end
 
   def parse(_html, _base_url) do
-    %{title: nil, description: nil, favicon_url: nil, image_url: nil}
+    empty_metadata()
   end
+
+  @favicon_link_pattern ~r/<link\s+(?=[^>]*\brel\s*=\s*["'](?:shortcut\s+)?icon["'])(?=[^>]*\bhref\s*=\s*["']([^"']+)["'])[^>]*\/?>/si
 
   # Title extraction: OG title first, then <title> tag fallback
 
@@ -55,40 +61,20 @@ defmodule Liminal.Links.MetadataParser do
 
   defp extract_image(html, base_url) do
     raw_url = extract_og_meta(html, "og:image") || extract_meta_name(html, "twitter:image")
-    if raw_url, do: resolve_url(raw_url, base_url), else: nil
+    resolve_optional_url(raw_url, base_url)
   end
 
   # Favicon extraction: explicit <link rel="icon"> or <link rel="shortcut icon">, then /favicon.ico fallback
 
   defp extract_favicon(html, base_url) do
     href = extract_favicon_link(html)
-
-    if href do
-      resolve_url(href, base_url)
-    else
-      fallback_favicon(base_url)
-    end
+    resolve_favicon_url(href, base_url)
   end
 
   defp extract_favicon_link(html) do
-    # Match <link> tags with rel="icon" or rel="shortcut icon", in either attribute order
-    pattern =
-      ~r/<link\s+(?=[^>]*\brel\s*=\s*["'](?:shortcut\s+)?icon["'])(?=[^>]*\bhref\s*=\s*["']([^"']+)["'])[^>]*\/?>/si
-
-    case Regex.run(pattern, html) do
-      [_, href] ->
-        href
-
-      _ ->
-        # Try alternate ordering: href before rel
-        alt_pattern =
-          ~r/<link\s+(?=[^>]*\bhref\s*=\s*["']([^"']+)["'])(?=[^>]*\brel\s*=\s*["'](?:shortcut\s+)?icon["'])[^>]*\/?>/si
-
-        case Regex.run(alt_pattern, html) do
-          [_, href] -> href
-          _ -> nil
-        end
-    end
+    @favicon_link_pattern
+    |> Regex.run(html)
+    |> captured_value()
   end
 
   defp fallback_favicon(base_url) do
@@ -104,48 +90,30 @@ defmodule Liminal.Links.MetadataParser do
   # Shared helpers for extracting OG meta tags and name-based meta tags
 
   defp extract_og_meta(html, property) do
-    # property="og:..." content="..."
-    pattern_a =
-      ~r/<meta\s+(?=[^>]*\bproperty\s*=\s*["']#{Regex.escape(property)}["'])(?=[^>]*\bcontent\s*=\s*["']([^"']*?)["'])[^>]*\/?>/si
-
-    case Regex.run(pattern_a, html) do
-      [_, content] ->
-        normalize_text(content)
-
-      _ ->
-        # content="..." property="og:..."
-        pattern_b =
-          ~r/<meta\s+(?=[^>]*\bcontent\s*=\s*["']([^"']*?)["'])(?=[^>]*\bproperty\s*=\s*["']#{Regex.escape(property)}["'])[^>]*\/?>/si
-
-        case Regex.run(pattern_b, html) do
-          [_, content] -> normalize_text(content)
-          _ -> nil
-        end
-    end
+    extract_meta_content(html, "property", property)
   end
 
   defp extract_meta_name(html, name) do
-    # name="..." content="..."
-    pattern_a =
-      ~r/<meta\s+(?=[^>]*\bname\s*=\s*["']#{Regex.escape(name)}["'])(?=[^>]*\bcontent\s*=\s*["']([^"']*?)["'])[^>]*\/?>/si
+    extract_meta_content(html, "name", name)
+  end
 
-    case Regex.run(pattern_a, html) do
-      [_, content] ->
-        normalize_text(content)
+  defp extract_meta_content(html, attr_name, attr_value) do
+    attr_value = Regex.escape(attr_value)
 
-      _ ->
-        # content="..." name="..."
-        pattern_b =
-          ~r/<meta\s+(?=[^>]*\bcontent\s*=\s*["']([^"']*?)["'])(?=[^>]*\bname\s*=\s*["']#{Regex.escape(name)}["'])[^>]*\/?>/si
+    pattern_source =
+      "<meta\\s+(?=[^>]*\\b#{attr_name}\\s*=\\s*[\"']#{attr_value}[\"'])(?=[^>]*\\bcontent\\s*=\\s*[\"']([^\"']*?)[\"'])[^>]*\\/?>"
 
-        case Regex.run(pattern_b, html) do
-          [_, content] -> normalize_text(content)
-          _ -> nil
-        end
-    end
+    pattern = Regex.compile!(pattern_source, "si")
+
+    pattern
+    |> Regex.run(html)
+    |> captured_value()
+    |> normalize_text()
   end
 
   # Text normalization: decode HTML entities, trim whitespace, return nil if empty
+
+  defp normalize_text(nil), do: nil
 
   defp normalize_text(text) do
     result =
@@ -153,7 +121,23 @@ defmodule Liminal.Links.MetadataParser do
       |> decode_entities()
       |> String.trim()
 
-    if result == "", do: nil, else: result
+    empty_string_to_nil(result)
+  end
+
+  defp captured_value([_, value]), do: value
+  defp captured_value(_), do: nil
+
+  defp resolve_optional_url(nil, _base_url), do: nil
+  defp resolve_optional_url(raw_url, base_url), do: resolve_url(raw_url, base_url)
+
+  defp resolve_favicon_url(nil, base_url), do: fallback_favicon(base_url)
+  defp resolve_favicon_url(href, base_url), do: resolve_url(href, base_url)
+
+  defp empty_string_to_nil(""), do: nil
+  defp empty_string_to_nil(value), do: value
+
+  defp empty_metadata do
+    %{title: nil, description: nil, favicon_url: nil, image_url: nil}
   end
 
   defp decode_entities(text) do

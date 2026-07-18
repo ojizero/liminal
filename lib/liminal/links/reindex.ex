@@ -10,8 +10,7 @@ defmodule Liminal.Links.Reindex do
 
   use GenServer
 
-  alias Liminal.Links
-  alias Liminal.Links.Link
+  alias Liminal.Links.{Indexing, Link}
   alias Liminal.Repo
 
   @pubsub_topic "links:reindex"
@@ -89,39 +88,10 @@ defmodule Liminal.Links.Reindex do
 
   @impl true
   def handle_call({:start_job, scope, opts}, _from, _state) do
-    link_ids = Links.list_reindex_link_ids(scope)
-    total = length(link_ids)
+    link_ids = Indexing.list_reindex_link_ids(scope)
     requested_by = Keyword.get(opts, :requested_by)
 
-    if total == 0 do
-      {:reply, {:ok, public_status(idle_state())}, idle_state()}
-    else
-      queue = :queue.from_list(link_ids)
-
-      job = %{
-        scope: scope,
-        mode: job_mode(scope),
-        requested_by: requested_by,
-        total: total,
-        processed: 0,
-        queue: queue,
-        timer_ref: nil,
-        started_at: DateTime.utc_now(:second)
-      }
-
-      state = %{idle_state() | active_job: job}
-
-      if total == 1 and match?({:link, _}, scope) do
-        {state, _} = process_batch(state)
-        finished_state = finish_job(state)
-        broadcast_progress(finished_state)
-        {:reply, {:ok, public_status(finished_state)}, finished_state}
-      else
-        broadcast_progress(state)
-        schedule_batch(state)
-        {:reply, {:ok, public_status(state)}, state}
-      end
-    end
+    start_job_reply(scope, requested_by, link_ids)
   end
 
   @impl true
@@ -140,17 +110,9 @@ defmodule Liminal.Links.Reindex do
 
   @impl true
   def handle_info(:process_batch, %{active_job: %{} = _job} = state) do
-    {state, done?} = process_batch(state)
-
-    if done? do
-      finished_state = finish_job(state)
-      broadcast_progress(finished_state)
-      {:noreply, finished_state}
-    else
-      broadcast_progress(state)
-      schedule_batch(%{state | active_job: %{state.active_job | timer_ref: nil}})
-      {:noreply, state}
-    end
+    state
+    |> process_batch()
+    |> batch_reply()
   end
 
   ## Internals
@@ -161,6 +123,42 @@ defmodule Liminal.Links.Reindex do
 
   defp running?(%{active_job: nil}), do: false
   defp running?(%{active_job: _}), do: true
+
+  defp start_job_reply(_scope, _requested_by, []) do
+    state = idle_state()
+    {:reply, {:ok, public_status(state)}, state}
+  end
+
+  defp start_job_reply({:link, _} = scope, requested_by, [_link_id] = link_ids) do
+    state = build_job_state(scope, requested_by, link_ids)
+    {state, _done?} = process_batch(state)
+    finished_state = finish_job(state)
+    broadcast_progress(finished_state)
+    {:reply, {:ok, public_status(finished_state)}, finished_state}
+  end
+
+  defp start_job_reply(scope, requested_by, link_ids) do
+    state = build_job_state(scope, requested_by, link_ids)
+
+    broadcast_progress(state)
+    schedule_batch(state)
+    {:reply, {:ok, public_status(state)}, state}
+  end
+
+  defp build_job_state(scope, requested_by, link_ids) do
+    job = %{
+      scope: scope,
+      mode: job_mode(scope),
+      requested_by: requested_by,
+      total: length(link_ids),
+      processed: 0,
+      queue: :queue.from_list(link_ids),
+      timer_ref: nil,
+      started_at: DateTime.utc_now(:second)
+    }
+
+    %{idle_state() | active_job: job}
+  end
 
   defp job_mode({:link, _}), do: :failed
   defp job_mode({:user, _, mode}) when mode in [:all, :failed], do: mode
@@ -176,8 +174,8 @@ defmodule Liminal.Links.Reindex do
           :ok
 
         link ->
-          Links.prepare_link_for_reindex(link, job.mode)
-          Links.queue_index(link.id, link.user_id)
+          Indexing.prepare_link_for_reindex(link, job.mode)
+          Indexing.queue_index(link.id, link.user_id)
       end
     end)
 
@@ -189,6 +187,18 @@ defmodule Liminal.Links.Reindex do
 
     done? = :queue.is_empty(queue)
     {%{state | active_job: updated_job}, done?}
+  end
+
+  defp batch_reply({state, true}) do
+    finished_state = finish_job(state)
+    broadcast_progress(finished_state)
+    {:noreply, finished_state}
+  end
+
+  defp batch_reply({state, false}) do
+    broadcast_progress(state)
+    schedule_batch(%{state | active_job: %{state.active_job | timer_ref: nil}})
+    {:noreply, state}
   end
 
   defp finish_job(%{active_job: job}) do

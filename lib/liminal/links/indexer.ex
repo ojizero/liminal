@@ -19,7 +19,7 @@ defmodule Liminal.Links.Indexer do
   Fetches the HTML at the link's URL, parses metadata, and persists it.
 
   Returns `:ok` on success, `:error` on failure. Failed links record retry
-  state via `Links.record_index_failure/1` for the Janitor to retry with backoff.
+  state via `Indexing.record_index_failure/1` for the Janitor to retry with backoff.
 
   ## Options
 
@@ -27,6 +27,9 @@ defmodule Liminal.Links.Indexer do
       (useful for test injection via `Req.Test`)
 
   """
+
+  alias Liminal.Links.Indexing
+
   def index(link_id, user_id, opts \\ []) do
     case Liminal.Repo.get(Liminal.Links.Link, link_id) do
       nil ->
@@ -82,12 +85,12 @@ defmodule Liminal.Links.Indexer do
           |> Map.put(:image_path, image_path)
           |> Map.put(:duration_seconds, duration_seconds)
 
-        Liminal.Links.update_link_metadata(link, metadata)
+        Indexing.update_link_metadata(link, metadata)
         :ok
 
       {:ok, %{status: status}} ->
         Logger.warning("Indexer: non-200 status #{status} for link #{link.id} (#{link.url})")
-        Liminal.Links.record_index_failure(link)
+        Indexing.record_index_failure(link)
         :error
 
       {:error, reason} ->
@@ -95,7 +98,7 @@ defmodule Liminal.Links.Indexer do
           "Indexer: request failed for link #{link.id} (#{link.url}): #{inspect(reason)}"
         )
 
-        Liminal.Links.record_index_failure(link)
+        Indexing.record_index_failure(link)
         :error
     end
   end
