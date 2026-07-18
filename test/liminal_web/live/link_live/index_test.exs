@@ -244,7 +244,7 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#duplicate-link-modal")
 
       view
-      |> element("button[phx-click='discard_duplicate']")
+      |> element("#duplicate-link-modal-close")
       |> render_click()
 
       refute has_element?(view, "#duplicate-link-modal")

@@ -4,13 +4,17 @@ defmodule LiminalWeb.Components.Modal do
 
   - **Open:** LiveView renders the dialog when `show` is true (`live_action` + `patch`).
   - **Visible:** `open` + daisyUI `modal` classes (daisy styles `dialog[open]`).
-  - **Close:** `on_cancel` (`JS.patch/1`) via backdrop click, Escape, or the footer Close button.
+  - **Close:** `on_cancel` via corner ✕, backdrop click, or Escape.
+  - **Mobile:** bottom sheet (`modal-bottom sm:modal-middle`) for touch-friendly reach.
 
-  See [responsive](https://daisyui.com/components/modal/#responsive) and
-  [click-outside](https://daisyui.com/components/modal/#dialog-modal-closes-when-clicked-outside).
+  See [responsive](https://daisyui.com/components/modal/#responsive),
+  [click-outside](https://daisyui.com/components/modal/#dialog-modal-closes-when-clicked-outside),
+  and [close button at corner](https://daisyui.com/components/modal/#dialog-modal-with-a-close-button-at-corner).
   """
   use Phoenix.Component
   use Gettext, backend: LiminalWeb.Gettext
+
+  import LiminalWeb.CoreComponents, only: [icon: 1]
 
   alias Phoenix.LiveView.JS
 
@@ -21,9 +25,7 @@ defmodule LiminalWeb.Components.Modal do
 
   attr :show_close, :boolean,
     default: true,
-    doc: "footer Close button in modal-action (daisyUI default)"
-
-  attr :close_label, :string, default: "Close"
+    doc: "corner ✕ close button (daisyUI dialog modal with close button at corner)"
 
   attr :box_class, :string,
     default: nil,
@@ -34,7 +36,7 @@ defmodule LiminalWeb.Components.Modal do
 
   def modal(assigns) do
     box_class =
-      ["modal-box", assigns[:box_class]]
+      ["modal-box", "relative", assigns[:box_class]]
       |> Enum.reject(&is_nil/1)
       |> Enum.join(" ")
 
@@ -52,18 +54,23 @@ defmodule LiminalWeb.Components.Modal do
       phx-key="Escape"
     >
       <div class={@box_class}>
-        <h2 :if={@title != []} id={"#{@id}-title"} class="text-lg font-bold">
+        <button
+          :if={@closeable && @show_close}
+          type="button"
+          id={"#{@id}-close"}
+          class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+          phx-click={@on_cancel}
+          aria-label={gettext("close")}
+        >
+          <.icon name="hero-x-mark" class="size-4" />
+        </button>
+
+        <h2 :if={@title != []} id={"#{@id}-title"} class="text-lg font-bold pr-10">
           {render_slot(@title)}
         </h2>
 
         <div class={@title != [] && "py-4"}>
           {render_slot(@inner_block)}
-        </div>
-
-        <div :if={@closeable && @show_close} class="modal-action">
-          <button type="button" class="btn" phx-click={@on_cancel}>
-            {@close_label}
-          </button>
         </div>
       </div>
 
