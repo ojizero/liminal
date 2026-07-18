@@ -592,7 +592,6 @@ defmodule LiminalWeb.LinkLive.Components do
       id="duplicate-link-modal"
       show={@duplicate_link != nil}
       on_cancel={JS.push("discard_duplicate")}
-      closeable={true}
       box_class="sm:max-w-lg"
     >
       <:title>Link already exists</:title>
@@ -630,11 +629,10 @@ defmodule LiminalWeb.LinkLive.Components do
         Merging adds new tags, refreshes expiry on selected tags, and keeps other existing tags unchanged.
       </p>
 
-      <div class="flex gap-2 mt-4">
+      <div class="mt-4">
         <.button variant="primary" phx-click="confirm_duplicate_merge" phx-disable-with="Merging…">
           Merge tags
         </.button>
-        <.button phx-click="discard_duplicate">Discard</.button>
       </div>
     </.modal>
     """
@@ -646,7 +644,6 @@ defmodule LiminalWeb.LinkLive.Components do
       id="edit-link-modal"
       show={@live_action == :edit}
       on_cancel={JS.patch(~p"/")}
-      close_label="Cancel"
       box_class="sm:max-w-xl"
     >
       <:title>Edit Link</:title>
@@ -674,9 +671,8 @@ defmodule LiminalWeb.LinkLive.Components do
           maxlength="500"
         />
 
-        <div class="flex gap-2 mt-4">
+        <div class="mt-4">
           <.button variant="primary" phx-disable-with="Saving…">Save</.button>
-          <.button patch={~p"/"}>Cancel</.button>
         </div>
       </.form>
     </.modal>
