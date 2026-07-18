@@ -6,6 +6,7 @@ defmodule LiminalWeb.UserAuth do
 
   alias Liminal.Accounts
   alias Liminal.Accounts.Scope
+  alias Liminal.Accounts.User
 
   # Make the remember me cookie valid for 14 days. This should match
   # the session validity setting in UserToken.
@@ -76,28 +77,46 @@ defmodule LiminalWeb.UserAuth do
   end
 
   defp ensure_user_token(conn) do
-    if token = get_session(conn, :user_token) do
-      {token, conn}
-    else
-      conn = fetch_cookies(conn, signed: [@remember_me_cookie])
+    session_token(conn) || remember_me_token(conn)
+  end
 
-      if token = conn.cookies[@remember_me_cookie] do
-        {token, conn |> put_token_in_session(token) |> put_session(:user_remember_me, true)}
-      else
-        nil
-      end
-    end
+  defp session_token(conn) do
+    conn
+    |> get_session(:user_token)
+    |> session_token_result(conn)
+  end
+
+  defp session_token_result(nil, _conn), do: nil
+  defp session_token_result(false, _conn), do: nil
+  defp session_token_result(token, conn), do: {token, conn}
+
+  defp remember_me_token(conn) do
+    conn = fetch_cookies(conn, signed: [@remember_me_cookie])
+
+    conn.cookies
+    |> Map.get(@remember_me_cookie)
+    |> remember_me_token_result(conn)
+  end
+
+  defp remember_me_token_result(nil, _conn), do: nil
+  defp remember_me_token_result(false, _conn), do: nil
+
+  defp remember_me_token_result(token, conn) do
+    {token, conn |> put_token_in_session(token) |> put_session(:user_remember_me, true)}
   end
 
   # Reissue the session token if it is older than the configured reissue age.
   defp maybe_reissue_user_session_token(conn, user, token_inserted_at) do
-    token_age = DateTime.diff(DateTime.utc_now(:second), token_inserted_at, :day)
-
-    if token_age >= @session_reissue_age_in_days do
+    if reissue_session_token?(token_inserted_at) do
       create_or_extend_session(conn, user, %{})
     else
       conn
     end
+  end
+
+  defp reissue_session_token?(token_inserted_at) do
+    DateTime.diff(DateTime.utc_now(:second), token_inserted_at, :day) >=
+      @session_reissue_age_in_days
   end
 
   # This function is the one responsible for creating session tokens
@@ -217,63 +236,85 @@ defmodule LiminalWeb.UserAuth do
 
   def on_mount(:require_authenticated, _params, session, socket) do
     socket = mount_current_scope(socket, session)
-
-    if socket.assigns.current_scope && socket.assigns.current_scope.user do
-      {:cont, socket}
-    else
-      redirect_path =
-        if Accounts.any_admins?(), do: ~p"/users/log-in", else: ~p"/users/register"
-
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
-        |> Phoenix.LiveView.redirect(to: redirect_path)
-
-      {:halt, socket}
-    end
+    require_authenticated_mount(socket)
   end
 
   def on_mount(:require_sudo_mode, _params, session, socket) do
     socket = mount_current_scope(socket, session)
-
-    if Accounts.sudo_mode?(socket.assigns.current_scope.user, -10) do
-      {:cont, socket}
-    else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You must re-authenticate to access this page.")
-        |> Phoenix.LiveView.redirect(to: ~p"/users/log-in")
-
-      {:halt, socket}
-    end
+    require_sudo_mount(socket)
   end
 
   def on_mount(:require_admin, _params, session, socket) do
     socket = mount_current_scope(socket, session)
+    require_admin_mount(socket)
+  end
 
-    if socket.assigns.current_scope && socket.assigns.current_scope.user &&
-         Scope.admin?(socket.assigns.current_scope) do
+  defp require_authenticated_mount(%{assigns: %{current_scope: %Scope{user: %User{}}}} = socket),
+    do: {:cont, socket}
+
+  defp require_authenticated_mount(socket), do: halt_unauthenticated_live(socket)
+
+  defp require_sudo_mount(%{assigns: %{current_scope: %Scope{user: %User{} = user}}} = socket) do
+    if Accounts.sudo_mode?(user, -10) do
       {:cont, socket}
     else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You are not authorized to access this page.")
-        |> Phoenix.LiveView.redirect(to: ~p"/")
-
-      {:halt, socket}
+      halt_sudo_required_live(socket)
     end
+  end
+
+  defp require_sudo_mount(socket), do: halt_sudo_required_live(socket)
+
+  defp require_admin_mount(
+         %{assigns: %{current_scope: %Scope{user: %User{role: "admin"}}}} = socket
+       ),
+       do: {:cont, socket}
+
+  defp require_admin_mount(socket), do: halt_unauthorized_live(socket)
+
+  defp halt_unauthenticated_live(socket) do
+    socket =
+      socket
+      |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+      |> Phoenix.LiveView.redirect(to: unauthenticated_redirect_path())
+
+    {:halt, socket}
+  end
+
+  defp halt_sudo_required_live(socket) do
+    socket =
+      socket
+      |> Phoenix.LiveView.put_flash(:error, "You must re-authenticate to access this page.")
+      |> Phoenix.LiveView.redirect(to: ~p"/users/log-in")
+
+    {:halt, socket}
+  end
+
+  defp halt_unauthorized_live(socket) do
+    socket =
+      socket
+      |> Phoenix.LiveView.put_flash(:error, "You are not authorized to access this page.")
+      |> Phoenix.LiveView.redirect(to: ~p"/")
+
+    {:halt, socket}
   end
 
   defp mount_current_scope(socket, session) do
     Phoenix.Component.assign_new(socket, :current_scope, fn ->
-      {user, _} =
-        if user_token = session["user_token"] do
-          Accounts.get_user_by_session_token(user_token)
-        end || {nil, nil}
-
-      Scope.for_user(user)
+      session
+      |> current_user_from_session()
+      |> Scope.for_user()
     end)
   end
+
+  defp current_user_from_session(%{"user_token" => user_token})
+       when user_token not in [nil, false] do
+    case Accounts.get_user_by_session_token(user_token) do
+      {user, _token_inserted_at} -> user
+      _ -> nil
+    end
+  end
+
+  defp current_user_from_session(_session), do: nil
 
   @doc "Returns the path to redirect to after log in."
   # the user was already logged in, redirect to settings
@@ -286,32 +327,46 @@ defmodule LiminalWeb.UserAuth do
   @doc """
   Plug for routes that require the user to be authenticated.
   """
-  def require_authenticated_user(conn, _opts) do
-    if conn.assigns.current_scope && conn.assigns.current_scope.user do
-      conn
-    else
-      redirect_path =
-        if Accounts.any_admins?(), do: ~p"/users/log-in", else: ~p"/users/register"
-
-      conn
-      |> put_flash(:error, "You must log in to access this page.")
-      |> maybe_store_return_to()
-      |> redirect(to: redirect_path)
-      |> halt()
-    end
+  def require_authenticated_user(
+        %{assigns: %{current_scope: %Scope{user: %User{}}}} = conn,
+        _opts
+      ) do
+    conn
   end
+
+  def require_authenticated_user(conn, _opts), do: halt_unauthenticated_conn(conn)
 
   @doc """
   Plug for routes that require the user to be an admin.
   """
-  def require_admin_user(conn, _opts) do
-    if Scope.admin?(conn.assigns.current_scope) do
-      conn
-    else
-      conn
-      |> put_flash(:error, "You are not authorized to access this page.")
-      |> redirect(to: ~p"/")
-      |> halt()
+  def require_admin_user(
+        %{assigns: %{current_scope: %Scope{user: %User{role: "admin"}}}} = conn,
+        _opts
+      ) do
+    conn
+  end
+
+  def require_admin_user(conn, _opts), do: halt_unauthorized_conn(conn)
+
+  defp halt_unauthenticated_conn(conn) do
+    conn
+    |> put_flash(:error, "You must log in to access this page.")
+    |> maybe_store_return_to()
+    |> redirect(to: unauthenticated_redirect_path())
+    |> halt()
+  end
+
+  defp halt_unauthorized_conn(conn) do
+    conn
+    |> put_flash(:error, "You are not authorized to access this page.")
+    |> redirect(to: ~p"/")
+    |> halt()
+  end
+
+  defp unauthenticated_redirect_path do
+    case Accounts.any_admins?() do
+      true -> ~p"/users/log-in"
+      false -> ~p"/users/register"
     end
   end
 

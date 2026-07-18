@@ -8,6 +8,8 @@ defmodule Liminal.Links.Janitor do
 
   use GenServer
 
+  alias Liminal.Links.{Expiration, Indexing}
+
   @default_sweep_interval_ms :timer.minutes(5)
 
   ## Client API
@@ -29,16 +31,11 @@ defmodule Liminal.Links.Janitor do
 
   @impl true
   def handle_info(:sweep, state) do
-    Liminal.Links.cleanup_expired()
+    Expiration.cleanup_expired()
 
     if Application.get_env(:liminal, :start_indexer, true) do
-      Liminal.Links.list_index_retry_candidates()
-      |> Enum.each(fn link ->
-        Task.Supervisor.start_child(
-          Liminal.Links.IndexerTaskSupervisor,
-          fn -> Liminal.Links.Indexer.index(link.id, link.user_id) end
-        )
-      end)
+      Indexing.list_index_retry_candidates()
+      |> Enum.each(&Indexing.queue_index(&1.id, &1.user_id))
     end
 
     schedule_sweep(sweep_interval_ms())

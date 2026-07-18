@@ -41,22 +41,9 @@ defmodule Liminal.Links.OEmbed do
   """
   @spec discover_endpoint(String.t(), String.t()) :: String.t() | nil
   def discover_endpoint(html, page_url) when is_binary(html) and html != "" do
-    pattern =
-      ~r/<link\s+(?=[^>]*\brel\s*=\s*["']alternate["'])(?=[^>]*\btype\s*=\s*["']application\/json\+oembed["'])(?=[^>]*\bhref\s*=\s*["']([^"']+)["'])[^>]*\/?>/si
-
-    case Regex.run(pattern, html) do
-      [_, href] ->
-        resolve_url(href, page_url)
-
-      _ ->
-        alt_pattern =
-          ~r/<link\s+(?=[^>]*\bhref\s*=\s*["']([^"']+)["'])(?=[^>]*\btype\s*=\s*["']application\/json\+oembed["'])(?=[^>]*\brel\s*=\s*["']alternate["'])[^>]*\/?>/si
-
-        case Regex.run(alt_pattern, html) do
-          [_, href] -> resolve_url(href, page_url)
-          _ -> nil
-        end
-    end
+    oembed_link_pattern()
+    |> Regex.run(html)
+    |> endpoint_from_match(page_url)
   end
 
   def discover_endpoint(_html, _page_url), do: nil
@@ -64,6 +51,13 @@ defmodule Liminal.Links.OEmbed do
   defp discover_or_known_endpoint(url, html) do
     discover_endpoint(html || "", url) || known_endpoint(url)
   end
+
+  defp oembed_link_pattern do
+    ~r/<link\s+(?=[^>]*\brel\s*=\s*["']alternate["'])(?=[^>]*\btype\s*=\s*["']application\/json\+oembed["'])(?=[^>]*\bhref\s*=\s*["']([^"']+)["'])[^>]*\/?>/si
+  end
+
+  defp endpoint_from_match([_, href], page_url), do: resolve_url(href, page_url)
+  defp endpoint_from_match(_, _page_url), do: nil
 
   defp known_endpoint(url) do
     case video_provider(url) do

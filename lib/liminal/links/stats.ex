@@ -36,18 +36,14 @@ defmodule Liminal.Links.Stats do
   end
 
   def user_stats(nil) do
-    %{
-      total_links: count_links(nil),
-      unviewed_links: count_links(nil, :unviewed),
-      viewed_links: count_links(nil, :viewed),
-      expiring_soon: count_expiring(nil, :soon),
-      about_to_expire: count_expiring(nil, :about),
-      index_failed: count_index_failed(nil),
-      top_domains: top_domains(nil, 5)
-    }
+    scoped_stats(nil)
   end
 
   def user_stats(user_id) when is_binary(user_id) do
+    scoped_stats(user_id)
+  end
+
+  defp scoped_stats(user_id) do
     %{
       total_links: count_links(user_id),
       unviewed_links: count_links(user_id, :unviewed),
