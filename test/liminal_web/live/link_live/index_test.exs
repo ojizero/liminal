@@ -761,6 +761,17 @@ defmodule LiminalWeb.LinkLive.IndexTest do
       assert has_element?(view, "#links", "Tag Me")
     end
 
+    test "add-tag menu scrolls instead of growing with the tag list", %{conn: conn, scope: scope} do
+      tag = Enum.at(Liminal.Links.list_tags(scope), 0)
+      for i <- 1..30, do: tag_fixture(scope, %{name: "tag #{i}"})
+
+      link_fixture(scope, %{url: "https://many-tags.com", title: "Many Tags", tag_ids: [tag.id]})
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      assert has_element?(view, "ul.dropdown-content.max-h-64.flex-nowrap.overflow-y-auto")
+    end
+
     test "untag last tag deletes the link", %{conn: conn, scope: scope} do
       tag = tag_fixture(scope)
 

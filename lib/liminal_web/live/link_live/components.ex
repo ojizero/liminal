@@ -500,7 +500,8 @@ defmodule LiminalWeb.LinkLive.Components do
             >
               <.icon name="hero-plus" class="size-3" /> tag
             </summary>
-            <ul class="dropdown-content menu bg-base-200 rounded-box z-10 p-2 shadow mt-1">
+            <%!-- flex-nowrap: daisyUI `menu` wraps into extra columns instead of scrolling --%>
+            <ul class="dropdown-content menu bg-base-200 rounded-box z-10 mt-1 max-h-64 flex-nowrap overflow-y-auto overscroll-contain p-2 shadow">
               <li :for={tag <- available}>
                 <.with_tooltip tip={"Expires in #{tag.expires_in_days} days"}>
                   <button

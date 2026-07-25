@@ -62,13 +62,19 @@ window.addEventListener("phx:page-loading-start", (event) => {
 })
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
-// Close dropdowns when clicking outside
-document.addEventListener("click", (event) => {
+// Close dropdowns when clicking outside, or on Escape as the modals do
+const closeDropdowns = (shouldClose) => {
   document.querySelectorAll("details.dropdown[open]").forEach((details) => {
-    if (!details.contains(event.target)) {
-      details.removeAttribute("open")
-    }
+    if (shouldClose(details)) details.removeAttribute("open")
   })
+}
+
+document.addEventListener("click", (event) => {
+  closeDropdowns((details) => !details.contains(event.target))
+})
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeDropdowns(() => true)
 })
 
 // connect if there are any LiveViews on the page
