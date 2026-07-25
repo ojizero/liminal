@@ -22,6 +22,16 @@ defmodule LiminalWeb.TagLive.IndexTest do
       assert has_element?(view, "#tags", "My Tag")
     end
 
+    test "close button stays outside the scrollable modal body", %{conn: conn, scope: scope} do
+      for i <- 1..30, do: tag_fixture(scope, %{name: "tag #{i}"})
+
+      {:ok, view, _html} = live(conn, ~p"/tags")
+
+      assert has_element?(view, "#tags-modal-body")
+      assert has_element?(view, "#tags-modal-header #tags-modal-close")
+      refute has_element?(view, "#tags-modal-body #tags-modal-close")
+    end
+
     test "add a tag via form", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/tags")
 

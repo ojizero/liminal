@@ -6,6 +6,9 @@ defmodule LiminalWeb.Components.Modal do
   - **Visible:** `open` + daisyUI `modal` classes (daisy styles `dialog[open]`).
   - **Close:** `on_cancel` via corner ✕, backdrop click, or Escape.
   - **Mobile:** bottom sheet (`modal-bottom sm:modal-middle`) for touch-friendly reach.
+  - **Overflow:** the title/✕ header is pinned and only the body scrolls, so the ✕
+    stays reachable when content is taller than the viewport. Escape is unavailable
+    on touch devices, which makes the ✕ the primary dismiss control there.
 
   See [responsive](https://daisyui.com/components/modal/#responsive),
   [click-outside](https://daisyui.com/components/modal/#dialog-modal-closes-when-clicked-outside),
@@ -36,11 +39,19 @@ defmodule LiminalWeb.Components.Modal do
 
   def modal(assigns) do
     box_class =
-      ["modal-box", "relative", assigns[:box_class]]
+      [
+        "modal-box",
+        # daisyUI caps the box with `vh`; `dvh` keeps mobile browser chrome out of the way
+        "flex max-h-[calc(100dvh-5rem)] flex-col overflow-hidden",
+        assigns[:box_class]
+      ]
       |> Enum.reject(&is_nil/1)
       |> Enum.join(" ")
 
-    assigns = assign(assigns, :box_class, box_class)
+    assigns =
+      assigns
+      |> assign(:box_class, box_class)
+      |> assign(:close?, assigns.closeable && assigns.show_close)
 
     ~H"""
     <dialog
@@ -54,22 +65,28 @@ defmodule LiminalWeb.Components.Modal do
       phx-key="Escape"
     >
       <div class={@box_class}>
-        <button
-          :if={@closeable && @show_close}
-          type="button"
-          id={"#{@id}-close"}
-          class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-          phx-click={@on_cancel}
-          aria-label={gettext("close")}
+        <div
+          :if={@title != [] || @close?}
+          id={"#{@id}-header"}
+          class={["flex shrink-0 items-start justify-between gap-4", @title != [] && "pb-4"]}
         >
-          <.icon name="hero-x-mark" class="size-4" />
-        </button>
+          <h2 :if={@title != []} id={"#{@id}-title"} class="text-lg font-bold">
+            {render_slot(@title)}
+          </h2>
 
-        <h2 :if={@title != []} id={"#{@id}-title"} class="text-lg font-bold pr-10">
-          {render_slot(@title)}
-        </h2>
+          <button
+            :if={@close?}
+            type="button"
+            id={"#{@id}-close"}
+            class="btn btn-sm btn-circle btn-ghost -mr-2 -mt-2 ml-auto"
+            phx-click={@on_cancel}
+            aria-label={gettext("close")}
+          >
+            <.icon name="hero-x-mark" class="size-4" />
+          </button>
+        </div>
 
-        <div class={@title != [] && "py-4"}>
+        <div id={"#{@id}-body"} class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {render_slot(@inner_block)}
         </div>
       </div>

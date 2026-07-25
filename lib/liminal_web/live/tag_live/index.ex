@@ -20,7 +20,7 @@ defmodule LiminalWeb.TagLive.Index do
         </.form>
       </div>
 
-      <div :if={@action == :manage_tags} class="mb-4">
+      <div :if={@action == :manage_tags} class="sticky top-0 z-10 bg-base-100 pb-4">
         <.button variant="primary" patch={~p"/tags/new"}>
           <.icon name="hero-plus" class="size-4" /> New Tag
         </.button>
