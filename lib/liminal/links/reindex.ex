@@ -10,6 +10,7 @@ defmodule Liminal.Links.Reindex do
 
   use GenServer
 
+  alias Liminal.Accounts.Scope
   alias Liminal.Links.{Indexing, Link}
   alias Liminal.Repo
 
@@ -43,6 +44,8 @@ defmodule Liminal.Links.Reindex do
   @doc """
   Starts a reindex job for the given scope.
 
+  Requires `:user_id` in opts (the user who started the job).
+
   Returns `{:ok, job}` or `{:error, :already_running}`.
 
   ## Scopes
@@ -56,10 +59,33 @@ defmodule Liminal.Links.Reindex do
     GenServer.call(__MODULE__, {:start_job, scope, opts})
   end
 
-  @doc "Cancels the in-flight reindex job."
-  def cancel do
-    GenServer.call(__MODULE__, :cancel)
+  @doc """
+  Cancels the active reindex job identified by `job.id` when permitted.
+
+  Authorization is checked against the server-side active job, not the
+  caller-supplied map. Returns `:ok`, `{:error, :not_found}`, or
+  `{:error, :unauthorized}`.
+  """
+  def cancel(scope, %{id: job_id}) do
+    GenServer.call(__MODULE__, {:cancel, scope, job_id})
   end
+
+  @doc """
+  Cancels the active reindex job when it belongs to `scope.user`.
+
+  Admins cancel another user's job via `cancel/2`. Returns `:ok` or
+  `{:error, :not_found}`.
+  """
+  def cancel_all(scope) do
+    GenServer.call(__MODULE__, {:cancel_all, scope})
+  end
+
+  @doc "Returns whether the current scope can cancel the given reindex status."
+  def can_cancel?(scope, %{active: true, user_id: user_id}) do
+    Scope.admin?(scope) or scope.user.id == user_id
+  end
+
+  def can_cancel?(_scope, _status), do: false
 
   @doc false
   def pubsub_topic, do: @pubsub_topic
@@ -89,23 +115,35 @@ defmodule Liminal.Links.Reindex do
   @impl true
   def handle_call({:start_job, scope, opts}, _from, _state) do
     link_ids = Indexing.list_reindex_link_ids(scope)
-    requested_by = Keyword.get(opts, :requested_by)
+    user_id = Keyword.fetch!(opts, :user_id)
 
-    start_job_reply(scope, requested_by, link_ids)
+    start_job_reply(scope, user_id, link_ids)
   end
 
   @impl true
-  def handle_call(:cancel, _from, %{active_job: nil} = state) do
-    {:reply, :ok, state}
+  def handle_call({:cancel, scope, job_id}, _from, state) do
+    case state.active_job do
+      %{id: ^job_id} = job ->
+        if authorized_cancel?(scope, job) do
+          {:reply, :ok, do_cancel(state)}
+        else
+          {:reply, {:error, :unauthorized}, state}
+        end
+
+      _ ->
+        {:reply, {:error, :not_found}, state}
+    end
   end
 
   @impl true
-  def handle_call(:cancel, _from, state) do
-    state = cancel_timer(state)
-    cancelled = state.active_job
-    new_state = idle_state() |> put_last_job(cancelled, :cancelled)
-    broadcast_progress(new_state)
-    {:reply, :ok, new_state}
+  def handle_call({:cancel_all, scope}, _from, state) do
+    case state.active_job do
+      %{user_id: user_id} when user_id == scope.user.id ->
+        {:reply, :ok, do_cancel(state)}
+
+      _ ->
+        {:reply, {:error, :not_found}, state}
+    end
   end
 
   @impl true
@@ -124,32 +162,44 @@ defmodule Liminal.Links.Reindex do
   defp running?(%{active_job: nil}), do: false
   defp running?(%{active_job: _}), do: true
 
-  defp start_job_reply(_scope, _requested_by, []) do
+  defp authorized_cancel?(scope, job) do
+    Scope.admin?(scope) or job.user_id == scope.user.id
+  end
+
+  defp do_cancel(state) do
+    state = cancel_timer(state)
+    cancelled = state.active_job
+    new_state = idle_state() |> put_last_job(cancelled, :cancelled)
+    broadcast_progress(new_state)
+    new_state
+  end
+
+  defp start_job_reply(_scope, _user_id, []) do
     state = idle_state()
     {:reply, {:ok, public_status(state)}, state}
   end
 
-  defp start_job_reply({:link, _} = scope, requested_by, [_link_id] = link_ids) do
-    state = build_job_state(scope, requested_by, link_ids)
+  defp start_job_reply({:link, _} = scope, user_id, [_link_id] = link_ids) do
+    state = build_job_state(scope, user_id, link_ids)
     {state, _done?} = process_batch(state)
     finished_state = finish_job(state)
     broadcast_progress(finished_state)
     {:reply, {:ok, public_status(finished_state)}, finished_state}
   end
 
-  defp start_job_reply(scope, requested_by, link_ids) do
-    state = build_job_state(scope, requested_by, link_ids)
-
+  defp start_job_reply(scope, user_id, link_ids) do
+    state = build_job_state(scope, user_id, link_ids)
     broadcast_progress(state)
-    schedule_batch(state)
+    state = schedule_batch(state)
     {:reply, {:ok, public_status(state)}, state}
   end
 
-  defp build_job_state(scope, requested_by, link_ids) do
+  defp build_job_state(scope, user_id, link_ids) do
     job = %{
+      id: Ecto.UUID.generate(),
       scope: scope,
       mode: job_mode(scope),
-      requested_by: requested_by,
+      user_id: user_id,
       total: length(link_ids),
       processed: 0,
       queue: :queue.from_list(link_ids),
@@ -197,7 +247,7 @@ defmodule Liminal.Links.Reindex do
 
   defp batch_reply({state, false}) do
     broadcast_progress(state)
-    schedule_batch(%{state | active_job: %{state.active_job | timer_ref: nil}})
+    state = schedule_batch(%{state | active_job: %{state.active_job | timer_ref: nil}})
     {:noreply, state}
   end
 
@@ -210,7 +260,7 @@ defmodule Liminal.Links.Reindex do
       state
       | last_job:
           Map.merge(
-            Map.take(job, [:scope, :mode, :total, :processed, :started_at, :requested_by]),
+            Map.take(job, [:id, :scope, :mode, :total, :processed, :started_at, :user_id]),
             %{outcome: outcome}
           )
     }
@@ -241,13 +291,14 @@ defmodule Liminal.Links.Reindex do
     %{
       active: false,
       status: :idle,
+      id: nil,
       scope: nil,
       mode: nil,
       total: 0,
       processed: 0,
       remaining: 0,
       started_at: nil,
-      requested_by: nil,
+      user_id: nil,
       last_job: public_last_job(last_job)
     }
   end
@@ -256,13 +307,14 @@ defmodule Liminal.Links.Reindex do
     %{
       active: true,
       status: :running,
+      id: job.id,
       scope: job.scope,
       mode: job.mode,
       total: job.total,
       processed: job.processed,
       remaining: :queue.len(job.queue),
       started_at: job.started_at,
-      requested_by: job.requested_by,
+      user_id: job.user_id,
       last_job: public_last_job(last_job)
     }
   end
@@ -270,7 +322,7 @@ defmodule Liminal.Links.Reindex do
   defp public_last_job(nil), do: nil
 
   defp public_last_job(job) do
-    Map.take(job, [:scope, :mode, :total, :processed, :started_at, :requested_by, :outcome])
+    Map.take(job, [:id, :scope, :mode, :total, :processed, :started_at, :user_id, :outcome])
   end
 
   defp broadcast_progress(state) do

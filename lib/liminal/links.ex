@@ -193,31 +193,22 @@ defmodule Liminal.Links do
   @doc "Starts an instance-wide reindex job. Admin only."
   def start_instance_reindex(scope, mode) when mode in [:all, :failed] do
     ensure_admin!(scope)
-    Reindex.start_job({:instance, mode}, requested_by: scope.user.id)
+    Reindex.start_job({:instance, mode}, user_id: scope.user.id)
   end
 
   @doc "Starts a user-scoped reindex job for the current user."
   def start_user_reindex(scope, mode) when mode in [:all, :failed] do
-    Reindex.start_job({:user, scope.user.id, mode}, requested_by: scope.user.id)
+    Reindex.start_job({:user, scope.user.id, mode}, user_id: scope.user.id)
   end
 
-  @doc "Cancels the current reindex job when permitted."
-  def cancel_reindex(scope) do
-    status = Reindex.status()
+  @doc "Cancels the reindex job identified by `job.id` when permitted."
+  defdelegate cancel(scope, job), to: Reindex
 
-    if can_cancel_reindex?(scope, status) do
-      Reindex.cancel()
-    else
-      {:error, :unauthorized}
-    end
-  end
+  @doc "Cancels the active reindex job when it belongs to the current user."
+  defdelegate cancel_all(scope), to: Reindex
 
-  @doc "Returns whether the current scope can cancel the active reindex job."
-  def can_cancel_reindex?(scope, %{active: true, requested_by: requested_by}) do
-    Scope.admin?(scope) or scope.user.id == requested_by
-  end
-
-  def can_cancel_reindex?(_scope, _status), do: false
+  @doc "Returns whether the current scope can cancel the given reindex status."
+  defdelegate can_cancel?(scope, status), to: Reindex
 
   ## Viewed state
 
