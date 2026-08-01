@@ -35,8 +35,12 @@ defmodule Liminal.Links.ReindexTest do
         set: [indexed_at: now]
       )
 
-      assert {:ok, %{active: true, scope: {:instance, :failed}, total: 1}} =
-               Reindex.start_job({:instance, :failed})
+      assert {:ok,
+              %{active: true, scope: {:instance, :failed}, total: 1, user_id: user_id, id: id}} =
+               Reindex.start_job({:instance, :failed}, user_id: scope.user.id)
+
+      assert user_id == scope.user.id
+      assert is_binary(id)
     end
 
     test "queues all links for a user scope", %{scope: scope} do
@@ -46,7 +50,7 @@ defmodule Liminal.Links.ReindexTest do
       {:ok, _} = Links.create_link(scope, %{url: "https://two.example.com"}, [tag.id])
 
       assert {:ok, %{active: true, scope: {:user, user_id, :all}, total: 2}} =
-               Reindex.start_job({:user, scope.user.id, :all})
+               Reindex.start_job({:user, scope.user.id, :all}, user_id: scope.user.id)
 
       assert user_id == scope.user.id
     end
@@ -60,8 +64,10 @@ defmodule Liminal.Links.ReindexTest do
         set: [index_attempt_count: 2, index_last_attempted_at: now, index_gave_up_at: now]
       )
 
-      assert {:ok, %{active: false, last_job: %{outcome: :completed, total: 1}}} =
-               Reindex.start_job({:link, link.id})
+      assert {:ok, %{active: false, last_job: %{outcome: :completed, total: 1, user_id: user_id}}} =
+               Reindex.start_job({:link, link.id}, user_id: scope.user.id)
+
+      assert user_id == scope.user.id
 
       refetched = Links.get_link!(scope, link.id)
       assert refetched.index_attempt_count == 0
@@ -73,21 +79,112 @@ defmodule Liminal.Links.ReindexTest do
       {:ok, _} = Links.create_link(scope, %{url: "https://busy-one.example.com"}, [tag.id])
       {:ok, _} = Links.create_link(scope, %{url: "https://busy-two.example.com"}, [tag.id])
 
-      assert {:ok, %{active: true}} = Reindex.start_job({:instance, :all})
-      assert {:error, :already_running} = Reindex.start_job({:instance, :failed})
+      assert {:ok, %{active: true}} =
+               Reindex.start_job({:instance, :all}, user_id: scope.user.id)
+
+      assert {:error, :already_running} =
+               Reindex.start_job({:instance, :failed}, user_id: scope.user.id)
+
       assert Reindex.active?()
     end
   end
 
-  describe "cancel/0" do
-    test "stops a running job", %{scope: scope} do
+  describe "cancel/2" do
+    test "owner can stop a running job", %{scope: scope} do
       tag = Liminal.LinksFixtures.tag_fixture(scope)
       {:ok, _} = Links.create_link(scope, %{url: "https://cancel-one.example.com"}, [tag.id])
       {:ok, _} = Links.create_link(scope, %{url: "https://cancel-two.example.com"}, [tag.id])
 
-      assert {:ok, %{active: true}} = Reindex.start_job({:instance, :all})
-      assert :ok = Reindex.cancel()
+      assert {:ok, %{active: true, id: job_id}} =
+               Reindex.start_job({:instance, :all}, user_id: scope.user.id)
+
+      assert :ok = Reindex.cancel(scope, %{id: job_id})
       assert %{active: false, last_job: %{outcome: :cancelled}} = Reindex.status()
+    end
+
+    test "admin can cancel another user's job", %{scope: scope} do
+      tag = Liminal.LinksFixtures.tag_fixture(scope)
+
+      {:ok, _} =
+        Links.create_link(scope, %{url: "https://admin-cancel-one.example.com"}, [tag.id])
+
+      {:ok, _} =
+        Links.create_link(scope, %{url: "https://admin-cancel-two.example.com"}, [tag.id])
+
+      assert {:ok, %{active: true, id: job_id}} =
+               Reindex.start_job({:instance, :all}, user_id: scope.user.id)
+
+      admin_scope = Liminal.AccountsFixtures.admin_scope_fixture()
+      assert :ok = Reindex.cancel(admin_scope, %{id: job_id})
+      assert %{active: false, last_job: %{outcome: :cancelled}} = Reindex.status()
+    end
+
+    test "rejects spoofed ownership via client-supplied user_id", %{scope: scope} do
+      tag = Liminal.LinksFixtures.tag_fixture(scope)
+      {:ok, _} = Links.create_link(scope, %{url: "https://spoof-one.example.com"}, [tag.id])
+      {:ok, _} = Links.create_link(scope, %{url: "https://spoof-two.example.com"}, [tag.id])
+
+      assert {:ok, %{active: true, id: job_id}} =
+               Reindex.start_job({:instance, :all}, user_id: scope.user.id)
+
+      other = Liminal.AccountsFixtures.user_fixture()
+      other_scope = Scope.for_user(other)
+
+      assert {:error, :unauthorized} =
+               Reindex.cancel(other_scope, %{id: job_id, user_id: other.id})
+
+      assert %{active: true, id: ^job_id} = Reindex.status()
+    end
+
+    test "stale id does not cancel a newer job", %{scope: scope} do
+      tag = Liminal.LinksFixtures.tag_fixture(scope)
+      {:ok, _} = Links.create_link(scope, %{url: "https://stale-one.example.com"}, [tag.id])
+      {:ok, _} = Links.create_link(scope, %{url: "https://stale-two.example.com"}, [tag.id])
+
+      assert {:ok, %{active: true, id: first_id}} =
+               Reindex.start_job({:instance, :all}, user_id: scope.user.id)
+
+      assert :ok = Reindex.cancel(scope, %{id: first_id})
+
+      assert {:ok, %{active: true, id: second_id}} =
+               Reindex.start_job({:instance, :all}, user_id: scope.user.id)
+
+      assert first_id != second_id
+      assert {:error, :not_found} = Reindex.cancel(scope, %{id: first_id})
+      assert %{active: true, id: ^second_id} = Reindex.status()
+    end
+  end
+
+  describe "cancel_all/1" do
+    test "cancels the caller's active job", %{scope: scope} do
+      tag = Liminal.LinksFixtures.tag_fixture(scope)
+      {:ok, _} = Links.create_link(scope, %{url: "https://all-one.example.com"}, [tag.id])
+      {:ok, _} = Links.create_link(scope, %{url: "https://all-two.example.com"}, [tag.id])
+
+      assert {:ok, %{active: true}} =
+               Reindex.start_job({:instance, :all}, user_id: scope.user.id)
+
+      assert :ok = Reindex.cancel_all(scope)
+      assert %{active: false, last_job: %{outcome: :cancelled}} = Reindex.status()
+    end
+
+    test "returns :not_found when idle", %{scope: scope} do
+      assert {:error, :not_found} = Reindex.cancel_all(scope)
+    end
+
+    test "returns :not_found when only another user's job is active", %{scope: scope} do
+      tag = Liminal.LinksFixtures.tag_fixture(scope)
+      {:ok, _} = Links.create_link(scope, %{url: "https://other-one.example.com"}, [tag.id])
+      {:ok, _} = Links.create_link(scope, %{url: "https://other-two.example.com"}, [tag.id])
+
+      assert {:ok, %{active: true}} =
+               Reindex.start_job({:instance, :all}, user_id: scope.user.id)
+
+      other = Liminal.AccountsFixtures.user_fixture()
+      other_scope = Scope.for_user(other)
+
+      assert {:error, :not_found} = Reindex.cancel_all(other_scope)
+      assert %{active: true} = Reindex.status()
     end
   end
 
@@ -136,10 +233,12 @@ defmodule Liminal.Links.ReindexTest do
       {:ok, link1} = Links.create_link(scope, %{url: "https://one.example.com"}, [tag.id])
       {:ok, link2} = Links.create_link(scope, %{url: "https://two.example.com"}, [tag.id])
 
-      assert {:ok, %{active: true}} = Reindex.start_job({:instance, :all})
+      assert {:ok, %{active: true, id: job_id}} =
+               Reindex.start_job({:instance, :all}, user_id: scope.user.id)
+
       assert {:error, :reindex_busy} = Links.retry_indexing(scope, link2)
 
-      Reindex.cancel()
+      assert :ok = Reindex.cancel(scope, %{id: job_id})
       assert {:ok, _} = Links.retry_indexing(scope, link1)
     end
   end

@@ -194,15 +194,21 @@ defmodule LiminalWeb.UserLive.Settings do
     start_reindex(socket, mode)
   end
 
-  def handle_event("cancel_reindex", _params, socket) do
+  def handle_event("cancel_reindex", %{"job-id" => job_id}, socket) do
     scope = socket.assigns.current_scope
 
-    case Links.cancel_reindex(scope) do
+    case Links.cancel(scope, %{id: job_id}) do
       :ok ->
         {:noreply,
          socket
          |> assign(:reindex, Links.reindex_status())
          |> put_flash(:info, "Reindex job cancelled.")}
+
+      {:error, :not_found} ->
+        {:noreply,
+         socket
+         |> assign(:reindex, Links.reindex_status())
+         |> put_flash(:error, "Reindex job is no longer active.")}
 
       {:error, :unauthorized} ->
         {:noreply, put_flash(socket, :error, "You cannot cancel this reindex job.")}

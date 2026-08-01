@@ -19,7 +19,7 @@ defmodule LiminalWeb.ReindexComponents do
       assign(
         assigns,
         :cancellable?,
-        Links.can_cancel_reindex?(assigns.current_scope, assigns.reindex)
+        Links.can_cancel?(assigns.current_scope, assigns.reindex)
       )
 
     ~H"""
@@ -104,6 +104,7 @@ defmodule LiminalWeb.ReindexComponents do
           id={"#{@id}-cancel-btn"}
           variant="ghost"
           phx-click="cancel_reindex"
+          phx-value-job-id={@reindex.id}
           phx-disable-with="Cancelling…"
           disabled={!@reindex.active || !@cancellable?}
         >
