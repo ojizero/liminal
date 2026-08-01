@@ -30,12 +30,11 @@ defmodule Liminal.Retry do
   Delay in seconds before the next attempt after `attempt_count` failures.
   """
   def delay_seconds(attempt_count) when is_integer(attempt_count) and attempt_count > 0 do
-    %{base_delay_seconds: base, max_delay_seconds: max_delay} = Map.new(config())
+    config = config()
+    base = Keyword.fetch!(config, :base_delay_seconds)
+    max_delay = Keyword.fetch!(config, :max_delay_seconds)
 
-    min(
-      max_delay,
-      base * Integer.pow(2, attempt_count - 1)
-    )
+    min(max_delay, base * Integer.pow(2, attempt_count - 1))
   end
 
   @doc """
@@ -50,15 +49,5 @@ defmodule Liminal.Retry do
   """
   def give_up?(attempt_count) when is_integer(attempt_count) do
     attempt_count >= Keyword.fetch!(config(), :max_attempts)
-  end
-
-  @doc """
-  Returns true when a link is eligible for indexing retry.
-  """
-  def eligible?(link, now \\ DateTime.utc_now(:second)) do
-    is_nil(link.indexed_at) and
-      is_nil(link.index_gave_up_at) and
-      (is_nil(link.index_next_attempt_at) or
-         DateTime.compare(link.index_next_attempt_at, now) != :gt)
   end
 end

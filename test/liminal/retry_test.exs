@@ -53,38 +53,4 @@ defmodule Liminal.RetryTest do
       assert Retry.give_up?(3)
     end
   end
-
-  describe "eligible?/2" do
-    test "indexed links are not eligible" do
-      link = %Liminal.Links.Link{indexed_at: DateTime.utc_now(:second)}
-
-      refute Retry.eligible?(link)
-    end
-
-    test "gave-up links are not eligible" do
-      link = %Liminal.Links.Link{index_gave_up_at: DateTime.utc_now(:second)}
-
-      refute Retry.eligible?(link)
-    end
-
-    test "links with future next attempt are not eligible" do
-      now = ~U[2026-05-24 12:00:00Z]
-      link = %Liminal.Links.Link{index_next_attempt_at: ~U[2026-05-24 13:00:00Z]}
-
-      refute Retry.eligible?(link, now)
-    end
-
-    test "unindexed links without schedule are eligible" do
-      link = %Liminal.Links.Link{}
-
-      assert Retry.eligible?(link)
-    end
-
-    test "links with past next attempt are eligible" do
-      now = ~U[2026-05-24 12:00:00Z]
-      link = %Liminal.Links.Link{index_next_attempt_at: ~U[2026-05-24 11:00:00Z]}
-
-      assert Retry.eligible?(link, now)
-    end
-  end
 end
