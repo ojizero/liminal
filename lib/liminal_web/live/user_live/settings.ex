@@ -1,6 +1,7 @@
 defmodule LiminalWeb.UserLive.Settings do
   use LiminalWeb, :live_view
 
+  import LiminalWeb.ExpiryPauseComponents
   import LiminalWeb.ReindexComponents, only: [reindex_scope_label: 2]
   import LiminalWeb.UserLive.SettingsComponents
 
@@ -8,6 +9,7 @@ defmodule LiminalWeb.UserLive.Settings do
 
   alias Liminal.Accounts
   alias Liminal.Links
+  alias LiminalWeb.UserAuth
 
   @impl true
   def render(assigns) do
@@ -28,6 +30,7 @@ defmodule LiminalWeb.UserLive.Settings do
           current_username={@current_username}
         />
         <.preferences_panel settings_form={@settings_form} tags={@tags} />
+        <.expiry_pause_panel current_scope={@current_scope} pause_form={@pause_form} />
         <.account_actions_section current_scope={@current_scope} />
       </div>
     </Layouts.app>
@@ -43,6 +46,7 @@ defmodule LiminalWeb.UserLive.Settings do
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Liminal.PubSub, Links.Reindex.pubsub_topic())
+      Links.subscribe_expiry_pause(scope)
     end
 
     socket =
@@ -54,6 +58,7 @@ defmodule LiminalWeb.UserLive.Settings do
       |> assign(:username_form, to_form(username_changeset))
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:settings_form, to_form(Accounts.change_user_settings(user)))
+      |> assign(:pause_form, pause_form(user))
       |> assign(:tags, Links.list_tags(scope))
       |> assign(:trigger_submit, false)
 
@@ -72,6 +77,10 @@ defmodule LiminalWeb.UserLive.Settings do
      socket
      |> assign(:reindex, reindex)
      |> assign(:stats, Links.user_stats(scope))}
+  end
+
+  def handle_info({:expiry_pause_changed, user}, socket) do
+    {:noreply, apply_expiry_pause(socket, user)}
   end
 
   @impl true
@@ -156,6 +165,28 @@ defmodule LiminalWeb.UserLive.Settings do
     end
   end
 
+  def handle_event("pause_expiries", %{"expiry_pause" => params}, socket) do
+    scope = socket.assigns.current_scope
+    days = parse_days(params["days"])
+
+    result =
+      case params["enabled"] do
+        "true" -> Links.pause_expiries(scope, days)
+        _ -> Links.resume_expiries(scope)
+      end
+
+    case result do
+      {:ok, user} ->
+        {:noreply,
+         socket
+         |> apply_expiry_pause(user, days)
+         |> put_flash(:info, expiry_pause_flash(user))}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Could not update the expiry pause.")}
+    end
+  end
+
   def handle_event("delete_account", _params, socket) do
     scope = socket.assigns.current_scope
     true = Accounts.sudo_mode?(scope.user)
@@ -206,6 +237,22 @@ defmodule LiminalWeb.UserLive.Settings do
 
       {:error, :unauthorized} ->
         {:noreply, put_flash(socket, :error, "You cannot cancel this reindex job.")}
+    end
+  end
+
+  defp apply_expiry_pause(socket, user, days \\ nil) do
+    days = days || parse_days(socket.assigns.pause_form.params["days"])
+    socket = UserAuth.assign_scope_user(socket, user)
+
+    socket
+    |> assign(:pause_form, pause_form(socket.assigns.current_scope.user, days))
+    |> assign(:stats, Links.user_stats(socket.assigns.current_scope))
+  end
+
+  defp expiry_pause_flash(user) do
+    case Links.expiry_pause_resumes_at(user) do
+      nil -> "Expiries resumed."
+      resumes_at -> "Expiries paused until #{Calendar.strftime(resumes_at, "%b %-d, %Y")}."
     end
   end
 

@@ -120,6 +120,19 @@ defmodule Liminal.Accounts do
     |> Repo.update()
   end
 
+  @doc """
+  Writes the user's expiry pause window.
+
+  Pass `nil` timestamps to clear it. Callers should go through
+  `Liminal.Links.pause_expiries/2` and `Liminal.Links.resume_expiries/1` so the
+  stored expiry deadlines stay in step with the pause.
+  """
+  def update_expiry_pause(user, attrs) do
+    user
+    |> User.expiry_pause_changeset(attrs)
+    |> Repo.update()
+  end
+
   ## Session
 
   @doc "Creates and persists a session token."

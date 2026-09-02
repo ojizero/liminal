@@ -4,11 +4,17 @@ defmodule Liminal.Links.Viewed do
   """
 
   alias Liminal.Links.Events
+  alias Liminal.Links.ExpiryPause
   alias Liminal.Repo
 
-  @doc "Marks a link as viewed now."
+  @doc """
+  Marks a link as viewed now.
+
+  The timestamp is written on the expiry clock, so a link viewed during a pause
+  keeps its full grace period once expiries resume.
+  """
   def mark_viewed(scope, link) do
-    update_viewed_at(scope, link, DateTime.utc_now(:second))
+    update_viewed_at(scope, link, ExpiryPause.expiry_now(scope.user.id))
   end
 
   @doc "Clears the viewed timestamp on a link."

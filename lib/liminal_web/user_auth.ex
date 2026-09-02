@@ -249,6 +249,17 @@ defmodule LiminalWeb.UserAuth do
     require_admin_mount(socket)
   end
 
+  @doc """
+  Replaces the scope's user with a freshly loaded one, keeping the virtual fields
+  that only live on the socket's copy.
+  """
+  def assign_scope_user(socket, %User{} = user) do
+    %Scope{user: current} = scope = socket.assigns.current_scope
+    user = %{user | authenticated_at: current.authenticated_at}
+
+    Phoenix.Component.assign(socket, :current_scope, %Scope{scope | user: user})
+  end
+
   defp require_authenticated_mount(%{assigns: %{current_scope: %Scope{user: %User{}}}} = socket),
     do: {:cont, socket}
 

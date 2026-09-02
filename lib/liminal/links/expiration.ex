@@ -7,30 +7,45 @@ defmodule Liminal.Links.Expiration do
 
   require Logger
 
-  alias Liminal.Links.{Events, Link, LinkTag, Tagging}
+  alias Liminal.Links.{Events, ExpiryPause, Link, LinkTag, Tagging}
   alias Liminal.Repo
 
   @default_viewed_grace_seconds 86_400
 
   @doc """
-  Returns when a link expires.
+  Returns when a link expires, on the wall clock.
+
+  Pass the owner's pause (a scope, user, or `nil`) as the second argument to see the
+  deadline where a running pause has pushed it. Deadlines are stored on the expiry
+  clock, so without it the raw stored value is returned. See `Liminal.Links.ExpiryPause`.
   """
-  def link_expires_at(%Link{viewed_at: viewed_at}) when not is_nil(viewed_at) do
-    DateTime.add(viewed_at, viewed_grace_seconds(), :second)
+  def link_expires_at(link, pause \\ nil)
+
+  def link_expires_at(%Link{viewed_at: viewed_at}, pause) when not is_nil(viewed_at) do
+    viewed_at
+    |> DateTime.add(viewed_grace_seconds(), :second)
+    |> ExpiryPause.wall_clock(pause)
   end
 
-  def link_expires_at(%Link{} = link) do
+  def link_expires_at(%Link{} = link, pause) do
     link.link_tags
     |> Enum.map(& &1.expires_at)
     |> Enum.reject(&is_nil/1)
     |> latest_expiry()
+    |> ExpiryPause.wall_clock(pause)
   end
 
   @doc """
   Deletes stale viewed links, expired link_tags, and orphaned links.
+
+  Pauses that have run out are settled first, so their owners' deadlines have the
+  paused time folded in before anything is considered for deletion. Users still on a
+  pause are skipped entirely.
   """
   def cleanup_expired do
     now = DateTime.utc_now(:second)
+
+    ExpiryPause.settle_lapsed_pauses(now)
 
     now
     |> stale_viewed_link_ids()
@@ -49,16 +64,22 @@ defmodule Liminal.Links.Expiration do
   defp stale_viewed_link_ids(now) do
     viewed_cutoff = viewed_expiry_cutoff(now)
 
-    from(l in Link,
-      where: not is_nil(l.viewed_at) and l.viewed_at <= ^viewed_cutoff,
-      select: l.id
-    )
+    from(l in Link, where: not is_nil(l.viewed_at) and l.viewed_at <= ^viewed_cutoff)
+    |> ExpiryPause.exclude_paused_links(now)
+    |> select([l], l.id)
     |> Repo.all()
   end
 
   defp expired_link_tag_ids(now) do
+    paused_free_link_ids =
+      from(l in Link)
+      |> ExpiryPause.exclude_paused_links(now)
+      |> select([l], l.id)
+
     from(lt in LinkTag,
-      where: not is_nil(lt.expires_at) and lt.expires_at <= ^now,
+      where:
+        not is_nil(lt.expires_at) and lt.expires_at <= ^now and
+          lt.link_id in subquery(paused_free_link_ids),
       select: lt.id
     )
     |> Repo.all()

@@ -47,7 +47,10 @@ defmodule LiminalWeb.Router do
     get "/links/random", LinkController, :random
 
     live_session :require_authenticated_user,
-      on_mount: [{LiminalWeb.UserAuth, :require_authenticated}] do
+      on_mount: [
+        {LiminalWeb.UserAuth, :require_authenticated},
+        {LiminalWeb.ExpiryPauseHooks, :default}
+      ] do
       live "/users/settings", UserLive.Settings, :edit
 
       live "/", LinkLive.Index, :index
@@ -64,7 +67,10 @@ defmodule LiminalWeb.Router do
     pipe_through [:browser, :require_authenticated_user, :require_admin_user]
 
     live_session :require_admin,
-      on_mount: [{LiminalWeb.UserAuth, :require_admin}] do
+      on_mount: [
+        {LiminalWeb.UserAuth, :require_admin},
+        {LiminalWeb.ExpiryPauseHooks, :default}
+      ] do
       live "/", DashboardLive, :index
       live "/users", UserLive.Index, :index
       live "/users/new", UserLive.Index, :new
@@ -75,7 +81,10 @@ defmodule LiminalWeb.Router do
     pipe_through [:browser]
 
     live_session :current_user,
-      on_mount: [{LiminalWeb.UserAuth, :mount_current_scope}] do
+      on_mount: [
+        {LiminalWeb.UserAuth, :mount_current_scope},
+        {LiminalWeb.ExpiryPauseHooks, :default}
+      ] do
       live "/users/register", UserLive.Registration, :new
       live "/users/log-in", UserLive.Login, :new
       live "/users/reset-password/:token", UserLive.ResetPassword, :edit

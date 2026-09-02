@@ -5,6 +5,8 @@ defmodule LiminalWeb.Layouts do
   """
   use LiminalWeb, :html
 
+  import LiminalWeb.ExpiryPauseComponents
+
   alias Liminal.Accounts.Scope
 
   # Embed all files in layouts/* within this module.
@@ -125,6 +127,8 @@ defmodule LiminalWeb.Layouts do
         <% end %>
       </div>
     </header>
+
+    <.expiry_pause_banner current_scope={@current_scope} />
 
     <main id="main-content" class="px-4 py-8 sm:px-6 lg:px-8">
       <div class="mx-auto max-w-6xl space-y-4">
