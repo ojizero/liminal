@@ -86,6 +86,24 @@ defmodule LiminalWeb.ExpiryPauseTest do
       settle_pause_broadcast(view)
     end
 
+    test "picking a length while expiries are running only records the choice", %{
+      conn: conn,
+      user: user
+    } do
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      html =
+        view
+        |> form("#expiry-pause-form", expiry_pause: %{enabled: "false", days: "60"})
+        |> render_change()
+
+      refute html =~ "Expiries resumed."
+      refute html =~ "Expiries paused"
+      refute Links.expiry_paused?(Accounts.get_user!(user.id))
+
+      assert has_element?(view, "#expiry-pause-form select option[value='60'][selected]")
+    end
+
     test "toggling the pause off resumes expiries", %{conn: conn, user: user} do
       {:ok, view, _html} = live(conn, ~p"/users/settings")
 

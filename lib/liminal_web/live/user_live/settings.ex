@@ -169,13 +169,10 @@ defmodule LiminalWeb.UserLive.Settings do
     scope = socket.assigns.current_scope
     days = parse_days(params["days"])
 
-    result =
-      case params["enabled"] do
-        "true" -> Links.pause_expiries(scope, days)
-        _ -> Links.resume_expiries(scope)
-      end
+    case change_expiry_pause(scope, params["enabled"], days) do
+      :unchanged ->
+        {:noreply, assign(socket, :pause_form, pause_form(scope.user, days))}
 
-    case result do
       {:ok, user} ->
         {:noreply,
          socket
@@ -238,6 +235,14 @@ defmodule LiminalWeb.UserLive.Settings do
       {:error, :unauthorized} ->
         {:noreply, put_flash(socket, :error, "You cannot cancel this reindex job.")}
     end
+  end
+
+  defp change_expiry_pause(scope, "true", days), do: Links.pause_expiries(scope, days)
+
+  # Picking a length while expiries are running just records the choice for later —
+  # there is nothing to resume, so the panel should stay quiet.
+  defp change_expiry_pause(scope, _enabled, _days) do
+    if Links.expiry_paused?(scope), do: Links.resume_expiries(scope), else: :unchanged
   end
 
   defp apply_expiry_pause(socket, user, days \\ nil) do
