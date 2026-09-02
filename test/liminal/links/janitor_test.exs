@@ -46,6 +46,35 @@ defmodule Liminal.Links.JanitorTest do
     end
   end
 
+  describe "sweep with paused expiries" do
+    test "leaves an overdue link alone while its owner is paused", %{scope: scope} do
+      tag = insert_tag(scope, %{expires_in_days: 1})
+      {:ok, link} = Links.create_link(scope, %{url: "https://example.com"}, [tag.id])
+      expire_link_tags(link)
+
+      {:ok, _paused} = Links.pause_expiries(scope, 7)
+
+      janitor_pid = start_janitor!()
+      send(janitor_pid, :sweep)
+      _ = :sys.get_state(janitor_pid)
+
+      assert Links.get_link!(scope, link.id)
+    end
+
+    test "settles a pause that has run out", %{scope: scope} do
+      {:ok, paused} = Links.pause_expiries(scope, 7)
+      _lapsed = Liminal.LinksFixtures.lapse_expiry_pause(paused)
+
+      janitor_pid = start_janitor!()
+      send(janitor_pid, :sweep)
+      _ = :sys.get_state(janitor_pid)
+
+      settled = Liminal.Accounts.get_user!(scope.user.id)
+      assert is_nil(settled.expiry_paused_at)
+      assert is_nil(settled.expiry_paused_until)
+    end
+  end
+
   describe "sweep with unindexed links" do
     test "sweep completes without error when unindexed links exist", %{scope: scope} do
       tag = insert_tag(scope, %{expires_in_days: 30})
@@ -78,6 +107,13 @@ defmodule Liminal.Links.JanitorTest do
     janitor_pid = start_supervised!({Janitor, skip_initial_sweep: true})
     Ecto.Adapters.SQL.Sandbox.allow(Repo, self(), janitor_pid)
     janitor_pid
+  end
+
+  defp expire_link_tags(link) do
+    Repo.update_all(
+      from(lt in Liminal.Links.LinkTag, where: lt.link_id == ^link.id),
+      set: [expires_at: DateTime.add(DateTime.utc_now(:second), -1, :second)]
+    )
   end
 
   defp insert_tag(scope, attrs) do
