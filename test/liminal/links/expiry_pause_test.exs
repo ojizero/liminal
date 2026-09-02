@@ -53,6 +53,24 @@ defmodule Liminal.Links.ExpiryPauseTest do
       assert DateTime.diff(retimed.expiry_paused_until, retimed.expiry_paused_at) == 30 * @day
     end
 
+    test "settles a lapsed window instead of rolling its time into the new one" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope)
+      [before] = link_tag_expiries(link)
+
+      # A two day pause ran out four days ago and no sweep has settled it.
+      {:ok, paused} = Links.pause_expiries(scope, 2)
+      aged = age_expiry_pause(paused, 6 * @day)
+
+      assert {:ok, repaused} = Links.pause_expiries(Scope.for_user(aged), 30)
+
+      # The old window contributed its two days and the new one starts from scratch.
+      [shifted] = link_tag_expiries(link)
+      assert DateTime.diff(shifted, before) == 2 * @day
+      assert DateTime.diff(repaused.expiry_paused_at, DateTime.utc_now(:second)) >= -5
+      assert ExpiryPause.shift_seconds(repaused) == 0
+    end
+
     test "a length shorter than the time already paused resumes instead" do
       scope = user_scope_fixture()
       link = link_fixture(scope, %{tag_ids: [tag_fixture(scope, %{expires_in_days: 30}).id]})
@@ -375,6 +393,29 @@ defmodule Liminal.Links.ExpiryPauseTest do
 
       {:ok, _paused} = Links.pause_expiries(scope, 30)
       assert Links.instance_stats(admin_scope).expiring_soon == 0
+    end
+  end
+
+  describe "settle/2" do
+    test "shifts deadlines once when two callers hold the same window" do
+      scope = user_scope_fixture()
+      link = link_fixture(scope)
+      [before] = link_tag_expiries(link)
+
+      {:ok, paused} = Links.pause_expiries(scope, 30)
+      # Both callers loaded the user while it was still paused, as the sweep and a
+      # manual resume do when they land together.
+      stale = age_expiry_pause(paused, 5 * @day)
+      now = DateTime.utc_now(:second)
+
+      assert {:ok, _first} = ExpiryPause.settle(stale, now)
+      assert {:ok, second} = ExpiryPause.settle(stale, now)
+
+      refute Links.expiry_paused?(second)
+      assert is_nil(second.expiry_paused_at)
+
+      [shifted] = link_tag_expiries(link)
+      assert DateTime.diff(shifted, before) == 5 * @day
     end
   end
 

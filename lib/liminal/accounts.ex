@@ -3,6 +3,8 @@ defmodule Liminal.Accounts do
   User accounts, authentication, sessions, and admin-only user management.
   """
 
+  import Ecto.Query
+
   alias Liminal.Repo
 
   alias Liminal.Accounts.{Admin, PasswordReset, Sessions, User}
@@ -123,14 +125,38 @@ defmodule Liminal.Accounts do
   @doc """
   Writes the user's expiry pause window.
 
-  Pass `nil` timestamps to clear it. Callers should go through
-  `Liminal.Links.pause_expiries/2` and `Liminal.Links.resume_expiries/1` so the
-  stored expiry deadlines stay in step with the pause.
+  Callers should go through `Liminal.Links.pause_expiries/2` and
+  `Liminal.Links.resume_expiries/1` so the stored expiry deadlines stay in step
+  with the pause.
   """
   def update_expiry_pause(user, attrs) do
     user
     |> User.expiry_pause_changeset(attrs)
     |> Repo.update()
+  end
+
+  @doc """
+  Clears the user's expiry pause, but only while it still starts where `user` says.
+
+  Returns `:ok` for the caller that cleared it and `:already_cleared` when another
+  caller got there first. Ending a pause also shifts stored deadlines, so this lets
+  a manual resume racing the expiry sweep apply that shift exactly once.
+  """
+  def clear_expiry_pause(%User{expiry_paused_at: paused_at} = user) do
+    {cleared, _} =
+      from(u in User, where: u.id == ^user.id and u.expiry_paused_at == ^paused_at)
+      |> Repo.update_all(
+        set: [
+          expiry_paused_at: nil,
+          expiry_paused_until: nil,
+          updated_at: DateTime.utc_now(:second)
+        ]
+      )
+
+    case cleared do
+      1 -> :ok
+      0 -> :already_cleared
+    end
   end
 
   ## Session

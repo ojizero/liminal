@@ -139,9 +139,10 @@ defmodule Liminal.Links.ExpiryPause do
   the time already spent paused resumes immediately.
   """
   def pause(%Scope{} = scope, days) do
-    with {:ok, days} <- validate_days(days) do
-      now = DateTime.utc_now(:second)
-      user = Repo.get!(User, scope.user.id)
+    with {:ok, days} <- validate_days(days),
+         now = DateTime.utc_now(:second),
+         user = Repo.get!(User, scope.user.id),
+         {:ok, user} <- settle_if_lapsed(user, now) do
       paused_at = user.expiry_paused_at || now
       paused_until = DateTime.add(paused_at, days, :day)
 
@@ -174,6 +175,32 @@ defmodule Liminal.Links.ExpiryPause do
     from(u in User, where: not is_nil(u.expiry_paused_until) and u.expiry_paused_until <= ^now)
     |> Repo.all()
     |> Enum.each(&settle_lapsed_pause(&1, now))
+  end
+
+  @doc """
+  Ends `user`'s pause, folding the time it ran for into their stored deadlines.
+
+  Takes a user rather than a scope so the sweep can settle in bulk. Safe to call with
+  a copy loaded before another caller got to it: the window is claimed before any
+  deadline moves, so two callers racing the same window still shift it once.
+  """
+  def settle(user, now \\ DateTime.utc_now(:second))
+
+  def settle(%User{expiry_paused_at: nil} = user, _now), do: {:ok, user}
+
+  def settle(%User{} = user, now) do
+    shift = shift_seconds(user, now)
+
+    Repo.transact(fn ->
+      case Accounts.clear_expiry_pause(user) do
+        :ok ->
+          shift_stored_deadlines(user.id, shift)
+          {:ok, %User{user | expiry_paused_at: nil, expiry_paused_until: nil}}
+
+        :already_cleared ->
+          {:ok, Repo.get!(User, user.id)}
+      end
+    end)
   end
 
   @doc """
@@ -218,15 +245,16 @@ defmodule Liminal.Links.ExpiryPause do
     })
   end
 
-  defp settle(%User{expiry_paused_at: nil} = user, _now), do: {:ok, user}
+  # A window that has already run out is settled on its own terms before anything is
+  # built on top of it, so its time lands in the stored deadlines rather than being
+  # rolled into a new window.
+  defp settle_if_lapsed(%User{expiry_paused_until: nil} = user, _now), do: {:ok, user}
 
-  defp settle(%User{} = user, now) do
-    shift = shift_seconds(user, now)
-
-    Repo.transact(fn ->
-      shift_stored_deadlines(user.id, shift)
-      Accounts.update_expiry_pause(user, %{expiry_paused_at: nil, expiry_paused_until: nil})
-    end)
+  defp settle_if_lapsed(%User{} = user, now) do
+    case DateTime.compare(user.expiry_paused_until, now) do
+      :gt -> {:ok, user}
+      _ -> settle(user, now)
+    end
   end
 
   defp settle_lapsed_pause(user, now) do
