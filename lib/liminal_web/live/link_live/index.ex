@@ -41,6 +41,7 @@ defmodule LiminalWeb.LinkLive.Index do
         removing_link_ids={@removing_link_ids}
         auto_mark_viewed={@auto_mark_viewed}
         search_query={@search_query}
+        expiry_pause={@expiry_pause}
       />
       <Components.duplicate_modal
         duplicate_link={@duplicate_link}
@@ -63,7 +64,10 @@ defmodule LiminalWeb.LinkLive.Index do
     tags = Links.list_tags(scope)
     links = Links.list_links(scope, filter: :unviewed)
 
-    if connected?(socket), do: Links.subscribe_links(scope)
+    if connected?(socket) do
+      Links.subscribe_links(scope)
+      Links.subscribe_expiry_pause(scope)
+    end
 
     link = %Liminal.Links.Link{}
 
@@ -71,6 +75,7 @@ defmodule LiminalWeb.LinkLive.Index do
       socket
       |> assign(:tags, tags)
       |> assign(:auto_mark_viewed, scope.user.auto_mark_viewed_on_open)
+      |> assign(:expiry_pause, Links.expiry_pause_state(scope))
       |> assign(:filter, :unviewed)
       |> assign(:sort, :time_added_desc)
       |> assign(:filter_tag_ids, [])
@@ -151,6 +156,16 @@ defmodule LiminalWeb.LinkLive.Index do
 
   def handle_info({:link_updated, link}, socket) do
     {:noreply, Streaming.link_updated(socket, link)}
+  end
+
+  def handle_info({:expiry_pause_changed, user}, socket) do
+    socket = LiminalWeb.UserAuth.assign_scope_user(socket, user)
+
+    # Cards carry the pause state, and stream items only re-render when re-inserted.
+    {:noreply,
+     socket
+     |> assign(:expiry_pause, Links.expiry_pause_state(socket.assigns.current_scope))
+     |> Streaming.refetch_links()}
   end
 
   def handle_info({:remove_viewed_link, link_id}, socket) do

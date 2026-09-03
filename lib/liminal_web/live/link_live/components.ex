@@ -186,6 +186,7 @@ defmodule LiminalWeb.LinkLive.Components do
         removing_link_ids={@removing_link_ids}
         auto_mark_viewed={@auto_mark_viewed}
         search_query={@search_query}
+        expiry_pause={@expiry_pause}
       />
     </div>
     """
@@ -378,6 +379,7 @@ defmodule LiminalWeb.LinkLive.Components do
         tags={@tags}
         removing_link_ids={@removing_link_ids}
         auto_mark_viewed={@auto_mark_viewed}
+        expiry_pause={@expiry_pause}
       />
     </div>
     """
@@ -474,7 +476,7 @@ defmodule LiminalWeb.LinkLive.Components do
         </p>
 
         <div class="flex flex-wrap gap-1.5 mt-1">
-          <.with_tooltip :for={lt <- @link.link_tags} tip={time_remaining(lt.expires_at)}>
+          <.with_tooltip :for={lt <- @link.link_tags} tip={tag_expiry_label(lt, @expiry_pause)}>
             <span class="badge badge-sm badge-outline gap-1">
               {lt.tag.name}
               <.with_tooltip tip={"Remove #{lt.tag.name}"}>
@@ -532,15 +534,22 @@ defmodule LiminalWeb.LinkLive.Components do
             {link_host(@link)}
           </span>
 
-          <%= if expiry = Links.link_expires_at(@link) do %>
-            <.with_tooltip tip={format_datetime(expiry)}>
+          <%= if expiry = Links.link_expires_at(@link, @expiry_pause) do %>
+            <% paused? = Links.expiry_paused?(@expiry_pause) %>
+            <.with_tooltip tip={expiry_tooltip(expiry, @expiry_pause)}>
               <span
                 id={"link-expiry-#{@link.id}"}
-                class="flex items-center gap-1 shrink-0 text-base-content/45"
-                aria-label={"Expires #{format_datetime(expiry)}"}
+                class={[
+                  "flex items-center gap-1 shrink-0",
+                  if(paused?, do: "text-warning/80", else: "text-base-content/45")
+                ]}
+                aria-label={expiry_tooltip(expiry, @expiry_pause)}
               >
-                <.icon name="hero-clock" class="size-3.5" />
-                {time_remaining(expiry)}
+                <.icon
+                  name={if(paused?, do: "hero-pause-circle", else: "hero-clock")}
+                  class="size-3.5"
+                />
+                {expiry_label(expiry, @expiry_pause)}
               </span>
             </.with_tooltip>
           <% end %>

@@ -6,6 +6,7 @@ A self-hosted link manager and bookmarking app built with Phoenix LiveView and S
 
 - **Link saving with metadata extraction** — paste a URL; the app fetches title, description, favicon, preview image, and video duration (YouTube/Vimeo) in the background
 - **Expiring tags** — label links (e.g. "read later", "watch later") with per-tag expiration. Expired tags and untagged links are removed automatically
+- **Pause expiries** — hold every countdown for up to 3 months while you're away. Nothing expires, a banner shows when counting resumes, and each link picks up with the time it had left
 - **Search, filter, and sort** — typo-tolerant search across title, note, description, and URL; filter by viewed/unviewed status and tags; sort by date added or expiration
 - **Per-link notes** — optional short notes on each saved link
 - **Masonry layout** — responsive card grid (1–3 columns)

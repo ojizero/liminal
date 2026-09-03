@@ -8,8 +8,21 @@ defmodule Liminal.Links.Events do
     Phoenix.PubSub.subscribe(Liminal.PubSub, topic(scope.user.id))
   end
 
+  @doc """
+  Subscribe the calling process to expiry pause changes for the given user.
+
+  Kept on its own topic so pages that only care about the pause banner do not have
+  to handle every link mutation.
+  """
+  def subscribe_expiry_pause(scope) do
+    Phoenix.PubSub.subscribe(Liminal.PubSub, expiry_pause_topic(scope.user.id))
+  end
+
   @doc false
   def topic(user_id), do: "user_links:#{user_id}"
+
+  @doc false
+  def expiry_pause_topic(user_id), do: "user_expiry_pause:#{user_id}"
 
   @doc false
   def broadcast(user_id, message) do
@@ -29,5 +42,14 @@ defmodule Liminal.Links.Events do
   @doc false
   def broadcast_link_deleted(user_id, link_id) do
     broadcast(user_id, {:link_deleted, link_id})
+  end
+
+  @doc false
+  def broadcast_expiry_pause_changed(user) do
+    Phoenix.PubSub.broadcast(
+      Liminal.PubSub,
+      expiry_pause_topic(user.id),
+      {:expiry_pause_changed, user}
+    )
   end
 end

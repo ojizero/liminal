@@ -5,7 +5,7 @@ defmodule Liminal.Links.Mutations do
 
   import Ecto.Query
 
-  alias Liminal.Links.{Events, Indexing, Link, LinkTag, Tag, Tagging}
+  alias Liminal.Links.{Events, ExpiryPause, Indexing, Link, LinkTag, Tag, Tagging}
   alias Liminal.Repo
 
   @doc """
@@ -13,7 +13,8 @@ defmodule Liminal.Links.Mutations do
   """
   def create_link(scope, attrs, tag_ids) when is_list(tag_ids) and tag_ids != [] do
     with {:ok, tags} <- fetch_owned_tags(scope, tag_ids) do
-      create_link_with_tags(scope, attrs, tags, DateTime.utc_now(:second))
+      now = DateTime.utc_now(:second)
+      create_link_with_tags(scope, attrs, tags, now, ExpiryPause.expiry_now(scope.user.id, now))
     end
   end
 
@@ -78,7 +79,7 @@ defmodule Liminal.Links.Mutations do
   defp validate_tag_count(tags, tag_ids) when length(tags) == length(tag_ids), do: {:ok, tags}
   defp validate_tag_count(_tags, _tag_ids), do: {:error, :invalid_tags}
 
-  defp create_link_with_tags(scope, attrs, tags, now) do
+  defp create_link_with_tags(scope, attrs, tags, now, expiry_now) do
     link_changeset =
       %Link{}
       |> Link.changeset(attrs)
@@ -87,7 +88,7 @@ defmodule Liminal.Links.Mutations do
     Ecto.Multi.new()
     |> Ecto.Multi.insert(:link, link_changeset)
     |> Ecto.Multi.run(:link_tags, fn repo, %{link: link} ->
-      link_tags = Enum.map(tags, &build_link_tag(link, &1, now))
+      link_tags = Enum.map(tags, &build_link_tag(link, &1, now, expiry_now))
       inserted = Enum.map(link_tags, &repo.insert!/1)
       {:ok, inserted}
     end)
@@ -95,11 +96,11 @@ defmodule Liminal.Links.Mutations do
     |> handle_create_result(scope)
   end
 
-  defp build_link_tag(link, tag, now) do
+  defp build_link_tag(link, tag, now, expiry_now) do
     %LinkTag{
       link_id: link.id,
       tag_id: tag.id,
-      expires_at: Tagging.expires_at(tag, now),
+      expires_at: Tagging.expires_at(tag, expiry_now),
       inserted_at: now
     }
   end

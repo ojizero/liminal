@@ -10,6 +10,7 @@ defmodule Liminal.Links do
   alias Liminal.Links.{
     Events,
     Expiration,
+    ExpiryPause,
     Indexing,
     Mutations,
     Query,
@@ -24,6 +25,9 @@ defmodule Liminal.Links do
 
   @doc "Subscribe the calling process to link events for the given user."
   defdelegate subscribe_links(scope), to: Events
+
+  @doc "Subscribe the calling process to expiry pause changes for the given user."
+  defdelegate subscribe_expiry_pause(scope), to: Events
 
   ## Default tags
 
@@ -263,20 +267,67 @@ defmodule Liminal.Links do
   ## Expiry cleanup
 
   @doc """
-  Returns when a link expires.
+  Returns when a link expires, on the wall clock.
 
   For unviewed links, this is the latest tag `expires_at`. For viewed links,
   this is `viewed_at` plus the configured grace period (`:viewed_grace_seconds`,
   default 1 day).
+
+  Pass the owner's pause (a scope, user, or `nil`) as the second argument so a
+  running pause is taken into account.
   """
-  defdelegate link_expires_at(link), to: Expiration
+  defdelegate link_expires_at(link, pause \\ nil), to: Expiration
 
   @doc """
   Deletes links viewed longer than the configured grace period (default 1 day;
   see `:viewed_grace_seconds` application env) with all their tags, then removes
   expired link_tags and deletes orphaned links. Used by the Janitor's periodic sweep.
+
+  Settles lapsed expiry pauses first and skips users who are still paused.
   """
   defdelegate cleanup_expired(), to: Expiration
+
+  ## Expiry pause
+
+  @doc """
+  Pauses expiry counting for the scope's user for `days`, up to
+  `max_expiry_pause_days/0`.
+
+  While paused nothing expires and every countdown holds where it is. Calling this
+  again re-times a running pause from its original start rather than restarting it.
+  Returns `{:error, :invalid_duration}` for a length outside the allowed range.
+  """
+  defdelegate pause_expiries(scope, days), to: ExpiryPause, as: :pause
+
+  @doc """
+  Resumes expiry counting for the scope's user, picking every countdown up from
+  where it stopped.
+  """
+  defdelegate resume_expiries(scope), to: ExpiryPause, as: :resume
+
+  @doc "Returns whether expiries are currently paused for the given scope or user."
+  defdelegate expiry_paused?(subject), to: ExpiryPause, as: :paused?
+
+  @doc "Returns the pause window for the given scope or user, or `nil` when running."
+  defdelegate expiry_pause_state(subject), to: ExpiryPause, as: :state
+
+  @doc "Returns when the pause ends for the given scope or user, or `nil`."
+  defdelegate expiry_pause_resumes_at(subject), to: ExpiryPause, as: :resumes_at
+
+  @doc "Returns the pause lengths offered in settings as `{label, days}` pairs."
+  defdelegate expiry_pause_duration_options(), to: ExpiryPause, as: :duration_options
+
+  @doc "Returns the pause length preselected in settings, in days."
+  defdelegate default_expiry_pause_days(), to: ExpiryPause, as: :default_pause_days
+
+  @doc "Returns the longest pause a user may request, in days."
+  defdelegate max_expiry_pause_days(), to: ExpiryPause, as: :max_pause_days
+
+  @doc """
+  Converts a stored expiry deadline to the wall-clock time it now falls on, given
+  the owner's pause.
+  """
+  defdelegate expiry_wall_clock(expires_at, subject), to: ExpiryPause, as: :wall_clock
 
   defp ensure_admin!(scope) do
     unless Scope.admin?(scope), do: raise("admin required")

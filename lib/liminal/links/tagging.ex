@@ -5,7 +5,7 @@ defmodule Liminal.Links.Tagging do
 
   import Ecto.Query
 
-  alias Liminal.Links.{Events, Link, LinkTag, Query, Tag}
+  alias Liminal.Links.{Events, ExpiryPause, Link, LinkTag, Query, Tag}
   alias Liminal.Repo
 
   @doc """
@@ -17,10 +17,11 @@ defmodule Liminal.Links.Tagging do
 
     with {:ok, tags} <- fetch_owned_tags(user_id, tag_ids) do
       now = DateTime.utc_now(:second)
+      expiry_now = ExpiryPause.expiry_now(user_id, now)
       existing_tag_ids = MapSet.new(Enum.map(link.link_tags, & &1.tag_id))
 
       Repo.transaction(fn ->
-        Enum.each(tags, &upsert_link_tag(link, &1, now, existing_tag_ids))
+        Enum.each(tags, &upsert_link_tag(link, &1, now, expiry_now, existing_tag_ids))
         Query.get_link!(scope, link.id)
       end)
       |> case do
@@ -53,7 +54,7 @@ defmodule Liminal.Links.Tagging do
         %LinkTag{
           link_id: link.id,
           tag_id: tag.id,
-          expires_at: expires_at(tag, now),
+          expires_at: expires_at(tag, ExpiryPause.expiry_now(user_id, now)),
           inserted_at: now
         },
         on_conflict: :nothing
@@ -103,11 +104,16 @@ defmodule Liminal.Links.Tagging do
     end
   end
 
-  @doc false
-  def expires_at(%Tag{expires_in_days: nil}, _now), do: nil
+  @doc """
+  Returns the deadline for a tag applied at `expiry_now`.
 
-  def expires_at(%Tag{expires_in_days: days}, now) do
-    DateTime.add(now, days, :day)
+  `expiry_now` is an expiry-clock reading, not a wall-clock one — see
+  `Liminal.Links.ExpiryPause.expiry_now/2`.
+  """
+  def expires_at(%Tag{expires_in_days: nil}, _expiry_now), do: nil
+
+  def expires_at(%Tag{expires_in_days: days}, expiry_now) do
+    DateTime.add(expiry_now, days, :day)
   end
 
   defp fetch_owned_tags(user_id, tag_ids) do
@@ -121,25 +127,25 @@ defmodule Liminal.Links.Tagging do
   defp validate_tag_count(tags, tag_ids) when length(tags) == length(tag_ids), do: {:ok, tags}
   defp validate_tag_count(_tags, _tag_ids), do: {:error, :invalid_tags}
 
-  defp upsert_link_tag(link, tag, now, existing_tag_ids) do
+  defp upsert_link_tag(link, tag, now, expiry_now, existing_tag_ids) do
     case MapSet.member?(existing_tag_ids, tag.id) do
-      true -> refresh_link_tag_expiry(link, tag, now)
-      false -> insert_link_tag(link, tag, now)
+      true -> refresh_link_tag_expiry(link, tag, expiry_now)
+      false -> insert_link_tag(link, tag, now, expiry_now)
     end
   end
 
-  defp refresh_link_tag_expiry(link, tag, now) do
+  defp refresh_link_tag_expiry(link, tag, expiry_now) do
     from(lt in LinkTag,
       where: lt.link_id == ^link.id and lt.tag_id == ^tag.id
     )
-    |> Repo.update_all(set: [expires_at: expires_at(tag, now)])
+    |> Repo.update_all(set: [expires_at: expires_at(tag, expiry_now)])
   end
 
-  defp insert_link_tag(link, tag, now) do
+  defp insert_link_tag(link, tag, now, expiry_now) do
     Repo.insert!(%LinkTag{
       link_id: link.id,
       tag_id: tag.id,
-      expires_at: expires_at(tag, now),
+      expires_at: expires_at(tag, expiry_now),
       inserted_at: now
     })
   end

@@ -9,12 +9,13 @@ defmodule Liminal.Links.Stats do
 
   alias Liminal.Accounts.Scope
   alias Liminal.Accounts.User
+  alias Liminal.Links.ExpiryPause
   alias Liminal.Links.Link
   alias Liminal.Links.LinkTag
   alias Liminal.Repo
 
-  @expiring_soon_hours 48
-  @about_to_expire_days 7
+  @expiring_soon_seconds 48 * 60 * 60
+  @about_to_expire_seconds 7 * 24 * 60 * 60
 
   @doc """
   Returns comprehensive stats across the whole instance.
@@ -44,12 +45,14 @@ defmodule Liminal.Links.Stats do
   end
 
   defp scoped_stats(user_id) do
+    now = DateTime.utc_now(:second)
+
     %{
       total_links: count_links(user_id),
       unviewed_links: count_links(user_id, :unviewed),
       viewed_links: count_links(user_id, :viewed),
-      expiring_soon: count_expiring(user_id, :soon),
-      about_to_expire: count_expiring(user_id, :about),
+      expiring_soon: count_expiring(user_id, now, @expiring_soon_seconds),
+      about_to_expire: count_expiring(user_id, now, @about_to_expire_seconds),
       index_failed: count_index_failed(user_id),
       top_domains: top_domains(user_id, 5)
     }
@@ -93,16 +96,30 @@ defmodule Liminal.Links.Stats do
     |> Repo.aggregate(:count)
   end
 
-  defp count_expiring(user_id, :soon) do
-    count_expiring_between(user_id, expiring_soon_window())
+  # Deadlines are stored on the expiry clock (see `Liminal.Links.ExpiryPause`), so a
+  # per-user window is read on that clock too. Instance-wide counts have no single
+  # clock to read, and instead leave out users whose expiries are on hold.
+  defp count_expiring(nil, now, seconds) do
+    from(l in Link)
+    |> ExpiryPause.exclude_paused_links(now)
+    |> count_expiring_between(now, DateTime.add(now, seconds, :second))
   end
 
-  defp count_expiring(user_id, :about) do
-    count_expiring_between(user_id, about_to_expire_window())
+  defp count_expiring(user_id, now, seconds) do
+    expiry_now = ExpiryPause.expiry_now(user_id, now)
+
+    user_id
+    |> link_query()
+    |> count_expiring_between(expiry_now, DateTime.add(expiry_now, seconds, :second))
   end
 
-  defp count_expiring_between(user_id, {now, cutoff}) do
+  defp count_expiring_between(query, from_time, cutoff) do
+    # The viewed grace is a fixed offset, so it is folded into the bounds instead of
+    # doing date arithmetic in SQL, where the result would not compare against the
+    # stored ISO-8601 text.
     grace_seconds = viewed_grace_seconds()
+    viewed_from = DateTime.add(from_time, -grace_seconds, :second)
+    viewed_cutoff = DateTime.add(cutoff, -grace_seconds, :second)
 
     expiry_sub =
       from(lt in LinkTag,
@@ -110,15 +127,13 @@ defmodule Liminal.Links.Stats do
         select: %{link_id: lt.link_id, max_expiry: max(lt.expires_at)}
       )
 
-    user_id
-    |> link_query()
+    query
     |> join(:left, [l], e in subquery(expiry_sub), on: e.link_id == l.id)
     |> where(
-      [l, e],
-      (not is_nil(l.viewed_at) and
-         fragment("datetime(?, '+' || ? || ' seconds')", l.viewed_at, ^grace_seconds) > ^now and
-         fragment("datetime(?, '+' || ? || ' seconds')", l.viewed_at, ^grace_seconds) <= ^cutoff) or
-        (is_nil(l.viewed_at) and not is_nil(e.max_expiry) and e.max_expiry > ^now and
+      [l, ..., e],
+      (not is_nil(l.viewed_at) and l.viewed_at > ^viewed_from and
+         l.viewed_at <= ^viewed_cutoff) or
+        (is_nil(l.viewed_at) and not is_nil(e.max_expiry) and e.max_expiry > ^from_time and
            e.max_expiry <= ^cutoff)
     )
     |> Repo.aggregate(:count)
@@ -148,16 +163,6 @@ defmodule Liminal.Links.Stats do
 
   defp apply_filter(query, :viewed) do
     from(l in query, where: not is_nil(l.viewed_at))
-  end
-
-  defp expiring_soon_window do
-    now = DateTime.utc_now(:second)
-    {now, DateTime.add(now, @expiring_soon_hours, :hour)}
-  end
-
-  defp about_to_expire_window do
-    now = DateTime.utc_now(:second)
-    {now, DateTime.add(now, @about_to_expire_days, :day)}
   end
 
   defp viewed_grace_seconds do

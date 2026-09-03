@@ -11,6 +11,8 @@ defmodule Liminal.Accounts.User do
     field :confirmed_at, :utc_datetime
     field :auto_mark_viewed_on_open, :boolean, default: false
     field :default_tags_enabled, :boolean, default: false
+    field :expiry_paused_at, :utc_datetime
+    field :expiry_paused_until, :utc_datetime
     field :authenticated_at, :utc_datetime, virtual: true
 
     belongs_to :default_tag, Liminal.Links.Tag
@@ -176,6 +178,38 @@ defmodule Liminal.Accounts.User do
           _ ->
             add_error(changeset, :default_tag_id, "must be one of your tags")
         end
+    end
+  end
+
+  @doc """
+  Changeset for the expiry pause window.
+
+  Both timestamps move together: either the pause is off (both `nil`) or it runs
+  from `expiry_paused_at` until `expiry_paused_until`. The allowed pause length is
+  enforced by `Liminal.Links.ExpiryPause`, which owns the offered durations.
+  """
+  def expiry_pause_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:expiry_paused_at, :expiry_paused_until])
+    |> validate_expiry_pause_window()
+  end
+
+  defp validate_expiry_pause_window(changeset) do
+    paused_at = get_field(changeset, :expiry_paused_at)
+    paused_until = get_field(changeset, :expiry_paused_until)
+
+    cond do
+      is_nil(paused_at) and is_nil(paused_until) ->
+        changeset
+
+      is_nil(paused_at) or is_nil(paused_until) ->
+        add_error(changeset, :expiry_paused_until, "requires both a start and an end")
+
+      DateTime.compare(paused_until, paused_at) != :gt ->
+        add_error(changeset, :expiry_paused_until, "must be after the pause start")
+
+      true ->
+        changeset
     end
   end
 
