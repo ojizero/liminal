@@ -53,8 +53,9 @@ RUN ASSETS_DIR="${ASSETS_DIR}" mix compile
 COPY assets assets
 RUN mix assets.deploy
 
-# Copy runtime config
+# Copy runtime config and release templates
 COPY config/runtime.exs config/
+COPY rel rel
 
 # Build release
 RUN mix release
@@ -96,8 +97,10 @@ ENV PGID=911
 
 EXPOSE 4000
 
+# Probe the HTTP port. `bin/liminal pid` needs Erlang distribution, which is
+# off by default (see rel/env.sh.eex).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD /app/bin/liminal pid || exit 1
+  CMD bash -c ': > /dev/tcp/127.0.0.1/${PORT}' || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/app/bin/liminal", "start"]

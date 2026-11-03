@@ -116,6 +116,24 @@ The path must sit on a writable mounted volume so images survive restarts.
 | `SIGNUPS_ENABLED` | No | `false` | Whether public registration is open |
 | `AUTO_MIGRATE` | No | `true` | Create database and run migrations on startup |
 | `LOG_LEVEL` | No | `warning` | `debug`, `info`, `notice`, `warning`, `error`, `critical`, `alert`, `emergency` |
+| `RELEASE_DISTRIBUTION` | No | `none` | Erlang distribution: `none`, `sname`, or `name`. Set `sname` or `name` only if you need a remote shell (see below) |
+| `RELEASE_COOKIE` | With distribution | — | Secret that guards Erlang distribution. Required when `RELEASE_DISTRIBUTION` is not `none` |
+
+### Remote shell
+
+Erlang distribution is off by default: the release opens no EPMD port (4369) and no distribution port. `bin/liminal eval` works without it. `bin/liminal remote`, `rpc`, `stop`, `restart`, and `pid` need it.
+
+To use them, set both variables on the container:
+
+```yaml
+environment:
+  - RELEASE_DISTRIBUTION=sname
+  - RELEASE_COOKIE=${RELEASE_COOKIE}  # generate with: openssl rand -base64 48
+```
+
+Then connect with `docker compose exec liminal /app/bin/liminal remote`.
+
+When distribution is on and `RELEASE_COOKIE` is not set, the release refuses to start. The `COOKIE` file in the image is the same in every copy of the public image, so it must not guard a live node. Anyone who can reach the distribution ports and knows the cookie can run any code in the container, so do not publish these ports.
 
 ## Development
 
