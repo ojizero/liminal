@@ -85,7 +85,7 @@ defmodule Liminal.Links.Indexing do
     user_id = scope.user.id
     ^user_id = link.user_id
 
-    case Reindex.start_job({:link, link.id}, requested_by: user_id) do
+    case Reindex.start_job({:link, link.id}, user_id: user_id) do
       {:ok, _} -> {:ok, Liminal.Links.Query.get_link!(scope, link.id)}
       {:error, :already_running} -> {:error, :reindex_busy}
     end
